@@ -12,8 +12,8 @@ func _process(_delta: float) -> void:
 	var v := 0.0
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):   v += 1
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): v -= 1
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): h -= 1
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):h += 1
+	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): h += 1
+	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):h -= 1
 
 	var raw := Vector2(h, v)
 	move_input = raw.normalized() if raw.length_squared() > 1.0 else raw
