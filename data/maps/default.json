@@ -1,0 +1,16 @@
+{
+  "name": "default",
+  "bounds": { "half": 50 },
+  "walls": [
+    { "minX": -15, "minY": -1,  "maxX": -10, "maxY": 1 },
+    { "minX":  10, "minY": -1,  "maxX":  15, "maxY": 1 },
+
+    { "minX": -1,  "minY": -15, "maxX": 1,  "maxY": -10 },
+    { "minX": -1,  "minY":  10, "maxX": 1,  "maxY":  15 },
+
+    { "minX": -8,  "minY": -8,  "maxX": -6, "maxY":  -2 },
+    { "minX": -8,  "minY":  2,  "maxX": -6, "maxY":  8 },
+    { "minX":  6,  "minY": -8,  "maxX":  8, "maxY":  -2 },
+    { "minX":  6,  "minY":  2,  "maxX":  8, "maxY":  8 }
+  ]
+}
