@@ -12,6 +12,8 @@ add_library(topdown_sim SHARED
     register_types.cpp
     sim_server.cpp
     sim/world.cpp
+    sim/snapshot_builder.cpp
+    sim/snapshot_bindings.cpp
 )
 
 target_compile_features(topdown_sim PRIVATE cxx_std_17)

@@ -42,6 +42,12 @@ public:
     double time() const { return _time; }
     std::mt19937 &rng() { return _rng; }
 
+    godot::Ref<SimSnapshot> pop_snapshot() {
+        auto s = _latest_snapshot;
+        _latest_snapshot = godot::Ref<SimSnapshot>();
+        return s;
+    }
+
 private:
     void _spawn_player(int player_id, bool is_local);
     void _spawn_bot();
@@ -53,7 +59,9 @@ private:
     entt::registry _reg;
     CommandBuffer _cb;
     double _time = 0.0;
+    int _tick_counter = 0;
     std::mt19937 _rng{42};
+    godot::Ref<SimSnapshot> _latest_snapshot;
 
     entt::entity _local_input_entity = entt::null;
     entt::entity _map_bounds_entity = entt::null;

@@ -3,12 +3,19 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 #include "sim_server.h"
+#include "sim/snapshot_types.h"
 
 void initialize_topdown_sim_types(godot::ModuleInitializationLevel p_level) {
     if (p_level != godot::MODULE_INITIALIZATION_LEVEL_SCENE) {
         return;
     }
     godot::ClassDB::register_class<SimServer>();
+    godot::ClassDB::register_class<sim::SimSnapshot>();
+    godot::ClassDB::register_class<sim::SimPlayerSnap>();
+    godot::ClassDB::register_class<sim::SimBotSnap>();
+    godot::ClassDB::register_class<sim::SimArrowSnap>();
+    godot::ClassDB::register_class<sim::SimPickupSnap>();
+    godot::ClassDB::register_class<sim::SimEventSnap>();
 }
 
 void uninitialize_topdown_sim_types(godot::ModuleInitializationLevel p_level) {

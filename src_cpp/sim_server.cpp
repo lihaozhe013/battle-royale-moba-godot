@@ -45,5 +45,5 @@ void SimServer::tick(double delta) {
 }
 
 godot::Ref<godot::RefCounted> SimServer::pop_snapshot() {
-    return godot::Ref<godot::RefCounted>();
+    return _world.pop_snapshot();
 }

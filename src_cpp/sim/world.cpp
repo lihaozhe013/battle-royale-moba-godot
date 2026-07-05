@@ -105,7 +105,7 @@ void World::tick(double dt) {
     progression_system(_reg);
 
     // 12. SnapshotExportSystem
-    snapshot_export_system(_reg);
+    snapshot_export_system(_reg, _tick_counter, _latest_snapshot);
 
     // Flush deferred structural changes (matches Unity ECB behavior)
     _cb.flush(_reg);
