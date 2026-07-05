@@ -11,7 +11,6 @@ run/main_scene="res://scenes/main.tscn"
 
 [display]
 
-window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
 [physics]
@@ -22,10 +21,6 @@ common/physics_ticks_per_second=30
 [rendering]
 
 rendering_device/driver.windows="d3d12"
-
-[dotnet]
-
-project/assembly_name="TopdownShooter"
 
 [debug]
 
