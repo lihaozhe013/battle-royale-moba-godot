@@ -1,0 +1,29 @@
+# Per-machine build configuration for the Godot GDExtension.
+# Copy this file to build_env.yaml and fill in the paths for your setup.
+
+# Toolchain: msvc | clang | gcc | mingw
+toolchain: msvc
+
+# ---- MSVC (Windows, toolchain: msvc) ----
+msvc:
+  vs_install_dir: "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools"
+
+# ---- Clang (toolchain: clang) ----
+clang:
+  bin_dir: ""   # e.g. "C:/Program Files/LLVM/bin"
+
+# ---- MinGW (toolchain: mingw) ----
+mingw:
+  bin_dir: ""   # e.g. "C:/tools/msys64/ucrt64/bin"
+
+# ---- CMake path (optional: auto-detect from VS or PATH if empty) ----
+cmake_bin_dir: ""
+
+# ---- Python3 path (optional: auto-detect from .venv or PATH if empty) ----
+python3_executable: ""
+
+# ---- Build defaults (overridable by CLI flags) ----
+build:
+  target: template_debug   # editor | template_debug | template_release
+  jobs: 0                  # 0 = auto (CPU count - 1)
+  verbose: false

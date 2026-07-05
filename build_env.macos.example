@@ -1,0 +1,16 @@
+# macOS 配置模板
+# 复制为 build_env.yaml 后填写
+
+toolchain: clang
+
+clang:
+  bin_dir: ""  # 留空 = 用 PATH 上的 clang（Xcode Command Line Tools）
+
+cmake_bin_dir: ""  # 留空 = 从 PATH 或 /Applications/CMake.app/Contents/bin 自动检测
+
+python3_executable: ""  # 留空 = 用 .venv 或系统 python3
+
+build:
+  target: template_debug
+  jobs: 0
+  verbose: false

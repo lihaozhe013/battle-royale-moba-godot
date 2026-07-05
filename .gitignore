@@ -1,0 +1,40 @@
+# Godot engine
+.godot/
+*.import
+*.uid
+.ipynb_checkpoints/
+
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+
+# Per-machine build config
+build_env.yaml
+
+# SCons build artifacts
+*.o
+*.obj
+*.os
+*.lib
+*.dll
+*.exp
+*.pdb
+*.so
+*.dylib
+compile_commands.json
+scons_debug.log
+
+# CMake build directory
+src_cpp/build/
+
+# CMake generated files
+src_cpp/build_test_cmake/
+CMakeUserPresets.json
+
+# SCons artifacts
+src_cpp/.sconsign.dblite
+
+# godot-cpp generated files
+src_cpp/godot-cpp/gen/
+src_cpp/godot-cpp/bin/

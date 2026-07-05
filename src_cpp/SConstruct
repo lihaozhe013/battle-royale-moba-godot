@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+import os
+import sys
+import subprocess
+
+# Run vcvarsall.bat to capture the full MSVC environment, then apply
+# those vars so SCons's MSVC detection works (it checks registry which
+# fails for VS BuildTools).
+if sys.platform == "win32":
+    vcvars = os.environ.get("VCVARS_ALL")
+    if not vcvars:
+        # Try to find vcvarsall.bat from build.py's env vars
+        vs_dir = os.environ.get("VSINSTALLDIR", "")
+        if vs_dir:
+            candidate = os.path.join(vs_dir, "VC", "Auxiliary", "Build", "vcvarsall.bat")
+            if os.path.isfile(candidate):
+                vcvars = candidate
+
+    if vcvars and os.path.isfile(vcvars):
+        print(f"[SConstruct] Running vcvarsall.bat: {vcvars}", flush=True)
+        result = subprocess.run(
+            [vcvars, "x64"],
+            capture_output=True, text=True, shell=True
+        )
+        if result.returncode == 0:
+            # Parse env from vcvars output (it emits "set VAR=value" lines)
+            for line in result.stdout.splitlines():
+                if line.startswith("set "):
+                    eq = line.find("=", 4)
+                    if eq > 4:
+                        key = line[4:eq]
+                        val = line[eq+1:]
+                        os.environ[key] = val
+        else:
+            print(f"[SConstruct] vcvarsall.bat failed: {result.stderr}", flush=True)
+
+    # Also set MSVC_USE_SCRIPT to tell SCons to use current env
+    os.environ["MSVC_USE_SCRIPT"] = "ignore"
+
+env = SConscript("godot-cpp/SConstruct")
+
+env.AppendUnique(CPPPATH=[
+    env.Dir(".").srcnode(),
+    env.Dir("sim").srcnode(),
+])
+
+sources = [
+    "register_types.cpp",
+    "sim_server.cpp",
+]
+
+library = env.SharedLibrary(
+    target=os.path.join("..", "addons", "topdown_sim", "topdown_sim"),
+    source=sources,
+)
+
+Default(library)
