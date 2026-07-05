@@ -19,6 +19,14 @@ var _anim_idle := ""
 var _anim_run := ""
 var _moving := false
 
+# Sim uses 2D math angles: atan2(y, x) where 0=+x, π/2=+y.
+# Godot rotation.y rotates +X toward -Z (not +Z), so we negate to fix the Z flip.
+# Model faces +Z at rest, so offset by +π/2 to align +X as the zero-angle reference.
+const MODEL_FACING_OFFSET := PI / 2.0
+
+static func sim_to_godot_yaw(sim_ang: float) -> float:
+	return -sim_ang + MODEL_FACING_OFFSET
+
 func init(id: int, type: int, ptype: int = 0) -> void:
 	entity_id = id
 	entity_type = type
@@ -61,7 +69,7 @@ func apply_snapshot(x: float, z: float, ang: float, hp: int, max_hp: int, dead: 
 		_prev_ang = new_ang
 		_curr_ang = new_ang
 		position = new_pos
-		rotation = Vector3(0, ang, 0)
+		rotation = Vector3(0, sim_to_godot_yaw(ang), 0)
 		_first_snap = false
 		_snap_time = Time.get_ticks_msec() / 1000.0
 		_moving = false
@@ -81,7 +89,7 @@ func _process(_delta: float) -> void:
 	var elapsed := Time.get_ticks_msec() / 1000.0 - _snap_time
 	var t := clampf(elapsed / LERP_DURATION, 0.0, 1.0)
 	position = _prev_pos.lerp(_curr_pos, t)
-	rotation = Vector3(0, lerp_angle(_prev_ang, _curr_ang, t), 0)
+	rotation = Vector3(0, sim_to_godot_yaw(lerp_angle(_prev_ang, _curr_ang, t)), 0)
 
 	if _anim_player and _anim_run != "" and _anim_idle != "":
 		var target := _anim_run if _moving else _anim_idle
