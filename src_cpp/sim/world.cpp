@@ -67,6 +67,11 @@ void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int se
 
 void World::tick(double dt) {
     _time += dt;
+
+    // Systems will be called here in order (Step 5)
+
+    // Flush deferred structural changes (matches Unity ECB behavior)
+    _cb.flush(_reg);
 }
 
 // ── private ──────────────────────────────────────────────────────────────

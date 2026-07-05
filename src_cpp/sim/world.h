@@ -5,6 +5,7 @@
 #include <string>
 #include "components.h"
 #include "vec2.h"
+#include "command_buffer.h"
 
 namespace sim {
 
@@ -19,7 +20,15 @@ public:
     entt::registry &registry() { return _reg; }
     const entt::registry &registry() const { return _reg; }
 
+    CommandBuffer &commands() { return _cb; }
+
+    entt::entity local_input_entity() const { return _local_input_entity; }
+    entt::entity map_bounds_entity() const { return _map_bounds_entity; }
+    entt::entity id_state_entity() const { return _id_state_entity; }
+    entt::entity kill_event_entity() const { return _kill_event_entity; }
+
     double time() const { return _time; }
+    std::mt19937 &rng() { return _rng; }
 
 private:
     void _spawn_player(int player_id, bool is_local);
@@ -28,9 +37,9 @@ private:
     void _spawn_one_spawner(PickupType type, int value, Vec2 pos, float respawn_time);
     Vec2 _random_map_pos(float half, float radius);
     float _random_wander_time();
-    int _next_id(IdState &ids, int &counter);
 
     entt::registry _reg;
+    CommandBuffer _cb;
     double _time = 0.0;
     std::mt19937 _rng{42};
 
