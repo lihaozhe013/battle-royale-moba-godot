@@ -18,6 +18,7 @@ target_compile_features(topdown_sim PRIVATE cxx_std_17)
 target_include_directories(topdown_sim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/sim
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 target_link_libraries(topdown_sim PRIVATE godot-cpp)
