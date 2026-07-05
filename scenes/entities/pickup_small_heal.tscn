@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dhlxvjii1n1vt"]
+
+[ext_resource type="Script" uid="uid://dr517y5jgflva" path="res://scripts/view/entity_view.gd" id="1_gfnev"]
+
+[node name="PickupSmallHeal" type="Node3D" unique_id=2025000473]
+script = ExtResource("1_gfnev")
