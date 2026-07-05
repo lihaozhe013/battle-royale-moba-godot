@@ -67,8 +67,45 @@ void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int se
 
 void World::tick(double dt) {
     _time += dt;
+    float fdt = static_cast<float>(dt);
 
-    // Systems will be called here in order (Step 5)
+    // 1. LocalInputInjectionSystem
+    local_input_injection_system(_reg, _local_input_entity);
+
+    // 2. PlayerMovementSystem
+    float map_half = _reg.get<MapBounds>(_map_bounds_entity).Half;
+    player_movement_system(_reg, fdt, map_half);
+
+    // 3. PlayerFireSystem
+    auto &ids = _reg.get<IdState>(_id_state_entity);
+    player_fire_system(_reg, _time, _cb, ids);
+
+    // 4. BotTargetingSystem
+    bot_targeting_system(_reg, _rng);
+
+    // 5. BotAISystem
+    bot_ai_system(_reg, fdt, map_half, _rng);
+
+    // 6. BotCombatSystem
+    bot_combat_system(_reg, _time, _cb, ids);
+
+    // 7. ArrowMovementSystem
+    arrow_movement_system(_reg, fdt);
+
+    // 8. WallCollisionSystem
+    wall_collision_system(_reg, _cb);
+
+    // 9. CombatSystem
+    combat_system(_reg, _cb);
+
+    // 10. PickupSystem
+    pickup_system(_reg, fdt, _cb, ids);
+
+    // 11. ProgressionSystem
+    progression_system(_reg);
+
+    // 12. SnapshotExportSystem
+    snapshot_export_system(_reg);
 
     // Flush deferred structural changes (matches Unity ECB behavior)
     _cb.flush(_reg);

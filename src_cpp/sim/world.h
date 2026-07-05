@@ -6,6 +6,18 @@
 #include "components.h"
 #include "vec2.h"
 #include "command_buffer.h"
+#include "systems/local_input_injection.h"
+#include "systems/player_movement.h"
+#include "systems/player_fire.h"
+#include "systems/bot_targeting.h"
+#include "systems/bot_ai.h"
+#include "systems/bot_combat.h"
+#include "systems/arrow_movement.h"
+#include "systems/wall_collision.h"
+#include "systems/combat.h"
+#include "systems/pickup.h"
+#include "systems/progression.h"
+#include "systems/snapshot_export.h"
 
 namespace sim {
 
