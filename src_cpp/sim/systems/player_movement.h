@@ -20,15 +20,9 @@ inline void player_movement_system(entt::registry &reg, float dt, float map_half
 
         if (glm::length(input.Move) > 0.01f) {
             Vec2 dir = vec2_normalize(input.Move);
+            angle.Radians = std::atan2(dir.y, dir.x);
             Vec2 step = dir * speed.Value * dt;
             pos.Value = vec2_clamp_to_map(pos.Value + step, map_half);
-        }
-
-        if (input.Fire) {
-            Vec2 aim_dir = input.Aim - pos.Value;
-            if (glm::length(aim_dir) > 0.001f) {
-                angle.Radians = std::atan2(aim_dir.y, aim_dir.x);
-            }
         }
     }
 }
