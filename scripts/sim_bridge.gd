@@ -3,6 +3,7 @@ extends Node
 var sim: SimServer
 var last_snapshot: SimSnapshot
 var elapsed: float = 0.0
+var _last_snap_seq := -1
 
 @onready var input_collector = $InputCollector
 @onready var camera_controller = $CameraController
@@ -63,7 +64,9 @@ func _physics_process(delta: float) -> void:
 func _process(_delta: float) -> void:
 	if not last_snapshot:
 		return
-	entity_manager.sync_entities(last_snapshot)
+	if last_snapshot.seq != _last_snap_seq:
+		_last_snap_seq = last_snapshot.seq
+		entity_manager.sync_entities(last_snapshot)
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
 		if p:
