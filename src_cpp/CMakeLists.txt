@@ -11,6 +11,7 @@ add_subdirectory(godot-cpp)
 add_library(topdown_sim SHARED
     register_types.cpp
     sim_server.cpp
+    sim/world.cpp
 )
 
 target_compile_features(topdown_sim PRIVATE cxx_std_17)

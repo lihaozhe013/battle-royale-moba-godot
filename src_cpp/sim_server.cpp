@@ -29,14 +29,19 @@ void SimServer::_bind_methods() {
 
 void SimServer::initialize(const godot::String &p_map_json) {
     godot::UtilityFunctions::print("SimServer::initialize called");
-    _time = 0.0;
+    _world.initialize(p_map_json.utf8().get_data());
 }
 
 void SimServer::set_local_input(const godot::Vector2 &move, const godot::Vector2 &aim, bool fire, int seq) {
+    _world.set_local_input(
+        sim::Vec2{static_cast<float>(move.x), static_cast<float>(move.y)},
+        sim::Vec2{static_cast<float>(aim.x), static_cast<float>(aim.y)},
+        fire, seq
+    );
 }
 
 void SimServer::tick(double delta) {
-    _time += delta;
+    _world.tick(delta);
 }
 
 godot::Ref<godot::RefCounted> SimServer::pop_snapshot() {

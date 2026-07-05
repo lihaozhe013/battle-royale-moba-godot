@@ -1,0 +1,181 @@
+#include "world.h"
+#include "game_config.h"
+#include "json_util.h"
+#include <cmath>
+
+namespace sim {
+
+World::World()
+    : _rng(42)
+{
+}
+
+void World::initialize(const std::string &map_json) {
+    auto map = parse_map_json(map_json);
+
+    // MapBounds singleton
+    _map_bounds_entity = _reg.create();
+    _reg.emplace<MapBounds>(_map_bounds_entity, map.half);
+
+    // LocalInputSingleton
+    _local_input_entity = _reg.create();
+    _reg.emplace<LocalInputSingleton>(_local_input_entity,
+        Vec2{0.0f}, Vec2{0.0f}, false, 0);
+
+    // IdState
+    _id_state_entity = _reg.create();
+    _reg.emplace<IdState>(_id_state_entity,
+        GameConfig::PlayerIdStart,
+        GameConfig::BotIdStart,
+        GameConfig::ArrowIdStart,
+        GameConfig::PickupIdStart
+    );
+
+    // KillEvent buffer
+    _kill_event_entity = _reg.create();
+    _reg.emplace<KillEventBuffer>(_kill_event_entity);
+
+    // Walls
+    for (auto &w : map.walls) {
+        float min_x = std::min(w.minX, w.maxX);
+        float max_x = std::max(w.minX, w.maxX);
+        float min_y = std::min(w.minY, w.maxY);
+        float max_y = std::max(w.minY, w.maxY);
+        auto wall = _reg.create();
+        _reg.emplace<WallTag>(wall);
+        _reg.emplace<WallBounds>(wall, Vec2{min_x, min_y}, Vec2{max_x, max_y});
+    }
+
+    // Bots
+    for (int i = 0; i < GameConfig::BotCount; ++i) {
+        _spawn_bot();
+    }
+
+    // Player
+    _spawn_player(GameConfig::PlayerIdStart, true);
+
+    // Pickup spawners
+    _spawn_pickup_spawners();
+}
+
+void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq) {
+    if (_local_input_entity != entt::null) {
+        _reg.replace<LocalInputSingleton>(_local_input_entity,
+            move, aim, fire, seq);
+    }
+}
+
+void World::tick(double dt) {
+    _time += dt;
+}
+
+// ── private ──────────────────────────────────────────────────────────────
+
+void World::_spawn_player(int player_id, bool is_local) {
+    auto &ids = _reg.get<IdState>(_id_state_entity);
+    ids.NextPlayerId = player_id + 1;
+
+    float half = GameConfig::MapHalf - GameConfig::PlayerRadius;
+    Vec2 pos = _random_map_pos(half, GameConfig::PlayerRadius);
+
+    auto e = _reg.create();
+    _reg.emplace<PlayerTag>(e, is_local);
+    _reg.emplace<NetworkId>(e, player_id);
+    _reg.emplace<Position2D>(e, pos);
+    _reg.emplace<FacingAngle>(e, 0.0f);
+    _reg.emplace<Health>(e, GameConfig::PlayerBaseHp, GameConfig::PlayerBaseHp);
+    _reg.emplace<CombatStats>(e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, 0.0);
+    _reg.emplace<Kills>(e, 0);
+    _reg.emplace<PlayerInputState>(e, Vec2{0.0f}, Vec2{0.0f}, false, 0);
+    _reg.emplace<Damageable>(e);
+    _reg.emplace<Dead>(e, false);
+    _reg.emplace<Level>(e, 1);
+    _reg.emplace<Experience>(e, 0, GameConfig::XpPerLevelBase);
+    _reg.emplace<MoveSpeed>(e, GameConfig::PlayerSpeed);
+}
+
+void World::_spawn_bot() {
+    auto &ids = _reg.get<IdState>(_id_state_entity);
+    int bot_id = ids.NextBotId++;
+
+    float half = GameConfig::MapHalf - GameConfig::BotRadius;
+    Vec2 pos = _random_map_pos(half, GameConfig::BotRadius);
+    Vec2 target = _random_map_pos(half, GameConfig::BotRadius);
+
+    auto e = _reg.create();
+    _reg.emplace<BotTag>(e);
+    _reg.emplace<NetworkId>(e, bot_id);
+    _reg.emplace<Position2D>(e, pos);
+    _reg.emplace<FacingAngle>(e, 0.0f);
+    _reg.emplace<Health>(e, GameConfig::BotHp, GameConfig::BotHp);
+    _reg.emplace<BotAIState>(e, target, 0.0f, entt::null, _random_wander_time());
+    _reg.emplace<BotVisionRange>(e, GameConfig::BotVisionRange);
+    _reg.emplace<CombatStats>(e, GameConfig::BotBaseAttack, GameConfig::BotBaseAttackSpeed, 0.0);
+    _reg.emplace<Kills>(e, 0);
+    _reg.emplace<Damageable>(e);
+    _reg.emplace<Dead>(e, false);
+    _reg.emplace<Level>(e, 1);
+    _reg.emplace<Experience>(e, 0, GameConfig::XpPerLevelBase);
+    _reg.emplace<MoveSpeed>(e, GameConfig::BotSpeed);
+}
+
+void World::_spawn_pickup_spawners() {
+    struct SpawnDef { PickupType type; int value; Vec2 pos; float respawn; };
+
+    SpawnDef xp_spawners[] = {
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-30, -30}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 30, -30}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-30,  30}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 30,  30}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35,   0}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 35,   0}, GameConfig::XpPickupRespawnTime},
+    };
+    for (auto &s : xp_spawners) {
+        _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
+    }
+
+    SpawnDef heal_spawners[] = {
+        {PickupType::Heal, GameConfig::HealPickupValue, Vec2{-20, -20}, GameConfig::HealPickupRespawnTime},
+        {PickupType::Heal, GameConfig::HealPickupValue, Vec2{ 20,  20}, GameConfig::HealPickupRespawnTime},
+        {PickupType::Heal, GameConfig::HealPickupValue, Vec2{  0, -25}, GameConfig::HealPickupRespawnTime},
+    };
+    for (auto &s : heal_spawners) {
+        _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
+    }
+
+    SpawnDef small_heal_spawners[] = {
+        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{-40, -10}, GameConfig::SmallHealPickupRespawnTime},
+        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 40,  10}, GameConfig::SmallHealPickupRespawnTime},
+        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 10, -40}, GameConfig::SmallHealPickupRespawnTime},
+        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{-10,  40}, GameConfig::SmallHealPickupRespawnTime},
+        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 25,  25}, GameConfig::SmallHealPickupRespawnTime},
+    };
+    for (auto &s : small_heal_spawners) {
+        _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
+    }
+}
+
+void World::_spawn_one_spawner(PickupType type, int value, Vec2 pos, float respawn_time) {
+    auto &ids = _reg.get<IdState>(_id_state_entity);
+
+    auto e = _reg.create();
+    _reg.emplace<PickupSpawner>(e,
+        type, value, pos, respawn_time,
+        respawn_time * 0.5f, false, 0
+    );
+}
+
+Vec2 World::_random_map_pos(float half, float radius) {
+    std::uniform_real_distribution<float> dist(-half, half);
+    return Vec2{dist(_rng), dist(_rng)};
+}
+
+float World::_random_wander_time() {
+    std::uniform_real_distribution<float> dist(
+        GameConfig::BotWanderIntervalMin,
+        GameConfig::BotWanderIntervalMax
+    );
+    return dist(_rng);
+}
+
+} // namespace sim

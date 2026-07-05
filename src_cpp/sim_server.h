@@ -5,6 +5,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/string.hpp>
+#include "sim/world.h"
 
 class SimServer : public godot::RefCounted {
     GDCLASS(SimServer, godot::RefCounted)
@@ -22,5 +23,5 @@ public:
     godot::Ref<godot::RefCounted> pop_snapshot();
 
 private:
-    double _time = 0.0;
+    sim::World _world;
 };
