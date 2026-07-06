@@ -9,7 +9,7 @@ var _active_bars := {}
 var _pool := []
 var _canvas_layer: CanvasLayer
 
-const HEAD_OFFSET := Vector3(0, 2.0, 0)
+const HEAD_OFFSET := Vector3(0, 4.8, 0)
 
 
 func _ready() -> void:
