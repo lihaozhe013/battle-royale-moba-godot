@@ -198,13 +198,33 @@ void World::_spawn_pickup_spawners() {
 
     SpawnDef xp_spawners[] = {
         {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, -35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 35, -35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35,  35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 35,  35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35,   0}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 35,   0}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  0, -35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  0,  35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5, -35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{   0, -35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5, -35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35, -35}, GameConfig::XpPickupRespawnTime},
+
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, -17.5}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5, -17.5}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{   0, -17.5}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5, -17.5}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35, -17.5}, GameConfig::XpPickupRespawnTime},
+
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35,    0}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5,  0}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5,  0}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35,   0}, GameConfig::XpPickupRespawnTime},
+
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, 17.5}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5, 17.5}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{   0, 17.5}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5, 17.5}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35, 17.5}, GameConfig::XpPickupRespawnTime},
+
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, 35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5, 35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{   0, 35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5, 35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35, 35}, GameConfig::XpPickupRespawnTime},
     };
     for (auto &s : xp_spawners) {
         _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
