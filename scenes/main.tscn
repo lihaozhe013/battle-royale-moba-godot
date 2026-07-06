@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://b3thijxvorrs1" path="res://scripts/view/camera_controller.gd" id="3"]
 [ext_resource type="Script" uid="uid://bxqepavj2fq3s" path="res://scripts/view/entity_manager.gd" id="4"]
 [ext_resource type="Script" uid="uid://b8gmdysmppq68" path="res://scripts/ui/stats_panel.gd" id="5"]
+[ext_resource type="Script" uid="uid://chq1p47rv8gej" path="res://scripts/ui/health_bar_manager.gd" id="5_tefeu"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v5gy4"]
 
@@ -35,6 +36,9 @@ far = 500.0
 
 [node name="EntityManager" type="Node" parent="." unique_id=1744393914]
 script = ExtResource("4")
+
+[node name="HealthBarManager" type="Node" parent="." unique_id=1232726923]
+script = ExtResource("5_tefeu")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1670273018]
 

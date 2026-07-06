@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://ctni6odkjphwu"]
+
+[node name="HealthBarUI" type="Control" unique_id=364785322]
+custom_minimum_size = Vector2(100, 10)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 100.0
+offset_bottom = 10.0
+mouse_filter = 2
+
+[node name="Background" type="ColorRect" parent="." unique_id=2140700045]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.1, 0.1, 0.1, 0.8)
+
+[node name="DamageBar" type="ColorRect" parent="." unique_id=1041236649]
+layout_mode = 1
+offset_right = 100.0
+offset_bottom = 10.0
+mouse_filter = 2
+color = Color(1, 0.8, 0, 1)
+
+[node name="Fill" type="ColorRect" parent="." unique_id=124902837]
+layout_mode = 1
+offset_right = 100.0
+offset_bottom = 10.0
+mouse_filter = 2
+color = Color(0.2, 1, 0.2, 1)
