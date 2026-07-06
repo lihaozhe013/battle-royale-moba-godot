@@ -1,3 +1,4 @@
+class_name EntityManager
 extends Node
 
 const PREFAB_PATHS := {
@@ -53,6 +54,10 @@ func _get_or_spawn(id: int, type: int, ptype: int) -> EntityView:
 	add_child(view)
 	_entities[id] = view
 	return view
+
+func get_entity(id: int) -> EntityView:
+	return _entities.get(id)
+
 
 func _instantiate_prefab(type: int, ptype: int) -> EntityView:
 	var path := ""

@@ -8,6 +8,7 @@ var _last_snap_seq := -1
 @onready var input_collector = $InputCollector
 @onready var camera_controller = $CameraController
 @onready var entity_manager = $EntityManager
+@onready var health_bar_manager = $HealthBarManager
 @onready var stats_panel = $CanvasLayer/StatsPanel
 
 func _ready() -> void:
@@ -19,6 +20,9 @@ func _ready() -> void:
 	file.close()
 
 	_spawn_wall_visuals(map_json)
+
+	health_bar_manager.entity_manager = entity_manager
+	health_bar_manager.health_bar_scene = preload("res://scenes/ui/health_bar_ui.tscn")
 
 	sim = SimServer.new()
 	sim.initialize(map_json)
@@ -67,6 +71,7 @@ func _process(_delta: float) -> void:
 	if last_snapshot.seq != _last_snap_seq:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
+		health_bar_manager.sync_bars(last_snapshot)
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
 		if p:
