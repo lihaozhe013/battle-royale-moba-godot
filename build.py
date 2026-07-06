@@ -115,9 +115,19 @@ def _find_python(cfg):
 
 def _generator_name(cfg, tc):
     """Determine CMake generator name based on platform and toolchain."""
+    VS_GENERATORS = {
+        2017: "Visual Studio 15 2017",
+        2019: "Visual Studio 16 2019",
+        2022: "Visual Studio 17 2022",
+        2026: "Visual Studio 18 2026",
+    }
     if sys.platform == "win32":
         if tc == "msvc":
-            return "Visual Studio 17 2022"
+            vs_year = cfg.get("msvc", {}).get("vs_year", 2022)
+            gen = VS_GENERATORS.get(vs_year)
+            if gen is None:
+                _panic(f"Unsupported VS year '{vs_year}' in msvc.vs_year. Supported: {list(VS_GENERATORS.keys())}")
+            return gen
         elif tc == "mingw":
             return "MinGW Makefiles"
         elif tc == "clang":
