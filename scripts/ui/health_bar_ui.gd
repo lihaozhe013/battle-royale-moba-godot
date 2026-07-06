@@ -3,7 +3,15 @@ extends Control
 
 const BAR_WIDTH := 100.0
 const BAR_HEIGHT := 10.0
+const BAR_OFFSET_X := 24.0
+const BAR_OFFSET_Y := 3.0
 const DAMAGE_LERP_SPEED := 3.0
+
+const TIER_COLORS := {
+	0: Color(0.8, 0.2, 0.2),
+	1: Color(0.6, 0.2, 0.8),
+	2: Color(1.0, 0.8, 0.0),
+}
 
 var _hp_ratio: float = 1.0
 var _damage_ratio: float = 1.0
@@ -12,6 +20,8 @@ var _team: int = 0
 @onready var _background: ColorRect = $Background
 @onready var _damage_bar: ColorRect = $DamageBar
 @onready var _fill: ColorRect = $Fill
+@onready var _level_badge: ColorRect = $LevelBadge
+@onready var _level_label: Label = $LevelBadge/LevelLabel
 
 
 func update_hp(hp: int, max_hp: int) -> void:
@@ -21,6 +31,11 @@ func update_hp(hp: int, max_hp: int) -> void:
 
 	_fill.size = Vector2(BAR_WIDTH * _hp_ratio, BAR_HEIGHT)
 	_update_color()
+
+
+func update_level(lv: int, tier: int) -> void:
+	_level_label.text = str(lv)
+	_level_badge.color = TIER_COLORS.get(tier, TIER_COLORS[0])
 
 
 func _update_color() -> void:
@@ -41,7 +56,7 @@ func set_team(team: int) -> void:
 
 
 func set_screen_position(screen_pos: Vector2) -> void:
-	position = screen_pos - Vector2(BAR_WIDTH * 0.5, 0.0)
+	position = screen_pos - Vector2(BAR_OFFSET_X + BAR_WIDTH * 0.5, BAR_OFFSET_Y + BAR_HEIGHT * 0.5)
 
 
 func reset() -> void:
@@ -51,6 +66,8 @@ func reset() -> void:
 	_fill.size = Vector2(BAR_WIDTH, BAR_HEIGHT)
 	_fill.color = Color(0.2, 1.0, 0.2)
 	_damage_bar.size = Vector2(BAR_WIDTH, BAR_HEIGHT)
+	_level_label.text = "1"
+	_level_badge.color = TIER_COLORS[0]
 	visible = false
 
 

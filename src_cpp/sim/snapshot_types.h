@@ -50,6 +50,9 @@ public:
     int id = 0; float x = 0, y = 0, ang = 0;
     int hp = 0, max_hp = 0; bool dead = false;
     float atk = 0, asp = 0; int kills = 0; int level = 0;
+    int xp = 0, xp_needed = 0;
+    float speed = 0;
+    int tier = 0;
 
     int get_id() const { return id; } void set_id(int v) { id = v; }
     float get_x() const { return x; } void set_x(float v) { x = v; }
@@ -62,6 +65,10 @@ public:
     float get_asp() const { return asp; } void set_asp(float v) { asp = v; }
     int get_kills() const { return kills; } void set_kills(int v) { kills = v; }
     int get_level() const { return level; } void set_level(int v) { level = v; }
+    int get_xp() const { return xp; } void set_xp(int v) { xp = v; }
+    int get_xp_needed() const { return xp_needed; } void set_xp_needed(int v) { xp_needed = v; }
+    float get_speed() const { return speed; } void set_speed(float v) { speed = v; }
+    int get_tier() const { return tier; } void set_tier(int v) { tier = v; }
 protected:
     static void _bind_methods();
 };

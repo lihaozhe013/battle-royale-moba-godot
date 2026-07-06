@@ -45,7 +45,7 @@ void SnapshotBuilder::_build_players(entt::registry &reg, const godot::Ref<SimSn
 
 void SnapshotBuilder::_build_bots(entt::registry &reg, const godot::Ref<SimSnapshot> &snap) {
     auto view = reg.view<BotTag, Position2D, FacingAngle, Health, CombatStats, Kills,
-                          NetworkId, Level>();
+                          NetworkId, Level, Experience, MoveSpeed, BotTier>();
     for (auto e : view) {
         auto s = godot::Ref<SimBotSnap>(memnew(SimBotSnap));
         s->id = view.get<NetworkId>(e).Value;
@@ -59,6 +59,10 @@ void SnapshotBuilder::_build_bots(entt::registry &reg, const godot::Ref<SimSnaps
         s->asp = view.get<CombatStats>(e).Asp;
         s->kills = view.get<Kills>(e).Value;
         s->level = view.get<Level>(e).Value;
+        s->xp = view.get<Experience>(e).Cur;
+        s->xp_needed = view.get<Experience>(e).Needed;
+        s->speed = view.get<MoveSpeed>(e).Value;
+        s->tier = static_cast<int>(reg.get<BotTier>(e));
         snap->bots.push_back(s);
     }
 }

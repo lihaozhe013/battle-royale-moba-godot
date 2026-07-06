@@ -67,6 +67,25 @@ struct Kills {
 
 struct BotTag {};
 
+enum class BotTier : uint8_t {
+    Normal = 0,
+    Elite = 1,
+    Boss = 2,
+};
+
+struct BotBehaviorState {
+    enum class Goal : uint8_t {
+        Flee = 0,
+        SeekHeal = 1,
+        SeekXp = 2,
+        Engage = 3,
+        Wander = 4,
+    };
+    Goal Current = Goal::Wander;
+    entt::entity PickupTarget = entt::null;
+    float DecisionCooldown = 0.0f;
+};
+
 struct BotAIState {
     Vec2 MoveTarget{0.0f};
     float RespawnTimer = 0.0f;

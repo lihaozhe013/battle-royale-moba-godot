@@ -29,6 +29,7 @@ func sync_bars(snap: SimSnapshot) -> void:
 		seen[p.id] = true
 		var bar := _get_or_create(p.id)
 		bar.update_hp(p.hp, p.max_hp)
+		bar.update_level(p.level, 0)
 		bar.set_team(0)
 
 	for b in snap.bots:
@@ -39,6 +40,7 @@ func sync_bars(snap: SimSnapshot) -> void:
 		else:
 			bar.visible = true
 			bar.update_hp(b.hp, b.max_hp)
+			bar.update_level(b.level, b.tier)
 			bar.set_team(2)
 
 	var to_release := []
@@ -71,20 +73,20 @@ func _create_bar() -> HealthBarUI:
 			return node
 
 	var bar := HealthBarUI.new()
-	bar.custom_minimum_size = Vector2(100, 10)
+	bar.custom_minimum_size = Vector2(124, 16)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var bg := ColorRect.new()
 	bg.name = "Background"
-	bg.anchors_preset = Control.PRESET_FULL_RECT
+	bg.position = Vector2(24, 3)
+	bg.size = Vector2(100, 10)
 	bg.color = Color(0.1, 0.1, 0.1, 0.8)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(bg)
 
 	var db := ColorRect.new()
 	db.name = "DamageBar"
-	db.anchors_preset = Control.PRESET_TOP_LEFT
-	db.position = Vector2.ZERO
+	db.position = Vector2(24, 3)
 	db.size = Vector2(100, 10)
 	db.color = Color(1.0, 0.8, 0.0)
 	db.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -92,12 +94,34 @@ func _create_bar() -> HealthBarUI:
 
 	var fill := ColorRect.new()
 	fill.name = "Fill"
-	fill.anchors_preset = Control.PRESET_TOP_LEFT
-	fill.position = Vector2.ZERO
+	fill.position = Vector2(24, 3)
 	fill.size = Vector2(100, 10)
 	fill.color = Color(0.2, 1.0, 0.2)
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(fill)
+
+	var badge := ColorRect.new()
+	badge.name = "LevelBadge"
+	badge.position = Vector2(0, 1)
+	badge.size = Vector2(22, 14)
+	badge.color = Color(0.8, 0.2, 0.2)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(badge)
+
+	var lbl := Label.new()
+	lbl.name = "LevelLabel"
+	lbl.anchors_preset = Control.PRESET_FULL_RECT
+	lbl.anchor_right = 1.0
+	lbl.anchor_bottom = 1.0
+	lbl.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	lbl.grow_vertical = Control.GROW_DIRECTION_BOTH
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.text = "1"
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color.WHITE)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(lbl)
 
 	return bar
 
