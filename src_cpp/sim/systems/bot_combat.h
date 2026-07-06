@@ -20,12 +20,17 @@ inline void bot_combat_system(entt::registry &reg, double now,
 
         auto &stats = view.get<CombatStats>(e);
         auto &pos = view.get<Position2D>(e);
-        auto &angle = view.get<FacingAngle>(e);
         auto &net = view.get<NetworkId>(e);
+
+        // Compute shoot direction toward target (independent of FacingAngle,
+        // which now follows movement direction — mirrors player_fire_system)
+        Vec2 to_target = reg.get<Position2D>(ai.TargetEntity).Value - pos.Value;
+        if (glm::length(to_target) < 0.001f) continue;
+        float target_angle = std::atan2(to_target.y, to_target.x);
 
         ArrowSpawnContext ctx{
             cb, id_state, now,
-            pos.Value, angle.Radians,
+            pos.Value, target_angle,
             net.Value, e,
             stats.Atk
         };

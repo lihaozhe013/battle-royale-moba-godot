@@ -45,13 +45,15 @@ void SimPlayerSnap::_bind_methods() {
 
 void SimBotSnap::_bind_methods() {
     BIND(SimBotSnap, id); BIND(SimBotSnap, x); BIND(SimBotSnap, y);
-    BIND(SimBotSnap, hp); BIND(SimBotSnap, max_hp); BIND(SimBotSnap, dead);
+    BIND(SimBotSnap, ang); BIND(SimBotSnap, hp); BIND(SimBotSnap, max_hp);
+    BIND(SimBotSnap, dead);
     BIND(SimBotSnap, atk); BIND(SimBotSnap, asp);
     BIND(SimBotSnap, kills); BIND(SimBotSnap, level);
 
     PROP(SimBotSnap, Variant::INT, id);
     PROP(SimBotSnap, Variant::FLOAT, x);
     PROP(SimBotSnap, Variant::FLOAT, y);
+    PROP(SimBotSnap, Variant::FLOAT, ang);
     PROP(SimBotSnap, Variant::INT, hp);
     PROP(SimBotSnap, Variant::INT, max_hp);
     PROP(SimBotSnap, Variant::BOOL, dead);
