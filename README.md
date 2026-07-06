@@ -48,8 +48,8 @@ cd src_cpp && python build.py
 
 ## 文档
 
-- `prompt.md` — 完整设计文档（架构、API 契约、血条系统设计、扩展路线图）
-- `godot-editor-todo.md` — 编辑器操作步骤
+- `Docs/Reference/prompt.md` — 完整设计文档（架构、API 契约、血条系统设计、扩展路线图）
+- `Docs/Reference/godot-editor-todo.md` — 编辑器操作步骤
 
 ## 项目结构
 
