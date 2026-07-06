@@ -49,6 +49,8 @@ void SimBotSnap::_bind_methods() {
     BIND(SimBotSnap, dead);
     BIND(SimBotSnap, atk); BIND(SimBotSnap, asp);
     BIND(SimBotSnap, kills); BIND(SimBotSnap, level);
+    BIND(SimBotSnap, xp); BIND(SimBotSnap, xp_needed);
+    BIND(SimBotSnap, speed); BIND(SimBotSnap, tier);
 
     PROP(SimBotSnap, Variant::INT, id);
     PROP(SimBotSnap, Variant::FLOAT, x);
@@ -61,6 +63,10 @@ void SimBotSnap::_bind_methods() {
     PROP(SimBotSnap, Variant::FLOAT, asp);
     PROP(SimBotSnap, Variant::INT, kills);
     PROP(SimBotSnap, Variant::INT, level);
+    PROP(SimBotSnap, Variant::INT, xp);
+    PROP(SimBotSnap, Variant::INT, xp_needed);
+    PROP(SimBotSnap, Variant::FLOAT, speed);
+    PROP(SimBotSnap, Variant::INT, tier);
 }
 
 void SimArrowSnap::_bind_methods() {

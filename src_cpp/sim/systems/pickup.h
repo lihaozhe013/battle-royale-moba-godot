@@ -6,6 +6,7 @@
 #include "../game_config.h"
 #include "../vec2.h"
 #include "../command_buffer.h"
+#include "xp_helper.h"
 
 namespace sim {
 
@@ -54,21 +55,8 @@ inline void pickup_system(entt::registry &reg, float dt,
             }
 
             // Apply pickup effect
-            if (p_tag.Type == PickupType::Xp && reg.all_of<Experience, Level, MoveSpeed, Health>(mover)) {
-                auto &exp = reg.get<Experience>(mover);
-                auto &lv = reg.get<Level>(mover);
-                auto &ms = reg.get<MoveSpeed>(mover);
-                auto &hp = reg.get<Health>(mover);
-
-                exp.Cur += p_tag.Value;
-                while (exp.Cur >= exp.Needed) {
-                    exp.Cur -= exp.Needed;
-                    lv.Value += 1;
-                    hp.Max += GameConfig::HpPerLevel;
-                    hp.Cur = hp.Max;
-                    ms.Value += GameConfig::SpeedPerLevel;
-                    exp.Needed = lv.Value * GameConfig::XpPerLevelBase;
-                }
+            if (p_tag.Type == PickupType::Xp) {
+                apply_xp(reg, mover, p_tag.Value);
             } else if ((p_tag.Type == PickupType::Heal || p_tag.Type == PickupType::SmallHeal)
                        && reg.all_of<Health>(mover)) {
                 auto &hp = reg.get<Health>(mover);

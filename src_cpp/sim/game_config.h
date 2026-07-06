@@ -33,27 +33,64 @@ struct GameConfig {
     static constexpr float BotWanderIntervalMin = 2.0f;
     static constexpr float BotWanderIntervalMax = 5.0f;
 
+    // ── Bot 等级成长 ──
+    static constexpr int MaxBotLevel = 30;
+    static constexpr int BotHpPerLevel = 8;
+    static constexpr float BotAtkPerLevel = 0.8f;
+    static constexpr float BotAspPerLevel = 0.03f;
+    static constexpr float BotSpeedPerLevel = 0.3f;
+
+    // ── Bot Tier 倍率 ──
+    static constexpr float NormalHpMul = 1.0f;
+    static constexpr float NormalAtkMul = 1.0f;
+    static constexpr float NormalAspMul = 1.0f;
+    static constexpr float NormalSpeedMul = 1.0f;
+    static constexpr float NormalVisionMul = 1.0f;
+    static constexpr float EliteHpMul = 2.0f;
+    static constexpr float EliteAtkMul = 1.6f;
+    static constexpr float EliteAspMul = 1.1f;
+    static constexpr float EliteSpeedMul = 1.1f;
+    static constexpr float EliteVisionMul = 1.2f;
+    static constexpr float BossHpMul = 4.0f;
+    static constexpr float BossAtkMul = 2.5f;
+    static constexpr float BossAspMul = 1.25f;
+    static constexpr float BossSpeedMul = 1.2f;
+    static constexpr float BossVisionMul = 1.5f;
+    static constexpr float BossRoll = 0.05f;
+    static constexpr float EliteRoll = 0.20f;
+
+    // ── 决策树参数 ──
+    static constexpr float BotDecisionCooldown = 0.3f;
+    static constexpr float BotFleeDist = 30.0f;
+    static constexpr float BotEngageRangeHigh = 0.8f;
+    static constexpr float BotEngageRangeLow = 0.3f;
+    static constexpr float BotKiteStrafeDist = 5.0f;
+
+    // ── 击杀 XP ──
+    static constexpr int KillXpBase = 15;
+    static constexpr float KillXpHighBonus = 0.5f;
+
     static constexpr int PlayerIdStart = 1;
     static constexpr int BotIdStart = 1001;
     static constexpr int ArrowIdStart = 2001;
     static constexpr int PickupIdStart = 3001;
 
-    static constexpr int XpPerLevelBase = 100;
+    static constexpr int XpPerLevelBase = 500;
     static constexpr int HpPerLevel = 10;
     static constexpr float SpeedPerLevel = 0.5f;
-    static constexpr float HealFraction = 0.3f;
+    static constexpr float HealFraction = 0.5f;
 
-    static constexpr int XpPickupValue = 20;
+    static constexpr int XpPickupValue = 8;
     static constexpr int HealPickupValue = 30;
     static constexpr int SmallHealPickupValue = 25;
-    static constexpr float XpPickupRespawnTime = 8.0f;
-    static constexpr float HealPickupRespawnTime = 12.0f;
-    static constexpr float SmallHealPickupRespawnTime = 8.0f;
+    static constexpr float XpPickupRespawnTime = 10.0f;
+    static constexpr float HealPickupRespawnTime = 25.0f;
+    static constexpr float SmallHealPickupRespawnTime = 20.0f;
     static constexpr float PickupRadius = 0.5f;
 
-    static constexpr int XpPickupCount = 6;
-    static constexpr int HealPickupCount = 3;
-    static constexpr int SmallHealPickupCount = 5;
+    static constexpr int XpPickupCount = 8;
+    static constexpr int HealPickupCount = 2;
+    static constexpr int SmallHealPickupCount = 2;
 };
 
 } // namespace sim

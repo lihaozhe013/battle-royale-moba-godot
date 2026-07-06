@@ -144,33 +144,67 @@ void World::_spawn_bot() {
     Vec2 pos = _random_map_pos(half, GameConfig::BotRadius);
     Vec2 target = _random_map_pos(half, GameConfig::BotRadius);
 
+    // Random level 1~30 + tier roll (same as respawn logic in bot_ai.h)
+    int new_lv = std::uniform_int_distribution<int>(1, GameConfig::MaxBotLevel)(_rng);
+    float r = std::uniform_real_distribution<float>(0.0f, 1.0f)(_rng);
+    BotTier tier;
+    float hp_mul, atk_mul, asp_mul, speed_mul, vision_mul;
+    if (r < GameConfig::BossRoll) {
+        tier = BotTier::Boss;
+        hp_mul = GameConfig::BossHpMul; atk_mul = GameConfig::BossAtkMul;
+        asp_mul = GameConfig::BossAspMul; speed_mul = GameConfig::BossSpeedMul;
+        vision_mul = GameConfig::BossVisionMul;
+    } else if (r < GameConfig::EliteRoll) {
+        tier = BotTier::Elite;
+        hp_mul = GameConfig::EliteHpMul; atk_mul = GameConfig::EliteAtkMul;
+        asp_mul = GameConfig::EliteAspMul; speed_mul = GameConfig::EliteSpeedMul;
+        vision_mul = GameConfig::EliteVisionMul;
+    } else {
+        tier = BotTier::Normal;
+        hp_mul = GameConfig::NormalHpMul; atk_mul = GameConfig::NormalAtkMul;
+        asp_mul = GameConfig::NormalAspMul; speed_mul = GameConfig::NormalSpeedMul;
+        vision_mul = GameConfig::NormalVisionMul;
+    }
+
+    int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::BotHpPerLevel;
+    float atk = (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::BotAtkPerLevel) * atk_mul;
+    float asp = std::min(
+        (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::BotAspPerLevel) * asp_mul,
+        GameConfig::AspMax);
+    float spd = (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) * speed_mul;
+    float vis = GameConfig::BotVisionRange * vision_mul;
+
     auto e = _reg.create();
     _reg.emplace<BotTag>(e);
     _reg.emplace<NetworkId>(e, bot_id);
     _reg.emplace<Position2D>(e, pos);
     _reg.emplace<FacingAngle>(e, 0.0f);
-    _reg.emplace<Health>(e, GameConfig::BotHp, GameConfig::BotHp);
+    _reg.emplace<Health>(e, static_cast<int>(base_hp * hp_mul), static_cast<int>(base_hp * hp_mul));
     _reg.emplace<BotAIState>(e, target, 0.0f, entt::null, _random_wander_time());
-    _reg.emplace<BotVisionRange>(e, GameConfig::BotVisionRange);
-    _reg.emplace<CombatStats>(e, GameConfig::BotBaseAttack, GameConfig::BotBaseAttackSpeed, 0.0);
+    _reg.emplace<BotBehaviorState>(e);
+    _reg.emplace<BotTier>(e, tier);
+    _reg.emplace<BotVisionRange>(e, vis);
+    _reg.emplace<CombatStats>(e, atk, asp, 0.0);
     _reg.emplace<Kills>(e, 0);
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
-    _reg.emplace<Level>(e, 1);
-    _reg.emplace<Experience>(e, 0, GameConfig::XpPerLevelBase);
-    _reg.emplace<MoveSpeed>(e, GameConfig::BotSpeed);
+    _reg.emplace<Level>(e, new_lv);
+    _reg.emplace<Experience>(e, 0, new_lv * GameConfig::XpPerLevelBase);
+    _reg.emplace<MoveSpeed>(e, spd);
 }
 
 void World::_spawn_pickup_spawners() {
     struct SpawnDef { PickupType type; int value; Vec2 pos; float respawn; };
 
     SpawnDef xp_spawners[] = {
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-30, -30}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 30, -30}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-30,  30}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 30,  30}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, -35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 35, -35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35,  35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 35,  35}, GameConfig::XpPickupRespawnTime},
         {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35,   0}, GameConfig::XpPickupRespawnTime},
         {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 35,   0}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  0, -35}, GameConfig::XpPickupRespawnTime},
+        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  0,  35}, GameConfig::XpPickupRespawnTime},
     };
     for (auto &s : xp_spawners) {
         _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
@@ -179,18 +213,14 @@ void World::_spawn_pickup_spawners() {
     SpawnDef heal_spawners[] = {
         {PickupType::Heal, GameConfig::HealPickupValue, Vec2{-20, -20}, GameConfig::HealPickupRespawnTime},
         {PickupType::Heal, GameConfig::HealPickupValue, Vec2{ 20,  20}, GameConfig::HealPickupRespawnTime},
-        {PickupType::Heal, GameConfig::HealPickupValue, Vec2{  0, -25}, GameConfig::HealPickupRespawnTime},
     };
     for (auto &s : heal_spawners) {
         _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
     }
 
     SpawnDef small_heal_spawners[] = {
-        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{-40, -10}, GameConfig::SmallHealPickupRespawnTime},
-        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 40,  10}, GameConfig::SmallHealPickupRespawnTime},
-        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 10, -40}, GameConfig::SmallHealPickupRespawnTime},
-        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{-10,  40}, GameConfig::SmallHealPickupRespawnTime},
-        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 25,  25}, GameConfig::SmallHealPickupRespawnTime},
+        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{-10, 10}, GameConfig::SmallHealPickupRespawnTime},
+        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 10,-10}, GameConfig::SmallHealPickupRespawnTime},
     };
     for (auto &s : small_heal_spawners) {
         _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
