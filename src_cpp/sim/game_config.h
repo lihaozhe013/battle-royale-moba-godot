@@ -89,7 +89,7 @@ struct GameConfig {
     static constexpr float SpeedPerLevel = 0.5f;
     static constexpr float HealFraction = 0.5f;
 
-    static constexpr int XpPickupValue = 8;
+    static constexpr int XpPickupValue = 16;
     static constexpr int HealPickupValue = 30;
     static constexpr int SmallHealPickupValue = 25;
     static constexpr float XpPickupRespawnTime = 10.0f;
@@ -97,7 +97,7 @@ struct GameConfig {
     static constexpr float SmallHealPickupRespawnTime = 20.0f;
     static constexpr float PickupRadius = 0.5f;
 
-    static constexpr int XpPickupCount = 24;
+    static constexpr int XpPickupCount = 120;
     static constexpr int HealPickupCount = 2;
     static constexpr int SmallHealPickupCount = 2;
 };

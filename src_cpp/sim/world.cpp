@@ -196,38 +196,16 @@ void World::_spawn_bot() {
 void World::_spawn_pickup_spawners() {
     struct SpawnDef { PickupType type; int value; Vec2 pos; float respawn; };
 
-    SpawnDef xp_spawners[] = {
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, -35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5, -35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{   0, -35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5, -35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35, -35}, GameConfig::XpPickupRespawnTime},
-
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, -17.5}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5, -17.5}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{   0, -17.5}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5, -17.5}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35, -17.5}, GameConfig::XpPickupRespawnTime},
-
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35,    0}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5,  0}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5,  0}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35,   0}, GameConfig::XpPickupRespawnTime},
-
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, 17.5}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5, 17.5}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{   0, 17.5}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5, 17.5}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35, 17.5}, GameConfig::XpPickupRespawnTime},
-
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-35, 35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{-17.5, 35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{   0, 35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{ 17.5, 35}, GameConfig::XpPickupRespawnTime},
-        {PickupType::Xp, GameConfig::XpPickupValue, Vec2{  35, 35}, GameConfig::XpPickupRespawnTime},
-    };
-    for (auto &s : xp_spawners) {
-        _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
+    // XP spawners: 12×10 = 120 points, 8-unit grid + random offset
+    std::uniform_real_distribution<float> xp_offset(-20.0f, 20.0f);
+    for (int row = 0; row < 10; ++row) {
+        for (int col = 0; col < 12; ++col) {
+            float base_x = -44.0f + col * 8.0f;
+            float base_y = -36.0f + row * 8.0f;
+            _spawn_one_spawner(PickupType::Xp, GameConfig::XpPickupValue,
+                Vec2{base_x + xp_offset(_rng), base_y + xp_offset(_rng)},
+                GameConfig::XpPickupRespawnTime);
+        }
     }
 
     SpawnDef heal_spawners[] = {
