@@ -14,12 +14,12 @@
 
 ```
 C++ Sim (entt::registry + 12 systems)
-    ↓ SimSnapshot (30Hz: players/bots/arrows/pickups)
+	↓ SimSnapshot (30Hz: players/bots/arrows/pickups)
 sim_bridge.gd (系统调度器)
-    ├─ EntityManager.sync_entities(snap)     → 3D 实体 spawn/despawn + 位置插值
-    ├─ HealthBarManager.sync_bars(snap)      → 2D 血条数据更新
-    ├─ StatsPanel.update(snap.players[0])    → HUD 文字
-    └─ CameraController.follow_target(...)   → 相机跟随
+	├─ EntityManager.sync_entities(snap)     → 3D 实体 spawn/despawn + 位置插值
+	├─ HealthBarManager.sync_bars(snap)      → 2D 血条数据更新
+	├─ StatsPanel.update(snap.players[0])    → HUD 文字
+	└─ CameraController.follow_target(...)   → 相机跟随
 ```
 
 ### ECS 对齐
@@ -203,7 +203,7 @@ func _process(delta: float) -> void  # DamageBar lerp
 
 ```gdscript
 func get_entity(id: int) -> EntityView:
-    return _entities.get(id)
+	return _entities.get(id)
 ```
 
 ### sim_bridge.gd（集成点）
@@ -217,9 +217,9 @@ health_bar_manager.entity_manager = entity_manager
 
 # _process 中, sync_entities 后新增
 if last_snapshot.seq != _last_snap_seq:
-    _last_snap_seq = last_snapshot.seq
-    entity_manager.sync_entities(last_snapshot)
-    health_bar_manager.sync_bars(last_snapshot)  # ← 新增
+	_last_snap_seq = last_snapshot.seq
+	entity_manager.sync_entities(last_snapshot)
+	health_bar_manager.sync_bars(last_snapshot)  # ← 新增
 ```
 
 ---
@@ -230,36 +230,19 @@ if last_snapshot.seq != _last_snap_seq:
 scripts/
 ├── sim_bridge.gd                   # 系统调度器
 ├── view/
-│   ├── entity_manager.gd           # 3D 实体管理（新增 get_entity 方法）
-│   ├── entity_view.gd              # 3D 实体视图（移除旧血条代码）
+│   ├── entity_manager.gd           # 3D 实体管理（含 get_entity）
+│   ├── entity_view.gd              # 3D 实体视图（插值 + 骨骼动画）
 │   └── camera_controller.gd        # 相机控制
 ├── ui/
-│   ├── health_bar_manager.gd       # 血条视图系统（新建）
-│   ├── health_bar_ui.gd            # 血条视图组件（新建）
-│   └── stats_panel.gd              # HUD 面板（已有）
+│   ├── health_bar_manager.gd       # 血条视图系统（对象池 + 屏幕投影）
+│   ├── health_bar_ui.gd            # 血条视图组件（Fill/DamageBar）
+│   └── stats_panel.gd              # HUD 面板
 
 scenes/
-├── main.tscn                       # 主场景（新增 HealthBarManager 节点）
+├── main.tscn                       # 主场景（含 HealthBarManager 节点）
 └── ui/
-    └── health_bar_ui.tscn          # 血条预制场景（新建）
+	└── health_bar_ui.tscn          # 血条预制场景
 ```
-
-### 需要清理的旧文件
-
-| 文件 | 操作 | 原因 |
-|------|------|------|
-| `scripts/view/health_bar.gd` | **删除** | 旧 Sprite3D 方案，已被 2D UI 替代 |
-| `scenes/entities/health_bar.tscn` | **删除** | 旧 Sprite3D 场景 |
-| `scripts/view/entity_view.gd` | **移除血条代码** | 血条由 HealthBarManager 独立管理，不再挂在 EntityView 上 |
-
-### entity_view.gd 需要移除的代码
-
-以下 3 处是上一轮 Sprite3D 方案加的，需要移除：
-
-1. `var _hp_bar: HealthBar = null` — 删除变量
-2. `_ready()` 中 `if entity_type == 0 or entity_type == 1: _hp_bar = find_child(...)` — 删除
-3. `apply_snapshot()` 中两处 `if _hp_bar: _hp_bar.update_hp(hp, max_hp)` — 删除
-
 ---
 
 ## HealthBarUI 场景布局
@@ -282,11 +265,11 @@ HealthBarUI (Control)
   │   mouse_filter = MOUSE_FILTER_IGNORE
   │
   └── Fill (ColorRect)
-      anchors_preset = PRESET_TOP_LEFT
-      position = Vector2(0, 0)
-      size = Vector2(100, 10)
-      color = Color(0.2, 1.0, 0.2)   # 由 set_team() 运行时覆盖
-      mouse_filter = MOUSE_FILTER_IGNORE
+	  anchors_preset = PRESET_TOP_LEFT
+	  position = Vector2(0, 0)
+	  size = Vector2(100, 10)
+	  color = Color(0.2, 1.0, 0.2)   # 由 set_team() 运行时覆盖
+	  mouse_filter = MOUSE_FILTER_IGNORE
 ```
 
 **Fill/DamageBar 宽度由脚本设置**：
@@ -299,7 +282,7 @@ TOP_LEFT 锚点确保左边缘固定，宽度缩放时从右往左缩。
 
 ## 扩展路线图
 
-### Phase 1（当前）：基础血条
+### Phase 1（已完成）：基础血条
 - Background + DamageBar + Fill（3 个 ColorRect）
 - 阵营色（自己=绿，敌方=红）
 - DamageBar 延迟动画
@@ -342,33 +325,4 @@ control.size = Vector2(x, y)
 sprite.region_rect = Rect2(x, y, w, h)
 rotation = Vector3(x, y, z)
 # 或用 look_at() 设置旋转
-```
-
----
-
-## 新会话提示词
-
-```
-# 任务：实现 2D 屏幕空间血条系统（MOBA 风格）
-
-## 项目位置
-C:\Users\Li Haozhe\Documents\dev\topdown-shooter-godot
-
-## 上下文
-类 MOBA 游戏。C++ GDExtension Sim 层已完成，GDScript View 层已完成。
-血条数据已到位：entity_manager.gd 已传 hp/max_hp 到 apply_snapshot()。
-需要新建 HealthBarManager + HealthBarUI，用 2D 屏幕空间方案。
-
-## 完整设计文档
-见 prompt.md — 包含架构、API 契约、文件结构、场景布局、扩展路线图。
-
-## 编辑器步骤
-见 godot-editor-todo.md — Phase 1 血条系统部分。
-
-## 核心原则
-1. HealthBarManager 是独立视图系统，读 Snapshot 更新 HP 数据，查 EntityManager 获取插值位置
-2. HealthBarUI 是纯展示组件，不知道 Sim/Snapshot/3D 世界
-3. 对象池管理，不频繁创建/销毁
-4. 两条更新路径：sync_bars(30Hz 数据) + _process(60Hz 定位)
-5. 阵营色：自己=绿，敌方=红
 ```
