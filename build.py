@@ -133,7 +133,7 @@ def _generator_name(cfg, tc):
         elif tc == "clang":
             return "Ninja"
     elif sys.platform == "darwin":
-        return "Xcode" if tc == "clang" else "Unix Makefiles"
+        return "Ninja" if tc == "clang" else "Unix Makefiles"
     return "Unix Makefiles"
 
 
