@@ -25,7 +25,7 @@ func sync_entities(snap: SimSnapshot) -> void:
 	for b in snap.bots:
 		seen[b.id] = true
 		var view = _get_or_spawn(b.id, 1, 0)
-		view.apply_snapshot(b.x, b.y, 0, b.hp, b.max_hp, b.dead)
+		view.apply_snapshot(b.x, b.y, b.ang, b.hp, b.max_hp, b.dead)
 
 	for a in snap.arrows:
 		seen[a.id] = true

@@ -44,13 +44,14 @@ void SnapshotBuilder::_build_players(entt::registry &reg, const godot::Ref<SimSn
 }
 
 void SnapshotBuilder::_build_bots(entt::registry &reg, const godot::Ref<SimSnapshot> &snap) {
-    auto view = reg.view<BotTag, Position2D, Health, CombatStats, Kills,
+    auto view = reg.view<BotTag, Position2D, FacingAngle, Health, CombatStats, Kills,
                           NetworkId, Level>();
     for (auto e : view) {
         auto s = godot::Ref<SimBotSnap>(memnew(SimBotSnap));
         s->id = view.get<NetworkId>(e).Value;
         s->x = view.get<Position2D>(e).Value.x;
         s->y = view.get<Position2D>(e).Value.y;
+        s->ang = view.get<FacingAngle>(e).Radians;
         s->hp = view.get<Health>(e).Cur;
         s->max_hp = view.get<Health>(e).Max;
         s->dead = reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled;

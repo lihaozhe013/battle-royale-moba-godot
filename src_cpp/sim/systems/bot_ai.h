@@ -67,14 +67,9 @@ inline void bot_ai_system(entt::registry &reg, float dt, float map_half, std::mt
                 pos.Value + (wander_dir / dist) * move_dist, map_half);
         }
 
-        // Face target
-        if (ai.TargetEntity != entt::null && reg.valid(ai.TargetEntity)
-            && reg.all_of<Position2D>(ai.TargetEntity)) {
-            Vec2 target_pos = reg.get<Position2D>(ai.TargetEntity).Value;
-            Vec2 to_target = target_pos - pos.Value;
-            if (glm::length(to_target) > 0.001f) {
-                angle.Radians = std::atan2(to_target.y, to_target.x);
-            }
+        // Face movement direction (mirrors player_movement_system)
+        if (dist > 0.01f) {
+            angle.Radians = std::atan2(wander_dir.y, wander_dir.x);
         }
     }
 }

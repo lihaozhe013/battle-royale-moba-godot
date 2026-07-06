@@ -47,13 +47,14 @@ protected:
 class SimBotSnap : public godot::RefCounted {
     GDCLASS(SimBotSnap, godot::RefCounted)
 public:
-    int id = 0; float x = 0, y = 0;
+    int id = 0; float x = 0, y = 0, ang = 0;
     int hp = 0, max_hp = 0; bool dead = false;
     float atk = 0, asp = 0; int kills = 0; int level = 0;
 
     int get_id() const { return id; } void set_id(int v) { id = v; }
     float get_x() const { return x; } void set_x(float v) { x = v; }
     float get_y() const { return y; } void set_y(float v) { y = v; }
+    float get_ang() const { return ang; } void set_ang(float v) { ang = v; }
     int get_hp() const { return hp; } void set_hp(int v) { hp = v; }
     int get_max_hp() const { return max_hp; } void set_max_hp(int v) { max_hp = v; }
     bool get_dead() const { return dead; } void set_dead(bool v) { dead = v; }

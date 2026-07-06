@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://cry0jayrxwnon"]
 
-[ext_resource type="Script" uid="uid://df80gsa7bpecq" path="res://scripts/sim_bridge.gd" id="1"]
-[ext_resource type="Script" uid="uid://c4syamod1yhm8" path="res://scripts/input/input_collector.gd" id="2"]
-[ext_resource type="Script" uid="uid://brnrujh7vsgny" path="res://scripts/view/camera_controller.gd" id="3"]
-[ext_resource type="Script" uid="uid://dt2wkai6x8lsc" path="res://scripts/view/entity_manager.gd" id="4"]
+[ext_resource type="Script" uid="uid://bwlalitrgnqls" path="res://scripts/sim_bridge.gd" id="1"]
+[ext_resource type="Script" uid="uid://bdppam86y7vha" path="res://scripts/input/input_collector.gd" id="2"]
+[ext_resource type="Script" uid="uid://b3thijxvorrs1" path="res://scripts/view/camera_controller.gd" id="3"]
+[ext_resource type="Script" uid="uid://bxqepavj2fq3s" path="res://scripts/view/entity_manager.gd" id="4"]
 [ext_resource type="Script" uid="uid://b8gmdysmppq68" path="res://scripts/ui/stats_panel.gd" id="5"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v5gy4"]
@@ -53,7 +53,7 @@ theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 18
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=982478743]
-transform = Transform3D(0.8660254, -0.35355338, 0.35355338, 0, 0.70710677, 0.70710677, -0.5, -0.6123724, 0.6123724, 0, 93.69, 0)
+transform = Transform3D(0.8660254, -0.3535534, 0.3535534, 0, 0.7071068, 0.7071068, -0.5, -0.61237246, 0.61237246, 98.29472, 109.10042, -117.59868)
 shadow_enabled = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=822007721]
