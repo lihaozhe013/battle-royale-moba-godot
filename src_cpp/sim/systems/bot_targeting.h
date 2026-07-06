@@ -4,11 +4,12 @@
 #include <limits>
 #include <vector>
 #include "../components.h"
+#include "../game_config.h"
 #include "../vec2.h"
 
 namespace sim {
 
-inline void bot_targeting_system(entt::registry &reg, std::mt19937 &rng) {
+inline void bot_targeting_system(entt::registry &reg, std::mt19937 &rng, float dt) {
     auto bot_view = reg.view<BotTag, Position2D, BotVisionRange, BotAIState>();
     auto target_view = reg.view<Damageable, Position2D, Health>();
 
@@ -20,6 +21,24 @@ inline void bot_targeting_system(entt::registry &reg, std::mt19937 &rng) {
         if (reg.all_of<Dead>(bot) && reg.get<Dead>(bot).enabled) {
             continue;
         }
+
+        // ── Fix B: 目标锁定 ──
+        bool current_valid = ai.TargetEntity != entt::null
+            && reg.valid(ai.TargetEntity)
+            && (!reg.all_of<Dead>(ai.TargetEntity) || !reg.get<Dead>(ai.TargetEntity).enabled);
+
+        if (current_valid) {
+            Vec2 delta = reg.get<Position2D>(ai.TargetEntity).Value - bot_pos.Value;
+            float d_sq = vec2_length_sq(delta);
+            if (d_sq <= vision * vision) {
+                // 当前目标仍在视野内 → 锁定倒计时
+                ai.TargetLockTimer -= dt;
+                if (ai.TargetLockTimer > 0.0f) {
+                    continue; // 锁定期内不换目标
+                }
+            }
+        }
+        ai.TargetLockTimer = 0.0f;
 
         struct Candidate {
             entt::entity entity;
@@ -72,6 +91,8 @@ inline void bot_targeting_system(entt::registry &reg, std::mt19937 &rng) {
 
         std::uniform_int_distribution<int> dist(0, (int)dist_tier.size() - 1);
         ai.TargetEntity = dist_tier[dist(rng)].entity;
+
+        ai.TargetLockTimer = GameConfig::BotTargetLockTime;
         reg.replace<BotAIState>(bot, ai);
     }
 }

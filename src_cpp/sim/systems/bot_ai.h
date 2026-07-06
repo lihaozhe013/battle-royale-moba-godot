@@ -173,36 +173,54 @@ inline void bot_ai_system(entt::registry &reg, float dt, float map_half, std::mt
             bool enemy_in_vision = nearest_enemy_dist_sq < vision.Value * vision.Value;
             float hp_ratio = static_cast<float>(hp.Cur) / static_cast<float>(hp.Max);
 
+            // ── Fix D: Goal 承诺计时器 ──
+            beh.GoalCommitTimer -= dt;
+            bool can_change_goal = beh.GoalCommitTimer <= 0.0f;
+
             // ── Goal selection (priority high → low) ──
-            BotBehaviorState::Goal new_goal;
+            BotBehaviorState::Goal new_goal = beh.Current;
             entt::entity new_pickup = entt::null;
+            bool goal_changed = false;
 
-            if (hp_ratio < 0.3f && enemy_in_vision) {
-                // PRIORITY 1: Flee
+            // 紧急条件（永远可以打断承诺）
+            bool emergency = hp_ratio < 0.3f && enemy_in_vision;
+
+            if (emergency) {
                 new_goal = BotBehaviorState::Goal::Flee;
-            } else if (hp_ratio < 0.6f && !heal_pickups.empty()) {
-                // PRIORITY 2: SeekHeal
-                new_goal = BotBehaviorState::Goal::SeekHeal;
-                new_pickup = detail::_pick_top3_random(heal_pickups, rng);
-            } else if ((!has_target || !enemy_in_vision) && !xp_pickups.empty()) {
-                // PRIORITY 3: SeekXp (safe to farm: no target, or target is far away)
-                new_goal = BotBehaviorState::Goal::SeekXp;
-                new_pickup = detail::_pick_top3_random(xp_pickups, rng);
-            } else if (has_target) {
-                // PRIORITY 4: Engage (kiting) — even if enemy is far, push toward them
-                new_goal = BotBehaviorState::Goal::Engage;
-            } else {
-                // PRIORITY 5: Wander — nothing to do
-                new_goal = BotBehaviorState::Goal::Wander;
-            }
+                goal_changed = true;
+            } else if (can_change_goal) {
+                if (hp_ratio < 0.6f && !heal_pickups.empty()) {
+                    new_goal = BotBehaviorState::Goal::SeekHeal;
+                    new_pickup = detail::_pick_top3_random(heal_pickups, rng);
+                    goal_changed = true;
+                } else if ((!has_target || !enemy_in_vision) && !xp_pickups.empty()) {
+                    new_goal = BotBehaviorState::Goal::SeekXp;
+                    new_pickup = detail::_pick_top3_random(xp_pickups, rng);
+                    goal_changed = true;
+                } else if (has_target) {
+                    new_goal = BotBehaviorState::Goal::Engage;
+                    goal_changed = true;
+                } else {
+                    new_goal = BotBehaviorState::Goal::Wander;
+                    goal_changed = true;
+                }
+            } // else: 承诺期内保持当前 Goal
 
-            beh.Current = new_goal;
+            if (goal_changed) {
+                beh.Current = new_goal;
+                beh.GoalCommitTimer = GameConfig::BotGoalCommitTime;
+            }
             beh.PickupTarget = new_pickup;
+
+            // ── Fix A: strafe 方向在决策段决定 ──
+            if (beh.Current == BotBehaviorState::Goal::Engage) {
+                std::bernoulli_distribution coin(0.5);
+                beh.StrafeDir = coin(rng) ? 1 : -1;
+            }
         }
 
         // ── Movement ──
         Vec2 target_pos = ai.MoveTarget; // default: wander target
-        bool stop_and_shoot = false;
 
         switch (beh.Current) {
             case BotBehaviorState::Goal::Flee: {
@@ -240,7 +258,6 @@ inline void bot_ai_system(entt::registry &reg, float dt, float map_half, std::mt
                     && reg.all_of<Position2D>(beh.PickupTarget)) {
                     target_pos = reg.get<Position2D>(beh.PickupTarget).Value;
                 } else {
-                    // Fallback: scan for any XP pickup
                     detail::_scan_pickups(reg, pos.Value, PickupType::Xp, xp_pickups);
                     if (!xp_pickups.empty()) {
                         target_pos = reg.get<Position2D>(xp_pickups[0].entity).Value;
@@ -249,6 +266,7 @@ inline void bot_ai_system(entt::registry &reg, float dt, float map_half, std::mt
                 break;
             }
             case BotBehaviorState::Goal::Engage: {
+                // ── Fix C: Kiting 滞回状态机 ──
                 if (ai.TargetEntity != entt::null && reg.valid(ai.TargetEntity)
                     && reg.all_of<Position2D>(ai.TargetEntity)) {
                     Vec2 tgt_pos = reg.get<Position2D>(ai.TargetEntity).Value;
@@ -256,20 +274,40 @@ inline void bot_ai_system(entt::registry &reg, float dt, float map_half, std::mt
                     float dist = glm::length(to_target);
                     if (dist > 0.001f) {
                         Vec2 dir = to_target / dist;
-                        if (dist > vision.Value * GameConfig::BotEngageRangeHigh) {
-                            // Chase
-                            target_pos = tgt_pos;
-                        } else if (dist < vision.Value * GameConfig::BotEngageRangeLow) {
-                            // Retreat
-                            target_pos = pos.Value - dir * GameConfig::BotKiteStrafeDist;
-                        } else {
-                            // Strafe (move perpendicular)
-                            std::bernoulli_distribution coin(0.5);
-                            Vec2 strafe = coin(rng)
-                                ? detail::_perp_left(dir)
-                                : Vec2{dir.y, -dir.x};
-                            target_pos = pos.Value + strafe * GameConfig::BotKiteStrafeDist;
-                            stop_and_shoot = true; // can shoot while strafing
+                        float chase_enter = vision.Value * GameConfig::BotKiteChaseEnter;
+                        float chase_exit = vision.Value * GameConfig::BotKiteChaseExit;
+                        float retreat_exit = vision.Value * GameConfig::BotKiteRetreatExit;
+                        float retreat_enter = vision.Value * GameConfig::BotKiteRetreatEnter;
+
+                        // 滞回状态转移
+                        switch (beh.Kite) {
+                            case BotBehaviorState::KiteSub::Chase:
+                                if (dist < chase_exit) beh.Kite = BotBehaviorState::KiteSub::Strafe;
+                                break;
+                            case BotBehaviorState::KiteSub::Strafe:
+                                if (dist > chase_enter) beh.Kite = BotBehaviorState::KiteSub::Chase;
+                                else if (dist < retreat_enter) beh.Kite = BotBehaviorState::KiteSub::Retreat;
+                                break;
+                            case BotBehaviorState::KiteSub::Retreat:
+                                if (dist > retreat_exit) beh.Kite = BotBehaviorState::KiteSub::Strafe;
+                                break;
+                        }
+
+                        // 执行子状态
+                        switch (beh.Kite) {
+                            case BotBehaviorState::KiteSub::Chase:
+                                target_pos = tgt_pos;
+                                break;
+                            case BotBehaviorState::KiteSub::Retreat:
+                                target_pos = pos.Value - dir * GameConfig::BotKiteStrafeDist;
+                                break;
+                            case BotBehaviorState::KiteSub::Strafe: {
+                                Vec2 strafe = (beh.StrafeDir > 0)
+                                    ? detail::_perp_left(dir)
+                                    : Vec2{dir.y, -dir.x};
+                                target_pos = pos.Value + strafe * GameConfig::BotKiteStrafeDist;
+                                break;
+                            }
                         }
                     }
                 }

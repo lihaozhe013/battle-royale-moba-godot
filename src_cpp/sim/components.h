@@ -84,6 +84,11 @@ struct BotBehaviorState {
     Goal Current = Goal::Wander;
     entt::entity PickupTarget = entt::null;
     float DecisionCooldown = 0.0f;
+
+    enum class KiteSub : uint8_t { Chase, Strafe, Retreat };
+    int StrafeDir = 1;
+    KiteSub Kite = KiteSub::Strafe;
+    float GoalCommitTimer = 0.0f;
 };
 
 struct BotAIState {
@@ -91,6 +96,7 @@ struct BotAIState {
     float RespawnTimer = 0.0f;
     entt::entity TargetEntity = entt::null;
     float WanderTimer = 0.0f;
+    float TargetLockTimer = 0.0f;
 };
 
 struct BotVisionRange {

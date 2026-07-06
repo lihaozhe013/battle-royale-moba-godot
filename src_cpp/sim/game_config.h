@@ -65,6 +65,15 @@ struct GameConfig {
     static constexpr float BotEngageRangeHigh = 0.8f;
     static constexpr float BotEngageRangeLow = 0.3f;
     static constexpr float BotKiteStrafeDist = 5.0f;
+    // ── 目标锁定 ──
+    static constexpr float BotTargetLockTime = 2.0f;
+    // ── Goal 承诺 ──
+    static constexpr float BotGoalCommitTime = 0.8f;
+    // ── Kiting 滞回阈值（进入/退出双阈值） ──
+    static constexpr float BotKiteChaseExit = 0.75f;
+    static constexpr float BotKiteChaseEnter = 0.85f;
+    static constexpr float BotKiteRetreatExit = 0.35f;
+    static constexpr float BotKiteRetreatEnter = 0.25f;
 
     // ── 击杀 XP ──
     static constexpr int KillXpBase = 15;

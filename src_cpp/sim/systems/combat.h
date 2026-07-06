@@ -51,11 +51,13 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
 
             // Kill event
             if (hp.Cur <= 0) {
+                int victim_id = reg.all_of<NetworkId>(target)
+                    ? reg.get<NetworkId>(target).Value : 0;
                 auto kill_view = reg.view<KillEventBuffer>();
                 for (auto k : kill_view) {
                     kill_view.get<KillEventBuffer>(k).events.push_back({
                         arrow_tag.OwnerId,
-                        arrow_view.get<NetworkId>(arrow).Value
+                        victim_id
                     });
                 }
 
