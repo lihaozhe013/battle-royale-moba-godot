@@ -81,7 +81,7 @@ void World::tick(double dt) {
     player_fire_system(_reg, _time, _cb, ids);
 
     // 4. BotTargetingSystem
-    bot_targeting_system(_reg, _rng);
+    bot_targeting_system(_reg, _rng, fdt);
 
     // 5. BotAISystem
     bot_ai_system(_reg, fdt, map_half, _rng);
