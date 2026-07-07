@@ -13,11 +13,6 @@ var cast_interrupt := false  # ESC/S/H 打断（仅 Casting 响应）
 var cast_aim := Vector2.ZERO
 
 var _prev_skill := [false, false, false, false]
-var _prev_left := false
-var _prev_right := false
-var _prev_s := false
-var _prev_esc := false
-var _prev_h := false
 const SKILL_KEYS := [KEY_C, KEY_E, KEY_R, KEY_F]
 
 
@@ -71,32 +66,12 @@ func _read_skill_input() -> void:
 	if cast_slot >= 0:
 		cast_aim = aim_world
 
-	# 2. 取消键边沿：右键 = cast_cancel（Aiming+Casting 响应）
-	var right_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
-	if right_now and not _prev_right:
-		cast_cancel = true
-	_prev_right = right_now
+	# 2. 右键按住 = cast_cancel（Aiming+Casting 响应，持续有效防 Sim 丢帧）
+	cast_cancel = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 
-	# 3. 打断键边沿：ESC/S/H = cast_interrupt（仅 Casting 响应）
-	var esc_now := Input.is_key_pressed(KEY_ESCAPE)
-	if esc_now and not _prev_esc:
-		cast_interrupt = true
-	_prev_esc = esc_now
+	# 3. ESC/S/H 按住 = cast_interrupt（仅 Casting 响应，持续有效防 Sim 丢帧）
+	cast_interrupt = Input.is_key_pressed(KEY_ESCAPE) || Input.is_key_pressed(KEY_H) || Input.is_key_pressed(KEY_S)
 
-	var h_now := Input.is_key_pressed(KEY_H)
-	if h_now and not _prev_h:
-		cast_interrupt = true
-	_prev_h = h_now
-
-	var s_now := Input.is_key_pressed(KEY_S)
-	if s_now and not _prev_s:
-		cast_interrupt = true
-	_prev_s = s_now
-
-	# 4. 左键：边缘=确认施法，持续=普攻
-	var left_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	if left_now and not _prev_left:
-		cast_confirm = true
-	_prev_left = left_now
-
-	fire = left_now
+	# 4. 左键按住 = cast_confirm（Aiming 中=确认施法，非 Aiming=普攻）
+	cast_confirm = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	fire = cast_confirm
