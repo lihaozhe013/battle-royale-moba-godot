@@ -43,6 +43,7 @@ inline void skill_cast_system(entt::registry &reg, float dt,
         int cast_slot = input.CastSlot;
         bool cast_confirm = input.CastConfirm;
         bool cast_cancel = input.CastCancel;
+        bool cast_interrupt = input.CastInterrupt;
         Vec2 cast_aim = input.CastAim;
         bool moving = glm::length(input.Move) > 0.01f;
 
@@ -66,7 +67,7 @@ inline void skill_cast_system(entt::registry &reg, float dt,
             }
 
             case CastState::Phase::Aiming: {
-                cs.AimPos = cast_aim; // continuously update aim position
+                cs.AimPos = cast_aim;
                 if (cast_confirm) {
                     auto &slot = skills.Slots[cs.ActiveSlot];
                     const auto &def = get_skill_def(cs.SkillId);
@@ -78,7 +79,7 @@ inline void skill_cast_system(entt::registry &reg, float dt,
                     cs.State = CastState::Phase::Casting;
                     break;
                 }
-                if (cast_cancel || moving) {
+                if (cast_cancel) {
                     cs.State = CastState::Phase::None;
                     cs.ActiveSlot = -1;
                     cs.SkillId = 0;
@@ -97,7 +98,7 @@ inline void skill_cast_system(entt::registry &reg, float dt,
             }
 
             case CastState::Phase::Casting: {
-                if (moving) {
+                if (cast_cancel || cast_interrupt) {
                     cs.State = CastState::Phase::None;
                     cs.ActiveSlot = -1;
                     cs.SkillId = 0;

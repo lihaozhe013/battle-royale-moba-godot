@@ -33,7 +33,7 @@ public:
 
     void initialize(const std::string &map_json);
     void set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq);
-    void set_cast_input(int cast_slot, bool confirm, bool cancel, float aim_x, float aim_y);
+    void set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y);
     void tick(double dt);
 
     entt::registry &registry() { return _reg; }

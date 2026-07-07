@@ -24,13 +24,12 @@ inline void player_movement_system(entt::registry &reg, float dt, float map_half
             if (st.Type == StatusType::Root && st.Timer > 0.0f) continue;
         }
 
-        // Cast state gate
+        // Cast state gate (Aiming allows movement)
         if (reg.all_of<CastState>(e)) {
             auto &cs = reg.get<CastState>(e);
             if (cs.State == CastState::Phase::Casting) continue;
             if (cs.State == CastState::Phase::Channeling) continue;
             if (cs.State == CastState::Phase::Dashing) continue;
-            if (cs.State == CastState::Phase::Aiming) continue;
         }
 
         if (glm::length(input.Move) > 0.01f) {

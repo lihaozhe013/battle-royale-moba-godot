@@ -77,6 +77,7 @@ func _physics_process(delta: float) -> void:
 			input_collector.cast_slot,
 			input_collector.cast_confirm,
 			input_collector.cast_cancel,
+			input_collector.cast_interrupt,
 			input_collector.cast_aim.x,
 			input_collector.cast_aim.y
 		)
