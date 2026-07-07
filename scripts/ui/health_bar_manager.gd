@@ -29,6 +29,7 @@ func sync_bars(snap: SimSnapshot) -> void:
 		seen[p.id] = true
 		var bar := _get_or_create(p.id)
 		bar.update_hp(p.hp, p.max_hp)
+		bar.update_mana(p.mana, p.max_mana)
 		bar.update_level(p.level, 0)
 		bar.set_team(0)
 
@@ -40,6 +41,7 @@ func sync_bars(snap: SimSnapshot) -> void:
 		else:
 			bar.visible = true
 			bar.update_hp(b.hp, b.max_hp)
+			bar.update_mana(b.mana, b.max_mana)
 			bar.update_level(b.level, b.tier)
 			bar.set_team(2)
 
@@ -122,6 +124,14 @@ func _create_bar() -> HealthBarUI:
 	lbl.add_theme_color_override("font_color", Color.WHITE)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.add_child(lbl)
+
+	var mana := ColorRect.new()
+	mana.name = "ManaBar"
+	mana.position = Vector2(24, 10)
+	mana.size = Vector2(100, 4)
+	mana.color = Color(0.2627451, 0.6666667, 1, 1)
+	mana.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(mana)
 
 	return bar
 

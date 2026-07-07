@@ -4,6 +4,10 @@ var move_input := Vector2.ZERO
 var aim_world := Vector2.ZERO
 var fire := false
 var input_seq := 0
+var skill_q := false
+var skill_w := false
+var skill_e := false
+var skill_r := false
 
 func _process(_delta: float) -> void:
 	input_seq += 1
@@ -19,6 +23,10 @@ func _process(_delta: float) -> void:
 	move_input = raw.normalized() if raw.length_squared() > 1.0 else raw
 
 	fire = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	skill_q = Input.is_key_pressed(KEY_C)
+	skill_w = Input.is_key_pressed(KEY_E)
+	skill_e = Input.is_key_pressed(KEY_R)
+	skill_r = Input.is_key_pressed(KEY_F)
 
 	var cam := get_viewport().get_camera_3d()
 	if cam:
