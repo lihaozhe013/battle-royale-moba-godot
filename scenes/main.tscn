@@ -5,7 +5,8 @@
 [ext_resource type="Script" uid="uid://b3thijxvorrs1" path="res://scripts/view/camera_controller.gd" id="3"]
 [ext_resource type="Script" uid="uid://bxqepavj2fq3s" path="res://scripts/view/entity_manager.gd" id="4"]
 [ext_resource type="Script" uid="uid://b8gmdysmppq68" path="res://scripts/ui/stats_panel.gd" id="5"]
-[ext_resource type="Script" uid="uid://chq1p47rv8gej" path="res://scripts/ui/health_bar_manager.gd" id="5_tefeu"]
+[ext_resource type="Script" uid="uid://drplmxv7r2mk7" path="res://scripts/ui/health_bar_manager.gd" id="5_tefeu"]
+[ext_resource type="PackedScene" uid="uid://bottomhud0001" path="res://scenes/ui/bottom_hud.tscn" id="7_o6xl0"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v5gy4"]
 
@@ -72,3 +73,5 @@ mesh = SubResource("PlaneMesh_1vivr")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=312781902]
 environment = SubResource("Environment_gm6fy")
+
+[node name="BottomHUD" parent="." unique_id=324689015 instance=ExtResource("7_o6xl0")]
