@@ -17,6 +17,9 @@
 #include "systems/combat.h"
 #include "systems/pickup.h"
 #include "systems/progression.h"
+#include "systems/mana_regen.h"
+#include "systems/skill_input.h"
+#include "systems/skill_cooldown.h"
 #include "systems/snapshot_export.h"
 
 namespace sim {
@@ -27,6 +30,7 @@ public:
 
     void initialize(const std::string &map_json);
     void set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq);
+    void set_skill_input(bool skill_q, bool skill_w, bool skill_e, bool skill_r);
     void tick(double dt);
 
     entt::registry &registry() { return _reg; }

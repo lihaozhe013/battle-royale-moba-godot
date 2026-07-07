@@ -6,6 +6,24 @@
 
 namespace sim {
 
+class SimSkillSlotSnap : public godot::RefCounted {
+    GDCLASS(SimSkillSlotSnap, godot::RefCounted)
+public:
+    int skill_id = 0;
+    int level = 0;
+    float cooldown = 0.0f;
+    float max_cooldown = 0.0f;
+    float mana_cost = 0.0f;
+
+    int get_skill_id() const { return skill_id; } void set_skill_id(int v) { skill_id = v; }
+    int get_level() const { return level; } void set_level(int v) { level = v; }
+    float get_cooldown() const { return cooldown; } void set_cooldown(float v) { cooldown = v; }
+    float get_max_cooldown() const { return max_cooldown; } void set_max_cooldown(float v) { max_cooldown = v; }
+    float get_mana_cost() const { return mana_cost; } void set_mana_cost(float v) { mana_cost = v; }
+protected:
+    static void _bind_methods();
+};
+
 class SimEventSnap : public godot::RefCounted {
     GDCLASS(SimEventSnap, godot::RefCounted)
 public:
@@ -24,8 +42,10 @@ class SimPlayerSnap : public godot::RefCounted {
 public:
     int id = 0; float x = 0, y = 0, ang = 0;
     int hp = 0, max_hp = 0;
+    float mana = 0, max_mana = 0;
     float atk = 0, asp = 0, speed = 0;
     int kills = 0, level = 0, xp = 0, xp_needed = 0;
+    godot::TypedArray<SimSkillSlotSnap> skills;
 
     int get_id() const { return id; } void set_id(int v) { id = v; }
     float get_x() const { return x; } void set_x(float v) { x = v; }
@@ -33,6 +53,8 @@ public:
     float get_ang() const { return ang; } void set_ang(float v) { ang = v; }
     int get_hp() const { return hp; } void set_hp(int v) { hp = v; }
     int get_max_hp() const { return max_hp; } void set_max_hp(int v) { max_hp = v; }
+    float get_mana() const { return mana; } void set_mana(float v) { mana = v; }
+    float get_max_mana() const { return max_mana; } void set_max_mana(float v) { max_mana = v; }
     float get_atk() const { return atk; } void set_atk(float v) { atk = v; }
     float get_asp() const { return asp; } void set_asp(float v) { asp = v; }
     float get_speed() const { return speed; } void set_speed(float v) { speed = v; }
@@ -40,6 +62,8 @@ public:
     int get_level() const { return level; } void set_level(int v) { level = v; }
     int get_xp() const { return xp; } void set_xp(int v) { xp = v; }
     int get_xp_needed() const { return xp_needed; } void set_xp_needed(int v) { xp_needed = v; }
+    godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
+    void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) { skills = v; }
 protected:
     static void _bind_methods();
 };
@@ -49,10 +73,12 @@ class SimBotSnap : public godot::RefCounted {
 public:
     int id = 0; float x = 0, y = 0, ang = 0;
     int hp = 0, max_hp = 0; bool dead = false;
+    float mana = 0, max_mana = 0;
     float atk = 0, asp = 0; int kills = 0; int level = 0;
     int xp = 0, xp_needed = 0;
     float speed = 0;
     int tier = 0;
+    godot::TypedArray<SimSkillSlotSnap> skills;
 
     int get_id() const { return id; } void set_id(int v) { id = v; }
     float get_x() const { return x; } void set_x(float v) { x = v; }
@@ -61,6 +87,8 @@ public:
     int get_hp() const { return hp; } void set_hp(int v) { hp = v; }
     int get_max_hp() const { return max_hp; } void set_max_hp(int v) { max_hp = v; }
     bool get_dead() const { return dead; } void set_dead(bool v) { dead = v; }
+    float get_mana() const { return mana; } void set_mana(float v) { mana = v; }
+    float get_max_mana() const { return max_mana; } void set_max_mana(float v) { max_mana = v; }
     float get_atk() const { return atk; } void set_atk(float v) { atk = v; }
     float get_asp() const { return asp; } void set_asp(float v) { asp = v; }
     int get_kills() const { return kills; } void set_kills(int v) { kills = v; }
@@ -69,6 +97,8 @@ public:
     int get_xp_needed() const { return xp_needed; } void set_xp_needed(int v) { xp_needed = v; }
     float get_speed() const { return speed; } void set_speed(float v) { speed = v; }
     int get_tier() const { return tier; } void set_tier(int v) { tier = v; }
+    godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
+    void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) { skills = v; }
 protected:
     static void _bind_methods();
 };
@@ -77,7 +107,6 @@ class SimArrowSnap : public godot::RefCounted {
     GDCLASS(SimArrowSnap, godot::RefCounted)
 public:
     int id = 0; float x = 0, y = 0, ang = 0;
-
     int get_id() const { return id; } void set_id(int v) { id = v; }
     float get_x() const { return x; } void set_x(float v) { x = v; }
     float get_y() const { return y; } void set_y(float v) { y = v; }
@@ -91,7 +120,6 @@ class SimPickupSnap : public godot::RefCounted {
 public:
     int id = 0; float x = 0, y = 0;
     int type = 0; int value = 0;
-
     int get_id() const { return id; } void set_id(int v) { id = v; }
     float get_x() const { return x; } void set_x(float v) { x = v; }
     float get_y() const { return y; } void set_y(float v) { y = v; }

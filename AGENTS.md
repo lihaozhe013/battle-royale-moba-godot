@@ -116,10 +116,35 @@ SimPickupSnap: id, x, y, type(0/1/2), value
 SimEventSnap:  killer_id, victim_id
 ```
 
-## 当前 tick 顺序（12 systems）
+## 当前 tick 顺序（15 systems）
 
 ```
-local_input_injection → player_movement → player_fire → bot_targeting →
-bot_ai → bot_combat → arrow_movement → wall_collision → combat →
-pickup → progression → snapshot_export
+local_input_injection → player_movement → player_fire → skill_input →
+bot_targeting → bot_ai → bot_combat → arrow_movement → wall_collision →
+combat → pickup → mana_regen → skill_cooldown → progression → snapshot_export
 ```
+
+## 新增字段（SimSnapshot）
+
+| Snap | 新增字段 |
+|------|---------|
+| `SimPlayerSnap` | `mana`, `max_mana`, `skills[]` |
+| `SimBotSnap` | `mana`, `max_mana`, `skills[]` |
+| `SimSkillSlotSnap` | `skill_id`, `level`, `cooldown`, `max_cooldown`, `mana_cost` |
+
+## 新增组件（components.h）
+
+| 组件 | 字段 |
+|------|------|
+| `Mana` | `Cur, Max, RegenRate, RegenDelay, RegenTimer` |
+| `SkillSlot` | `SkillId, Level, CooldownTimer, MaxCooldown, ManaCost` |
+| `SkillComponent` | `Slots[4]` |
+| `SkillPoints` | `Available` |
+
+## 新增 System（src_cpp/sim/systems/）
+
+| System | 文件 | 职责 |
+|--------|------|------|
+| `mana_regen_system` | `mana_regen.h` | Mana 每 tick 回复 |
+| `skill_input_system` | `skill_input.h` | 读取技能按键 → 触发冷却 + 消耗 Mana |
+| `skill_cooldown_system` | `skill_cooldown.h` | 冷却计时递减 |
