@@ -8,7 +8,7 @@ const BAR_OFFSET_Y := 3.0
 const DAMAGE_LERP_SPEED := 3.0
 
 const TIER_COLORS := {
-	0: Color(0.8, 0.2, 0.2),
+	0: Color(0.122, 0.122, 0.122),
 	1: Color(0.6, 0.2, 0.8),
 	2: Color(1.0, 0.8, 0.0),
 }
