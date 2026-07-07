@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dhgs8ga4xay08"]
 
 [ext_resource type="Script" uid="uid://bdxgc70cw8rvq" path="res://scripts/ui/skill_slot_ui.gd" id="1"]
+[ext_resource type="FontFile" uid="uid://dxaagvgrfwmhi" path="res://resources/ui/Cinzel-Regular.ttf" id="2_18mjk"]
 
 [node name="SkillSlotUI" type="Control" unique_id=2013641181]
 custom_minimum_size = Vector2(64, 64)
@@ -57,6 +58,7 @@ offset_right = 0.5000076
 offset_bottom = 11.500004
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_fonts/font = ExtResource("2_18mjk")
 text = "0"
 horizontal_alignment = 2
 vertical_alignment = 1
@@ -73,6 +75,7 @@ offset_bottom = 29.51
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.26819783, 0.55018693, 0.99999887, 1)
+theme_override_fonts/font = ExtResource("2_18mjk")
 theme_override_font_sizes/font_size = 9
 text = "10"
 horizontal_alignment = 2
@@ -87,4 +90,5 @@ offset_top = -11.5
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_fonts/font = ExtResource("2_18mjk")
 vertical_alignment = 2
