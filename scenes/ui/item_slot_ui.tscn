@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://7nytn7njs0uq"]
 
 [ext_resource type="Script" uid="uid://c8i3pcgcij7yr" path="res://scripts/ui/item_slot_ui.gd" id="1"]
+[ext_resource type="FontFile" uid="uid://dxaagvgrfwmhi" path="res://resources/ui/Cinzel-Regular.ttf" id="2_ddptp"]
 
 [node name="ItemSlotUI" type="Control" unique_id=1353686845]
 custom_minimum_size = Vector2(40, 40)
@@ -42,6 +43,7 @@ offset_right = 0.5
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_fonts/font = ExtResource("2_ddptp")
 text = "0"
 horizontal_alignment = 2
 vertical_alignment = 1
@@ -56,4 +58,5 @@ offset_top = -11.5
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_fonts/font = ExtResource("2_ddptp")
 vertical_alignment = 2

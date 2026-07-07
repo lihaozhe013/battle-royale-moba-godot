@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://dhgs8ga4xay08" path="res://scenes/ui/skill_slot_ui.tscn" id="2"]
 [ext_resource type="Texture2D" uid="uid://2m33xal6h822" path="res://resources/characters/protagonist/skaterMaleA.png" id="2_qjyqg"]
 [ext_resource type="PackedScene" uid="uid://7nytn7njs0uq" path="res://scenes/ui/item_slot_ui.tscn" id="3"]
+[ext_resource type="FontFile" uid="uid://dxaagvgrfwmhi" path="res://resources/ui/Cinzel-Regular.ttf" id="4_gu2qw"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e2x0h"]
 bg_color = Color(0.11403758, 0.114013754, 0.12308272, 1)
@@ -82,6 +83,7 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_gm6fy")
 
 [node name="StatsLabel" type="Label" parent="HUDPanel/HUDContainer/StatsTextContainer" unique_id=247158680]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("4_gu2qw")
 theme_override_font_sizes/font_size = 13
 text = "PlaceHolder"
 
@@ -108,6 +110,7 @@ layout_mode = 0
 offset_top = 84.08
 offset_right = 110.0
 offset_bottom = 107.08001
+theme_override_fonts/font = ExtResource("4_gu2qw")
 text = "Player"
 horizontal_alignment = 1
 
@@ -173,6 +176,7 @@ offset_right = -60.0
 offset_bottom = 5.2649994
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_fonts/font = ExtResource("4_gu2qw")
 theme_override_font_sizes/font_size = 14
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -213,6 +217,7 @@ offset_right = -59.555542
 offset_bottom = 7.2222157
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_fonts/font = ExtResource("4_gu2qw")
 theme_override_font_sizes/font_size = 11
 horizontal_alignment = 1
 vertical_alignment = 1
