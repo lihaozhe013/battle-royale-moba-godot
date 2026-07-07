@@ -19,6 +19,12 @@ var _anim_idle := ""
 var _anim_run := ""
 var _moving := false
 
+# 受击红闪
+var _prev_hp := -1
+var _flash_timer := 0.0
+var _red_mat: Material
+var _child_meshes: Array[MeshInstance3D]
+
 # Sim uses 2D math angles: atan2(y, x) where 0=+x, π/2=+y.
 # Godot rotation.y rotates +X toward -Z (not +Z), so we negate to fix the Z flip.
 # Model faces +Z at rest, so offset by +π/2 to align +X as the zero-angle reference.
@@ -33,6 +39,13 @@ func init(id: int, type: int, ptype: int = 0) -> void:
 	pickup_type = ptype
 
 func _ready() -> void:
+	_red_mat = StandardMaterial3D.new()
+	_red_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_red_mat.albedo_color = Color(1.0, 0.0, 0.0, 0.6)
+	_red_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for child in find_children("*", "MeshInstance3D", true, false):
+		_child_meshes.append(child as MeshInstance3D)
+
 	_anim_player = find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if not _anim_player:
 		return
@@ -54,6 +67,12 @@ func apply_snapshot(x: float, z: float, ang: float, hp: int, max_hp: int, dead: 
 	if dead:
 		visible = false
 		return
+
+	# 受击红闪检测
+	if entity_type == 0 or entity_type == 1:
+		if hp < _prev_hp:
+			_flash_timer = 0.2
+		_prev_hp = hp
 
 	if not visible:
 		_first_snap = true
@@ -83,13 +102,22 @@ func apply_snapshot(x: float, z: float, ang: float, hp: int, max_hp: int, dead: 
 
 	_moving = _curr_pos.distance_to(_prev_pos) > 0.01
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _first_snap:
 		return
 	var elapsed := Time.get_ticks_msec() / 1000.0 - _snap_time
 	var t := clampf(elapsed / LERP_DURATION, 0.0, 1.0)
 	position = _prev_pos.lerp(_curr_pos, t)
 	rotation = Vector3(0, sim_to_godot_yaw(lerp_angle(_prev_ang, _curr_ang, t)), 0)
+
+	# 受击红闪
+	if _flash_timer > 0.0:
+		_flash_timer -= delta
+		for m in _child_meshes:
+			m.material_override = _red_mat
+		if _flash_timer <= 0.0:
+			for m in _child_meshes:
+				m.material_override = null
 
 	if _anim_player and _anim_run != "" and _anim_idle != "":
 		var target := _anim_run if _moving else _anim_idle

@@ -17,6 +17,7 @@ struct ArrowSpawnContext {
     int owner_id;
     entt::entity owner_entity;
     float dmg;
+    float lifesteal_ratio = 0.0f;
 };
 
 inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
@@ -37,7 +38,7 @@ inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
         reg.emplace<Position2D>(e, ctx.spawn_pos);
         reg.emplace<Velocity2D>(e, vel);
         reg.emplace<FacingAngle>(e, ctx.angle);
-        reg.emplace<ArrowTag>(e, ctx.owner_id, ctx.owner_entity, ctx.dmg);
+        reg.emplace<ArrowTag>(e, ctx.owner_id, ctx.owner_entity, ctx.dmg, ctx.lifesteal_ratio);
         reg.emplace<Lifetime>(e, GameConfig::ArrowLifetime);
         reg.emplace<NetworkId>(e, arrow_id);
     });

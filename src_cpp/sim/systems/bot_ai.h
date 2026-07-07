@@ -343,14 +343,21 @@ inline void bot_ai_system(entt::registry &reg, float dt, float map_half, std::mt
             }
         }
 
-        // ── Execute movement ──
-        Vec2 move_dir = target_pos - pos.Value;
-        float move_dist = glm::length(move_dir);
-        if (move_dist > 0.01f) {
-            Vec2 dir = move_dir / move_dist;
-            float step_len = std::min(move_dist, speed.Value * dt);
-            pos.Value = vec2_clamp_to_map(pos.Value + dir * step_len, map_half);
-            angle.Radians = std::atan2(dir.y, dir.x);
+        // ── Root gate (skip movement, can still shoot) ──
+        bool rooted = reg.all_of<StatusEffect>(e)
+            && reg.get<StatusEffect>(e).Type == StatusType::Root
+            && reg.get<StatusEffect>(e).Timer > 0.0f;
+
+        if (!rooted) {
+            // ── Execute movement ──
+            Vec2 move_dir = target_pos - pos.Value;
+            float move_dist = glm::length(move_dir);
+            if (move_dist > 0.01f) {
+                Vec2 dir = move_dir / move_dist;
+                float step_len = std::min(move_dist, speed.Value * dt);
+                pos.Value = vec2_clamp_to_map(pos.Value + dir * step_len, map_half);
+                angle.Radians = std::atan2(dir.y, dir.x);
+            }
         }
 
         // ── Wander timer decay (even when not in Wander state) ──

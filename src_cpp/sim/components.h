@@ -7,6 +7,20 @@
 
 namespace sim {
 
+// ── Skill enum forward declarations ──
+
+enum class SkillKind : uint8_t {
+    MeleeSingle  = 0,  // C
+    AoEField     = 1,  // E
+    Dash         = 2,  // R
+    ChannelBurst = 3,  // F
+};
+
+enum class StatusType : uint8_t {
+    None = 0,
+    Root = 1,
+};
+
 // ── CommonComponents.cs ──────────────────────────────────────────────────
 
 struct Position2D {
@@ -59,10 +73,10 @@ struct PlayerInputState {
     Vec2 Aim{0.0f};
     bool Fire = false;
     int Seq = 0;
-    bool SkillQ = false;
-    bool SkillW = false;
-    bool SkillE = false;
-    bool SkillR = false;
+    int CastSlot = -1;
+    bool CastConfirm = false;
+    bool CastCancel = false;
+    Vec2 CastAim{0.0f};
 };
 
 struct CombatStats {
@@ -121,12 +135,50 @@ struct BotVisionRange {
     float Value = 0.0f;
 };
 
+// ── StatusEffect.cs ──────────────────────────────────────────────────────
+
+struct StatusEffect {
+    StatusType Type = StatusType::None;
+    float Timer = 0.0f;
+};
+
+struct CastState {
+    enum class Phase : uint8_t {
+        None       = 0,
+        Aiming     = 1,
+        Casting    = 2,
+        Channeling = 3,
+        Dashing    = 4,
+    };
+    Phase State = Phase::None;
+    int ActiveSlot = -1;
+    int SkillId = 0;
+    float Timer = 0.0f;
+    float SubTimer = 0.0f;
+    int EnteredSlot = -1;     // which slot triggered current Aiming
+    float RejectTimer = 0.0f; // cooldown after None to prevent re-entry
+    Vec2 AimPos{0.0f};
+    Vec2 DashStart{0.0f};
+    Vec2 DashTarget{0.0f};
+};
+
+// ── AoE components ──
+
+struct AoETag {
+    int OwnerId = 0;
+    int SkillId = 0;
+    float Radius = 0.0f;
+    float Duration = 0.0f;
+    float Timer = 0.0f;
+};
+
 // ── ArrowComponents.cs ───────────────────────────────────────────────────
 
 struct ArrowTag {
     int OwnerId = 0;
     entt::entity OwnerEntity = entt::null;
     float Dmg = 0.0f;
+    float LifestealRatio = 0.0f;
 };
 
 // ── WallComponents.cs ────────────────────────────────────────────────────
@@ -199,10 +251,10 @@ struct LocalInputSingleton {
     Vec2 Aim{0.0f};
     bool Fire = false;
     int Seq = 0;
-    bool SkillQ = false;
-    bool SkillW = false;
-    bool SkillE = false;
-    bool SkillR = false;
+    int CastSlot = -1;
+    bool CastConfirm = false;
+    bool CastCancel = false;
+    Vec2 CastAim{0.0f};
 };
 
 struct MapBounds {
@@ -225,6 +277,7 @@ struct IdState {
     int NextBotId = 0;
     int NextArrowId = 0;
     int NextPickupId = 0;
+    int NextAoEId = 0;
 };
 
 } // namespace sim

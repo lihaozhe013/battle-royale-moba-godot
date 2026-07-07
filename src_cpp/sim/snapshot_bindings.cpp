@@ -40,9 +40,13 @@ void SimPlayerSnap::_bind_methods() {
     BIND(SimPlayerSnap, atk); BIND(SimPlayerSnap, asp); BIND(SimPlayerSnap, speed);
     BIND(SimPlayerSnap, kills); BIND(SimPlayerSnap, level);
     BIND(SimPlayerSnap, xp); BIND(SimPlayerSnap, xp_needed);
+    BIND(SimPlayerSnap, cast_state); BIND(SimPlayerSnap, cast_slot);
+    BIND(SimPlayerSnap, cast_progress);
+    BIND(SimPlayerSnap, cast_aim_x); BIND(SimPlayerSnap, cast_aim_y);
+    BIND(SimPlayerSnap, dash_sx); BIND(SimPlayerSnap, dash_sy);
+    BIND(SimPlayerSnap, dash_tx); BIND(SimPlayerSnap, dash_ty);
     ClassDB::bind_method(D_METHOD("get_skills"), &SimPlayerSnap::get_skills);
     ClassDB::bind_method(D_METHOD("set_skills", "v"), &SimPlayerSnap::set_skills);
-
     PROP(SimPlayerSnap, Variant::INT, id);
     PROP(SimPlayerSnap, Variant::FLOAT, x);
     PROP(SimPlayerSnap, Variant::FLOAT, y);
@@ -58,6 +62,15 @@ void SimPlayerSnap::_bind_methods() {
     PROP(SimPlayerSnap, Variant::INT, level);
     PROP(SimPlayerSnap, Variant::INT, xp);
     PROP(SimPlayerSnap, Variant::INT, xp_needed);
+    PROP(SimPlayerSnap, Variant::INT, cast_state);
+    PROP(SimPlayerSnap, Variant::INT, cast_slot);
+    PROP(SimPlayerSnap, Variant::FLOAT, cast_progress);
+    PROP(SimPlayerSnap, Variant::FLOAT, cast_aim_x);
+    PROP(SimPlayerSnap, Variant::FLOAT, cast_aim_y);
+    PROP(SimPlayerSnap, Variant::FLOAT, dash_sx);
+    PROP(SimPlayerSnap, Variant::FLOAT, dash_sy);
+    PROP(SimPlayerSnap, Variant::FLOAT, dash_tx);
+    PROP(SimPlayerSnap, Variant::FLOAT, dash_ty);
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "skills", PROPERTY_HINT_ARRAY_TYPE, "SimSkillSlotSnap"), "set_skills", "get_skills");
 }
 
@@ -70,9 +83,9 @@ void SimBotSnap::_bind_methods() {
     BIND(SimBotSnap, kills); BIND(SimBotSnap, level);
     BIND(SimBotSnap, xp); BIND(SimBotSnap, xp_needed);
     BIND(SimBotSnap, speed); BIND(SimBotSnap, tier);
+    BIND(SimBotSnap, root_timer);
     ClassDB::bind_method(D_METHOD("get_skills"), &SimBotSnap::get_skills);
     ClassDB::bind_method(D_METHOD("set_skills", "v"), &SimBotSnap::set_skills);
-
     PROP(SimBotSnap, Variant::INT, id);
     PROP(SimBotSnap, Variant::FLOAT, x);
     PROP(SimBotSnap, Variant::FLOAT, y);
@@ -90,6 +103,7 @@ void SimBotSnap::_bind_methods() {
     PROP(SimBotSnap, Variant::INT, xp_needed);
     PROP(SimBotSnap, Variant::FLOAT, speed);
     PROP(SimBotSnap, Variant::INT, tier);
+    PROP(SimBotSnap, Variant::FLOAT, root_timer);
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "skills", PROPERTY_HINT_ARRAY_TYPE, "SimSkillSlotSnap"), "set_skills", "get_skills");
 }
 
@@ -112,6 +126,17 @@ void SimPickupSnap::_bind_methods() {
     PROP(SimPickupSnap, Variant::INT, value);
 }
 
+void SimAoESnap::_bind_methods() {
+    BIND(SimAoESnap, id); BIND(SimAoESnap, x); BIND(SimAoESnap, y);
+    BIND(SimAoESnap, radius); BIND(SimAoESnap, remaining); BIND(SimAoESnap, duration);
+    PROP(SimAoESnap, Variant::INT, id);
+    PROP(SimAoESnap, Variant::FLOAT, x);
+    PROP(SimAoESnap, Variant::FLOAT, y);
+    PROP(SimAoESnap, Variant::FLOAT, radius);
+    PROP(SimAoESnap, Variant::FLOAT, remaining);
+    PROP(SimAoESnap, Variant::FLOAT, duration);
+}
+
 void SimSnapshot::_bind_methods() {
     BIND(SimSnapshot, seq);
     ClassDB::bind_method(D_METHOD("get_t"), &SimSnapshot::get_t);
@@ -126,6 +151,8 @@ void SimSnapshot::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_pickups", "v"), &SimSnapshot::set_pickups);
     ClassDB::bind_method(D_METHOD("get_events"), &SimSnapshot::get_events);
     ClassDB::bind_method(D_METHOD("set_events", "v"), &SimSnapshot::set_events);
+    ClassDB::bind_method(D_METHOD("get_aoes"), &SimSnapshot::get_aoes);
+    ClassDB::bind_method(D_METHOD("set_aoes", "v"), &SimSnapshot::set_aoes);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "seq"), "set_seq", "get_seq");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "t"), "set_t", "get_t");
@@ -134,6 +161,7 @@ void SimSnapshot::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "arrows", PROPERTY_HINT_ARRAY_TYPE, "SimArrowSnap"), "set_arrows", "get_arrows");
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "pickups", PROPERTY_HINT_ARRAY_TYPE, "SimPickupSnap"), "set_pickups", "get_pickups");
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "events", PROPERTY_HINT_ARRAY_TYPE, "SimEventSnap"), "set_events", "get_events");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "aoes", PROPERTY_HINT_ARRAY_TYPE, "SimAoESnap"), "set_aoes", "get_aoes");
 }
 
 } // namespace sim

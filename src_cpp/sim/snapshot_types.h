@@ -45,6 +45,12 @@ public:
     float mana = 0, max_mana = 0;
     float atk = 0, asp = 0, speed = 0;
     int kills = 0, level = 0, xp = 0, xp_needed = 0;
+    int cast_state = 0;
+    int cast_slot = -1;
+    float cast_progress = 0.0f;
+    float cast_aim_x = 0.0f, cast_aim_y = 0.0f;
+    float dash_sx = 0.0f, dash_sy = 0.0f;
+    float dash_tx = 0.0f, dash_ty = 0.0f;
     godot::TypedArray<SimSkillSlotSnap> skills;
 
     int get_id() const { return id; } void set_id(int v) { id = v; }
@@ -62,6 +68,15 @@ public:
     int get_level() const { return level; } void set_level(int v) { level = v; }
     int get_xp() const { return xp; } void set_xp(int v) { xp = v; }
     int get_xp_needed() const { return xp_needed; } void set_xp_needed(int v) { xp_needed = v; }
+    int get_cast_state() const { return cast_state; } void set_cast_state(int v) { cast_state = v; }
+    int get_cast_slot() const { return cast_slot; } void set_cast_slot(int v) { cast_slot = v; }
+    float get_cast_progress() const { return cast_progress; } void set_cast_progress(float v) { cast_progress = v; }
+    float get_cast_aim_x() const { return cast_aim_x; } void set_cast_aim_x(float v) { cast_aim_x = v; }
+    float get_cast_aim_y() const { return cast_aim_y; } void set_cast_aim_y(float v) { cast_aim_y = v; }
+    float get_dash_sx() const { return dash_sx; } void set_dash_sx(float v) { dash_sx = v; }
+    float get_dash_sy() const { return dash_sy; } void set_dash_sy(float v) { dash_sy = v; }
+    float get_dash_tx() const { return dash_tx; } void set_dash_tx(float v) { dash_tx = v; }
+    float get_dash_ty() const { return dash_ty; } void set_dash_ty(float v) { dash_ty = v; }
     godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
     void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) { skills = v; }
 protected:
@@ -78,6 +93,7 @@ public:
     int xp = 0, xp_needed = 0;
     float speed = 0;
     int tier = 0;
+    float root_timer = 0.0f;
     godot::TypedArray<SimSkillSlotSnap> skills;
 
     int get_id() const { return id; } void set_id(int v) { id = v; }
@@ -97,6 +113,7 @@ public:
     int get_xp_needed() const { return xp_needed; } void set_xp_needed(int v) { xp_needed = v; }
     float get_speed() const { return speed; } void set_speed(float v) { speed = v; }
     int get_tier() const { return tier; } void set_tier(int v) { tier = v; }
+    float get_root_timer() const { return root_timer; } void set_root_timer(float v) { root_timer = v; }
     godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
     void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) { skills = v; }
 protected:
@@ -129,6 +146,22 @@ protected:
     static void _bind_methods();
 };
 
+class SimAoESnap : public godot::RefCounted {
+    GDCLASS(SimAoESnap, godot::RefCounted)
+public:
+    int id = 0; float x = 0, y = 0;
+    float radius = 0.0f; float remaining = 0.0f; float duration = 0.0f;
+
+    int get_id() const { return id; } void set_id(int v) { id = v; }
+    float get_x() const { return x; } void set_x(float v) { x = v; }
+    float get_y() const { return y; } void set_y(float v) { y = v; }
+    float get_radius() const { return radius; } void set_radius(float v) { radius = v; }
+    float get_remaining() const { return remaining; } void set_remaining(float v) { remaining = v; }
+    float get_duration() const { return duration; } void set_duration(float v) { duration = v; }
+protected:
+    static void _bind_methods();
+};
+
 class SimSnapshot : public godot::RefCounted {
     GDCLASS(SimSnapshot, godot::RefCounted)
 public:
@@ -139,6 +172,7 @@ public:
     godot::TypedArray<SimArrowSnap> arrows;
     godot::TypedArray<SimPickupSnap> pickups;
     godot::TypedArray<SimEventSnap> events;
+    godot::TypedArray<SimAoESnap> aoes;
 
     int get_seq() const { return seq; } void set_seq(int v) { seq = v; }
     int64_t get_t() const { return t; } void set_t(int64_t v) { t = v; }
@@ -152,6 +186,8 @@ public:
     void set_pickups(const godot::TypedArray<SimPickupSnap> &v) { pickups = v; }
     godot::TypedArray<SimEventSnap> get_events() const { return events; }
     void set_events(const godot::TypedArray<SimEventSnap> &v) { events = v; }
+    godot::TypedArray<SimAoESnap> get_aoes() const { return aoes; }
+    void set_aoes(const godot::TypedArray<SimAoESnap> &v) { aoes = v; }
 protected:
     static void _bind_methods();
 };
