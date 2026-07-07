@@ -842,3 +842,338 @@ GDScript View (60Hz)
   │   └─ health_bar_ui        → 血条 + 等级徽章 + tier 颜色（新）
   └─ stats_panel              → 玩家面板（不变）
 ```
+
+---
+
+## 11. Bot 阶梯式重生（v2 方案，2026-07-07）
+
+> 解决问题：当前复活"纯随机等级 1~30 + Tier roll"导致玩家动辄 Lv1 对 Lv30 Boss，毫无博弈空间。
+> 目标：场上 bot 总数增加，并按等级阶梯分布为 3 类角色；每当 bot 死亡重生时，扫描全场角色分布，把缺失区间补回。
+
+### 11.1 可行性评估
+
+| 需求 | 实现路径 | 评估 |
+|------|---------|------|
+| Bot 总数增加 | 调 `GameConfig::BotCount`（5 → 10）+ 初次 spawn 循环 | 无风险，决策 cooldown=0.3s 已节流，5→10 bot 性能仍可忽略 |
+| 三类等级区间的 bot | 新增 `BotRole` 组件 + 每类角色有独立等级规则 | 与现有 `BotTier`（属性倍率）正交，互不冲突 |
+| Stalker 跟随玩家等级 | bot_ai_system 在复活段读 `PlayerTag + Level` 视图取玩家等级 | ✅ Sim 层任意 system 都可直接 view，无需跨层通信 |
+| 重生时扫描分布补缺 | 复活判定段调用 helper 扫描所有 alive bot 的 role 计数 | 复活每 3 秒最多触发 1 bot，扫描 O(BotCount) 完全可忽略 |
+
+**结论：可行，且改动面比 §3 小**——只动 1 个组件、2 个文件（`components.h` / `bot_ai.h`），加 1 处 `world.cpp` spawn 改造、1 处 `game_config.h` 常量、1 处 snapshot 选配。
+
+### 11.2 三类角色定义
+
+| Role | 含义 | 等级规则 | 设计意图 |
+|------|------|---------|---------|
+| **Fodder（炮灰）** | 永远低等级 | `uniform(1, FodderMaxLv)` | 玩家送菜/打怪练级；Stalker/Brute 也靠杀它们成长 |
+| **Stalker（追猎者）** | 跟随玩家等级 | `clamp(player_lv + uniform(-2, +2), 1, MaxBotLevel)` | 始终给玩家一个"势均力敌"的对手，越级也只差 2 级 |
+| **Brute（重型机）** | 一出生高等级 | `uniform(BruteMinLv, MaxBotLevel)` | 地图威胁/资源 contested 目标；玩家要绕开或组队击杀 |
+
+**Tier 与 Role 的关系（建议正交但有倾向）：**
+
+| Role | Tier roll |
+|------|-----------|
+| Fodder | 永远 `Normal` |
+| Stalker | 沿用现有 `BossRoll=5% / EliteRoll=20% / Normal` 概率 |
+| Brute | 强制 `Elite` 概率 60%，`Boss` 概率 40%，不出 `Normal` |
+
+> 这样 Fodder 是清一色普通小怪；Stalker 维持稀有 Boss 的惊喜感；Brute 永远是高威胁的橙/金血条。Tier 倍率常数（`GameConfig` 中现有）保持不变。
+
+### 11.3 GameConfig 新增常量
+
+```cpp
+// game_config.h
+static constexpr int BotCount = 10;          // 5 → 10，加大场面
+
+// ── Bot Role 阶梯 ──
+static constexpr int FodderMaxLv = 5;         // Fodder 等级上限（下限固定 1）
+static constexpr int BruteMinLv = 22;         // Brute 等级下限（上限 = MaxBotLevel）
+static constexpr int StalkerOffset = 2;       // Stalker = player_lv ± offset
+
+// 首次出生时的目标 role 配比（比例之和不必 = 1，按权重采样）
+static constexpr int FodderWeight = 4;
+static constexpr int StalkerWeight = 4;
+static constexpr int BruteWeight = 2;
+
+// Brute 的 Tier 强制概率
+static constexpr float BruteEliteRoll = 0.6f; // Brute 60% Elite
+                                              // 余下 40% Boss
+```
+
+### 11.4 新增组件
+
+```cpp
+// components.h
+enum class BotRole : uint8_t {
+    Fodder = 0,
+    Stalker = 1,
+    Brute = 2,
+};
+
+// 给现有 BotTag 用同一 struct 容器或单独 emplace：
+//   _reg.emplace<BotRole>(e, BotRole::Fodder);
+```
+
+> Role 是"出生决定后不再改变"的属性——一次出生一个 bot 的 Role 就锁死了，重生不会重新 roll role，而是按"全场缺失区间"挑选。
+> 复活时**直接覆盖** `BotRole` 组件（entity 不变，只改值），无需 CommandBuffer。
+
+### 11.5 `world.cpp` `_spawn_bot` 改造
+
+首次出生按权重采样 role，再按 role 走对应等级+Tier 通路：
+
+```cpp
+void World::_spawn_bot() {
+    // 1. 按权重采样 role
+    int total_w = GameConfig::FodderWeight + GameConfig::StalkerWeight + GameConfig::BruteWeight;
+    int r = std::uniform_int_distribution<int>(0, total_w - 1)(_rng);
+    BotRole role;
+    if (r < GameConfig::FodderWeight)                  role = BotRole::Fodder;
+    else if (r < GameConfig::FodderWeight + GameConfig::StalkerWeight) role = BotRole::Stalker;
+    else                                                role = BotRole::Brute;
+
+    // 2. 复用通用 spawn helper（见 §11.6）
+    _spawn_bot_with_role(role);
+}
+```
+
+抽取一个共用的 `_spawn_bot_with_role(BotRole role)` 私有方法供初次出生 + 复活**两处**调用，避免逻辑重复。world.h 增加声明。
+
+### 11.6 通用 spawn helper（首次出生 + 复活共用）
+
+```cpp
+// world.h
+void _spawn_bot_with_role(BotRole role);
+int  _roll_level_for_role(BotRole role);          // 返回该 role 的随机等级
+BotTier _roll_tier_for_role(BotRole role);        // 返回该 role 的 Tier
+void _apply_bot_stats(entt::entity e, int lv, BotTier tier); // 已有逻辑内联
+```
+
+等级/Tier roll 规则集中：
+
+```cpp
+int World::_roll_level_for_role(BotRole role) {
+    switch (role) {
+        case BotRole::Fodder:
+            return std::uniform_int_distribution<int>(1, GameConfig::FodderMaxLv)(_rng);
+        case BotRole::Brute:
+            return std::uniform_int_distribution<int>(GameConfig::BruteMinLv, GameConfig::MaxBotLevel)(_rng);
+        case BotRole::Stalker: {
+            int plv = _player_level();   // view<PlayerTag, Level> 取 IsLocal 玩家等级
+            int off = std::uniform_int_distribution<int>(
+                -GameConfig::StalkerOffset, GameConfig::StalkerOffset)(_rng);
+            return std::clamp(plv + off, 1, GameConfig::MaxBotLevel);
+        }
+    }
+    return 1;
+}
+
+BotTier World::_roll_tier_for_role(BotRole role) {
+    float r = std::uniform_real_distribution<float>(0.0f, 1.0f)(_rng);
+    switch (role) {
+        case BotRole::Fodder:
+            return BotTier::Normal;
+        case BotRole::Stalker:
+            if (r < GameConfig::BossRoll)       return BotTier::Boss;
+            else if (r < GameConfig::EliteRoll) return BotTier::Elite;
+            else                                return BotTier::Normal;
+        case BotRole::Brute:
+            return (r < GameConfig::BruteEliteRoll) ? BotTier::Elite : BotTier::Boss;
+    }
+    return BotTier::Normal;
+}
+```
+
+> **注意**：`_roll_level_for_role(Stalker)` 必须在 Sim 层读玩家等级。World 类持有 `_reg`，可直接 view，无需新增参数。bot_ai_system 复活段也要类似读玩家等级——见 §11.7。
+
+### 11.7 `bot_ai.h` 复活段重写（核心改动）
+
+复活时不再纯随机，而是先扫描全场 alive bot 的 role 分布，挑出**当前数量低于权重比例最多的 role**，赋给复活 bot，再按 role roll 等级+Tier。
+
+```cpp
+// bot_ai.h - 复活段（替换 §3.2 现有代码）
+
+if (dead) {
+    ai.RespawnTimer -= dt;
+    if (ai.RespawnTimer <= 0.0f) {
+        reg.get<Dead>(e).enabled = false;
+
+        // ── step 1: 扫描全场 alive bot 的 role 分布 ──
+        int counts[3] = {0, 0, 0};  // Fodder / Stalker / Brute
+        auto role_view = reg.view<BotTag, BotRole>(entt::exclude<Dead>);
+        for (auto b : role_view) {
+            counts[static_cast<int>(role_view.get<BotRole>(b))]++;
+        }
+        // 算上自己（我即将复活，给自己一个新 role）
+        // 排除法：把场上的 Stalker/Brute/Fodder 数量除以权重，选最低密度
+        float density[3] = {
+            counts[0] / (float)GameConfig::FodderWeight,
+            counts[1] / (float)GameConfig::StalkerWeight,
+            counts[2] / (float)GameConfig::BruteWeight,
+        };
+        BotRole chosen;
+        if      (density[0] <= density[1] && density[0] <= density[2]) chosen = BotRole::Fodder;
+        else if (density[1] <= density[2])                              chosen = BotRole::Stalker;
+        else                                                            chosen = BotRole::Brute;
+
+        reg.get_or_emplace<BotRole>(e) = chosen;
+
+        // ── step 2: 按 role roll 等级 ──
+        int new_lv = _roll_bot_level_for_role(reg, chosen, rng);
+
+        // ── step 3: 按 role roll Tier ──
+        BotTier tier = _roll_bot_tier_for_role(chosen, rng);
+        const auto [hp_mul, atk_mul, asp_mul, speed_mul, vision_mul]
+            = _tier_mult(tier); // 现有 helper
+
+        // ── step 4: 应用属性（沿用 §3.2 现有公式） ──
+        lv.Value = new_lv;
+        int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::BotHpPerLevel;
+        hp.Max = static_cast<int>(base_hp * hp_mul);
+        hp.Cur = hp.Max;
+        stats.Atk = (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::BotAtkPerLevel) * atk_mul;
+        stats.Asp = std::min(
+            (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::BotAspPerLevel) * asp_mul,
+            GameConfig::AspMax);
+        speed.Value = (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) * speed_mul;
+        vision.Value = GameConfig::BotVisionRange * vision_mul;
+        exp.Cur = 0;
+        exp.Needed = new_lv * GameConfig::XpPerLevelBase;
+
+        // ── step 5: 重生位置 + wander 重置（保留 §3.2 现有代码） ──
+        float half = map_half - GameConfig::BotRadius;
+        pos.Value = Vec2{
+            std::uniform_real_distribution<float>(-half, half)(rng),
+            std::uniform_real_distribution<float>(-half, half)(rng)
+        };
+        ai.MoveTarget = Vec2{
+            std::uniform_real_distribution<float>(-half, half)(rng),
+            std::uniform_real_distribution<float>(-half, half)(rng)
+        };
+        ai.RespawnTimer = 0.0f;
+        ai.TargetEntity = entt::null;
+        ai.WanderTimer = GameConfig::BotWanderIntervalMin
+            + std::uniform_real_distribution<float>(0.0f, 1.0f)(rng)
+            * (GameConfig::BotWanderIntervalMax - GameConfig::BotWanderIntervalMin);
+        beh.Current = BotBehaviorState::Goal::Wander;
+        beh.PickupTarget = entt::null;
+    }
+    continue;
+}
+```
+
+辅助函数（建议放在 `bot_ai.h` 的 `detail` namespace，header-only）：
+
+```cpp
+namespace detail {
+
+inline int _roll_bot_level_for_role(entt::registry &reg, BotRole role, std::mt19937 &rng) {
+    switch (role) {
+        case BotRole::Fodder:
+            return std::uniform_int_distribution<int>(1, GameConfig::FodderMaxLv)(rng);
+        case BotRole::Brute:
+            return std::uniform_int_distribution<int>(GameConfig::BruteMinLv, GameConfig::MaxBotLevel)(rng);
+        case BotRole::Stalker: {
+            int plv = 1;
+            auto pv = reg.view<PlayerTag, Level>();
+            for (auto p : pv) {
+                if (pv.get<PlayerTag>(p).IsLocal) {
+                    plv = pv.get<Level>(p).Value;
+                    break;
+                }
+            }
+            int off = std::uniform_int_distribution<int>(
+                -GameConfig::StalkerOffset, GameConfig::StalkerOffset)(rng);
+            return std::clamp(plv + off, 1, GameConfig::MaxBotLevel);
+        }
+    }
+    return 1;
+}
+
+inline BotTier _roll_bot_tier_for_role(BotRole role, std::mt19937 &rng) {
+    float r = std::uniform_real_distribution<float>(0.0f, 1.0f)(rng);
+    switch (role) {
+        case BotRole::Fodder:  return BotTier::Normal;
+        case BotRole::Stalker:
+            if (r < GameConfig::BossRoll)       return BotTier::Boss;
+            else if (r < GameConfig::EliteRoll) return BotTier::Elite;
+            else                                return BotTier::Normal;
+        case BotRole::Brute:
+            return (r < GameConfig::BruteEliteRoll) ? BotTier::Elite : BotTier::Boss;
+    }
+    return BotTier::Normal;
+}
+
+struct TierMult { float hp, atk, asp, spd, vis; };
+
+inline TierMult _tier_mult(BotTier t) {
+    switch (t) {
+        case BotTier::Elite: return {GameConfig::EliteHpMul, GameConfig::EliteAtkMul,
+            GameConfig::EliteAspMul, GameConfig::EliteSpeedMul, GameConfig::EliteVisionMul};
+        case BotTier::Boss:  return {GameConfig::BossHpMul, GameConfig::BossAtkMul,
+            GameConfig::BossAspMul, GameConfig::BossSpeedMul, GameConfig::BossVisionMul};
+        case BotTier::Normal:
+        default:             return {GameConfig::NormalHpMul, GameConfig::NormalAtkMul,
+            GameConfig::NormalAspMul, GameConfig::NormalSpeedMul, GameConfig::NormalVisionMul};
+    }
+}
+
+} // namespace detail
+```
+
+> **注意**：bot_ai.h 与 world.cpp 会重复 `_roll_level_for_role` / `_roll_tier_for_role` 逻辑。建议把这套 roll 函数抽到一个新的 header-only `bot_role_rules.h`（参考 §11.9 文件清单），让 world.cpp 和 bot_ai.h 共用。
+
+### 11.8 阶梯分布示例（10 bot 目标）
+
+| Role | 权重 | 目标占比 | 10 bot 期望数 | 等级范围 |
+|------|------|---------|--------------|---------|
+| Fodder | 4 | 40% | 4 | 1~5 |
+| Stalker | 4 | 40% | 4 | player_lv ± 2 |
+| Brute | 2 | 20% | 2 | 22~30，Tier 强制 Elite/Boss |
+
+10 bot × 3 role × 3s 复活周期 → 每 3s 至多 1 次扫描。每次扫描 10 个 bot → 30 次比较/秒，可忽略。
+
+### 11.9 文件改动清单（基于本方案）
+
+| 文件 | 改动 |
+|------|------|
+| `src_cpp/sim/components.h` | 新增 `enum class BotRole : uint8_t { Fodder, Stalker, Brute }` |
+| `src_cpp/sim/game_config.h` | 新增 role 常量：`BotCount=10`、`FodderMaxLv`、`BruteMinLv`、`StalkerOffset`、`FodderWeight/StalkerWeight/BruteWeight`、`BruteEliteRoll` |
+| `src_cpp/sim/systems/bot_role_rules.h` | **新建** header-only： `_roll_bot_level_for_role` / `_roll_bot_tier_for_role` / `_tier_mult` |
+| `src_cpp/sim/world.h` | 声明 `_spawn_bot_with_role(BotRole)`；不再用 `_spawn_bot` 单一入口（或保留为 thin wrapper） |
+| `src_cpp/sim/world.cpp` | `_spawn_bot` 改造为"按权重采样 role → 调 `_spawn_bot_with_role`"；首次出生 emplace `BotRole` 组件 |
+| `src_cpp/sim/systems/bot_ai.h` | 复活段重写：扫描 role 分布 → 选最低密度 role → roll 等级/Tier → 应用属性（其余逻辑不动） |
+
+### 11.10 可选扩展（视图层）
+
+| 扩展 | 文件 | 说明 |
+|------|------|------|
+| Role 字段进快照 | `snapshot_types.h` / `snapshot_builder.cpp` / `snapshot_bindings.cpp` | `SimBotSnap.role: int`，仅用于调试/小地图图标 |
+| Level Badge 颜色按 role 细分 | `health_bar_ui.gd` | 可选：Brute 加描边/橙色发光，让玩家远距离识别威胁 |
+
+> 视图层改动**完全不阻塞 Sim 实现**，可作为后续 P2 任务。
+
+### 11.11 风险与对策
+
+| 风险 | 描述 | 对策 |
+|------|------|------|
+| Stalker 全场紧迫玩家 | 当玩家升到 Lv25+，Stalker 全部 Lv25±2，密度高 | Stalker 数量受权重限制（4 bot）；AimDistance/BotVisionRange 不变，玩家靠走位脱战 |
+| 玩家很早遇到 Brute | 开局玩家 Lv1，Brute Lv25 Boss 蹲脸 → 开局即死 | Brute 出生位置可单独设置（远离玩家初始位置 30+ 单位），需要 `world.cpp` 初始 spawn 时算玩家距离拒绝采样（可选优化） |
+| bot 全场分布不均 | 复活时若 Stalker 全死光，每次都补 Stalker，可能瞬间涌出 4 个 Stalker | density 选择算法天然分布更均匀；	exports `density = count/weight` 而不是 `count`，能更好回到权重配比 |
+| 玩家死亡后 Stalker 失锚 | BR 模式玩家淘汰后无 PlayerTag.IsLocal，Stalker 升级逻辑崩 | `_roll_bot_level_for_role(Stalker)` fallback：取场上最高 HP alive bot 的等级；或固定升级到 MaxBotLevel（在 P0-5 死亡系统落地后再处理） |
+| Role 与 Tier 双系统都改属性 | Role 控制"等级范围"，Tier 控制"属性倍率"，两者相乘可能数值失控（Brute Lv30 Boss HP=1128） | 直接复用 §3.4 已有数值表，已有平衡；Brute 默认 max HP=1128 仍是设计内威胁 |
+| 性能（10 bot + 复活扫描） | 每 tick 复活段扫描 10 bot role 计数 | 10 ops × 0.33 Hz (复活率) = 3.3 ops/s，完全可忽略 |
+
+---
+
+## 附录 B：v2 方案与 §3 方案的关系
+
+| 项 | §3（v1） | §11（v2 本节） |
+|----|---------|---------------|
+| Bot 总数 | 5 | 10 |
+| 等级 roll | `uniform(1, 30)` | 按 role 分段 |
+| Tier roll | 全角色同概率 | role 决定 Tier 分布 |
+| 复活策略 | 完全随机重 roll | 扫描分布、补缺密度 |
+| 玩家等级感知 | 无 | Stalker 跟随玩家等级 |
+| 视觉难度梯度 | 仅靠血条徽章颜色 | 阶梯让玩家可"看等级选目标"：Fodder 当菜、Stalker 互殴、Brute 避开 |
+
+**实施顺序建议**：先做 §11 的 Sim 改造（不动视图层），跑 1 局观察等级分布是否符合 §11.8 期望，再决定是否要 §11.10 视图扩展。§3 中已写好的"Tier 倍率数值表 + 决策树 + Pickup 经济调优"全部继续沿用，本方案只重写"复活段 roll" 这一段。
