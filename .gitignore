@@ -40,3 +40,5 @@ src_cpp/.sconsign.dblite
 src_cpp/godot-cpp/gen/
 src_cpp/godot-cpp/bin/
 .vscode/settings.json
+
+/dist
