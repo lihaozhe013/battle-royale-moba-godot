@@ -13,29 +13,21 @@ World::World()
 void World::initialize(const std::string &map_json) {
     auto map = parse_map_json(map_json);
 
-    // MapBounds singleton
     _map_bounds_entity = _reg.create();
     _reg.emplace<MapBounds>(_map_bounds_entity, map.half);
 
-    // LocalInputSingleton
     _local_input_entity = _reg.create();
     _reg.emplace<LocalInputSingleton>(_local_input_entity,
-        Vec2{0.0f}, Vec2{0.0f}, false, 0);
+        Vec2{0.0f}, Vec2{0.0f}, false, 0, false, false, false, false);
 
-    // IdState
     _id_state_entity = _reg.create();
     _reg.emplace<IdState>(_id_state_entity,
-        GameConfig::PlayerIdStart,
-        GameConfig::BotIdStart,
-        GameConfig::ArrowIdStart,
-        GameConfig::PickupIdStart
-    );
+        GameConfig::PlayerIdStart, GameConfig::BotIdStart,
+        GameConfig::ArrowIdStart, GameConfig::PickupIdStart);
 
-    // KillEvent buffer
     _kill_event_entity = _reg.create();
     _reg.emplace<KillEventBuffer>(_kill_event_entity);
 
-    // Walls
     for (auto &w : map.walls) {
         float min_x = std::min(w.minX, w.maxX);
         float max_x = std::max(w.minX, w.maxX);
@@ -46,22 +38,28 @@ void World::initialize(const std::string &map_json) {
         _reg.emplace<WallBounds>(wall, Vec2{min_x, min_y}, Vec2{max_x, max_y});
     }
 
-    // Bots
-    for (int i = 0; i < GameConfig::BotCount; ++i) {
-        _spawn_bot();
-    }
-
-    // Player
+    for (int i = 0; i < GameConfig::BotCount; ++i) _spawn_bot();
     _spawn_player(GameConfig::PlayerIdStart, true);
-
-    // Pickup spawners
     _spawn_pickup_spawners();
 }
 
 void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq) {
     if (_local_input_entity != entt::null) {
-        _reg.replace<LocalInputSingleton>(_local_input_entity,
-            move, aim, fire, seq);
+        auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
+        li.Move = move;
+        li.Aim = aim;
+        li.Fire = fire;
+        li.Seq = seq;
+    }
+}
+
+void World::set_skill_input(bool skill_q, bool skill_w, bool skill_e, bool skill_r) {
+    if (_local_input_entity != entt::null) {
+        auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
+        li.SkillQ = skill_q;
+        li.SkillW = skill_w;
+        li.SkillE = skill_e;
+        li.SkillR = skill_r;
     }
 }
 
@@ -69,49 +67,29 @@ void World::tick(double dt) {
     _time += dt;
     float fdt = static_cast<float>(dt);
 
-    // 1. LocalInputInjectionSystem
     local_input_injection_system(_reg, _local_input_entity);
 
-    // 2. PlayerMovementSystem
     float map_half = _reg.get<MapBounds>(_map_bounds_entity).Half;
     player_movement_system(_reg, fdt, map_half);
 
-    // 3. PlayerFireSystem
     auto &ids = _reg.get<IdState>(_id_state_entity);
     player_fire_system(_reg, _time, _cb, ids);
 
-    // 4. BotTargetingSystem
+    skill_input_system(_reg);
     bot_targeting_system(_reg, _rng, fdt);
-
-    // 5. BotAISystem
     bot_ai_system(_reg, fdt, map_half, _rng);
-
-    // 6. BotCombatSystem
     bot_combat_system(_reg, _time, _cb, ids);
-
-    // 7. ArrowMovementSystem
     arrow_movement_system(_reg, fdt);
-
-    // 8. WallCollisionSystem
     wall_collision_system(_reg, _cb);
-
-    // 9. CombatSystem
     combat_system(_reg, _cb);
-
-    // 10. PickupSystem
     pickup_system(_reg, fdt, _cb, ids);
-
-    // 11. ProgressionSystem
+    mana_regen_system(_reg, fdt);
+    skill_cooldown_system(_reg, fdt);
     progression_system(_reg);
-
-    // 12. SnapshotExportSystem
     snapshot_export_system(_reg, _tick_counter, _latest_snapshot);
 
-    // Flush deferred structural changes (matches Unity ECB behavior)
     _cb.flush(_reg);
 }
-
-// ── private ──────────────────────────────────────────────────────────────
 
 void World::_spawn_player(int player_id, bool is_local) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
@@ -126,14 +104,26 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<Position2D>(e, pos);
     _reg.emplace<FacingAngle>(e, 0.0f);
     _reg.emplace<Health>(e, GameConfig::PlayerBaseHp, GameConfig::PlayerBaseHp);
+    _reg.emplace<Mana>(e, GameConfig::PlayerBaseMana, GameConfig::PlayerBaseMana,
+        GameConfig::PlayerManaRegen, GameConfig::ManaRegenDelay, 0.0f);
     _reg.emplace<CombatStats>(e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, 0.0);
     _reg.emplace<Kills>(e, 0);
-    _reg.emplace<PlayerInputState>(e, Vec2{0.0f}, Vec2{0.0f}, false, 0);
+    _reg.emplace<PlayerInputState>(e, Vec2{0.0f}, Vec2{0.0f}, false, 0, false, false, false, false);
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, 1);
     _reg.emplace<Experience>(e, 0, GameConfig::XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, GameConfig::PlayerSpeed);
+
+    SkillComponent sc;
+    for (int i = 0; i < 4; ++i) {
+        sc.Slots[i].SkillId = GameConfig::PlayerSkillIds[i];
+        sc.Slots[i].Level = 1;
+        sc.Slots[i].MaxCooldown = GameConfig::SkillCooldowns[i];
+        sc.Slots[i].ManaCost = GameConfig::SkillManaCosts[i];
+    }
+    _reg.emplace<SkillComponent>(e, sc);
+    _reg.emplace<SkillPoints>(e, 0);
 }
 
 void World::_spawn_bot() {
@@ -144,7 +134,6 @@ void World::_spawn_bot() {
     Vec2 pos = _random_map_pos(half, GameConfig::BotRadius);
     Vec2 target = _random_map_pos(half, GameConfig::BotRadius);
 
-    // Random level 1~30 + tier roll (same as respawn logic in bot_ai.h)
     int new_lv = std::uniform_int_distribution<int>(1, GameConfig::MaxBotLevel)(_rng);
     float r = std::uniform_real_distribution<float>(0.0f, 1.0f)(_rng);
     BotTier tier;
@@ -180,6 +169,8 @@ void World::_spawn_bot() {
     _reg.emplace<Position2D>(e, pos);
     _reg.emplace<FacingAngle>(e, 0.0f);
     _reg.emplace<Health>(e, static_cast<int>(base_hp * hp_mul), static_cast<int>(base_hp * hp_mul));
+    _reg.emplace<Mana>(e, GameConfig::BotBaseMana, GameConfig::BotBaseMana,
+        GameConfig::BotManaRegen, GameConfig::ManaRegenDelay, 0.0f);
     _reg.emplace<BotAIState>(e, target, 0.0f, entt::null, _random_wander_time());
     _reg.emplace<BotBehaviorState>(e);
     _reg.emplace<BotTier>(e, tier);
@@ -191,12 +182,20 @@ void World::_spawn_bot() {
     _reg.emplace<Level>(e, new_lv);
     _reg.emplace<Experience>(e, 0, new_lv * GameConfig::XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, spd);
+
+    SkillComponent sc;
+    for (int i = 0; i < 4; ++i) {
+        sc.Slots[i].SkillId = GameConfig::BotSkillIds[i];
+        sc.Slots[i].Level = 1;
+        sc.Slots[i].MaxCooldown = GameConfig::SkillCooldowns[i];
+        sc.Slots[i].ManaCost = GameConfig::SkillManaCosts[i];
+    }
+    _reg.emplace<SkillComponent>(e, sc);
+    _reg.emplace<SkillPoints>(e, 0);
 }
 
 void World::_spawn_pickup_spawners() {
     struct SpawnDef { PickupType type; int value; Vec2 pos; float respawn; };
-
-    // XP spawners: 12×10 = 120 points, 8-unit grid + random offset
     std::uniform_real_distribution<float> xp_offset(-20.0f, 20.0f);
     for (int row = 0; row < 10; ++row) {
         for (int col = 0; col < 12; ++col) {
@@ -207,32 +206,23 @@ void World::_spawn_pickup_spawners() {
                 GameConfig::XpPickupRespawnTime);
         }
     }
-
-    SpawnDef heal_spawners[] = {
+    SpawnDef heal[] = {
         {PickupType::Heal, GameConfig::HealPickupValue, Vec2{-20, -20}, GameConfig::HealPickupRespawnTime},
         {PickupType::Heal, GameConfig::HealPickupValue, Vec2{ 20,  20}, GameConfig::HealPickupRespawnTime},
     };
-    for (auto &s : heal_spawners) {
-        _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
-    }
-
-    SpawnDef small_heal_spawners[] = {
+    for (auto &s : heal) _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
+    SpawnDef small[] = {
         {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{-10, 10}, GameConfig::SmallHealPickupRespawnTime},
         {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 10,-10}, GameConfig::SmallHealPickupRespawnTime},
     };
-    for (auto &s : small_heal_spawners) {
-        _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
-    }
+    for (auto &s : small) _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
 }
 
 void World::_spawn_one_spawner(PickupType type, int value, Vec2 pos, float respawn_time) {
-    auto &ids = _reg.get<IdState>(_id_state_entity);
-
     auto e = _reg.create();
     _reg.emplace<PickupSpawner>(e,
         type, value, pos, respawn_time,
-        respawn_time * 0.5f, false, 0
-    );
+        respawn_time * 0.5f, false, 0);
 }
 
 Vec2 World::_random_map_pos(float half, float radius) {
@@ -242,9 +232,7 @@ Vec2 World::_random_map_pos(float half, float radius) {
 
 float World::_random_wander_time() {
     std::uniform_real_distribution<float> dist(
-        GameConfig::BotWanderIntervalMin,
-        GameConfig::BotWanderIntervalMax
-    );
+        GameConfig::BotWanderIntervalMin, GameConfig::BotWanderIntervalMax);
     return dist(_rng);
 }
 

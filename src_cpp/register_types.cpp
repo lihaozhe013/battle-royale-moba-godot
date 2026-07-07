@@ -11,6 +11,7 @@ void initialize_topdown_sim_types(godot::ModuleInitializationLevel p_level) {
     }
     godot::ClassDB::register_class<SimServer>();
     godot::ClassDB::register_class<sim::SimSnapshot>();
+    godot::ClassDB::register_class<sim::SimSkillSlotSnap>();
     godot::ClassDB::register_class<sim::SimPlayerSnap>();
     godot::ClassDB::register_class<sim::SimBotSnap>();
     godot::ClassDB::register_class<sim::SimArrowSnap>();

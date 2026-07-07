@@ -12,15 +12,15 @@ corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gu2qw"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gm6fy"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
 corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gu2qw"]
-bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [node name="BottomHUD" type="CanvasLayer" unique_id=324689015]
 layer = 100
@@ -50,9 +50,9 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -328.5
+offset_left = -350.0
 offset_top = -118.0
-offset_right = 328.5
+offset_right = 350.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_e2x0h")
@@ -64,11 +64,16 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -315.0
+offset_left = -338.8889
 offset_top = -111.0
-offset_right = 315.0
+offset_right = 358.88892
 grow_horizontal = 2
 grow_vertical = 0
+
+[node name="Blank" type="PanelContainer" parent="HUDPanel/HUDContainer" unique_id=984574476]
+custom_minimum_size = Vector2(11, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_gu2qw")
 
 [node name="StatsTextContainer" type="PanelContainer" parent="HUDPanel/HUDContainer" unique_id=402499980]
 custom_minimum_size = Vector2(100, 0)
@@ -77,9 +82,13 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_gm6fy")
 
 [node name="StatsLabel" type="Label" parent="HUDPanel/HUDContainer/StatsTextContainer" unique_id=247158680]
 layout_mode = 2
-text = "ATK:
-ASP:
-"
+theme_override_font_sizes/font_size = 13
+text = "PlaceHolder"
+
+[node name="Blank2" type="PanelContainer" parent="HUDPanel/HUDContainer" unique_id=1539593623]
+custom_minimum_size = Vector2(11, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_gu2qw")
 
 [node name="AvatarSection" type="Control" parent="HUDPanel/HUDContainer" unique_id=1519863114]
 custom_minimum_size = Vector2(110, 110)
@@ -101,6 +110,11 @@ offset_right = 110.0
 offset_bottom = 107.08001
 text = "Player"
 horizontal_alignment = 1
+
+[node name="Blank4" type="PanelContainer" parent="HUDPanel/HUDContainer" unique_id=1713771914]
+custom_minimum_size = Vector2(6.65, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_gu2qw")
 
 [node name="ResourceSection" type="VBoxContainer" parent="HUDPanel/HUDContainer" unique_id=282545693]
 custom_minimum_size = Vector2(280, 0)
@@ -140,10 +154,10 @@ mouse_filter = 2
 color = Color(0.1, 0.1, 0.1, 0.8)
 
 [node name="HPFill" type="ColorRect" parent="HUDPanel/HUDContainer/ResourceSection/HPContainer" unique_id=768704722]
-custom_minimum_size = Vector2(280, 14)
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
+offset_right = 280.0
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.2, 1, 0.2, 1)
@@ -178,10 +192,10 @@ mouse_filter = 2
 color = Color(0.1, 0.1, 0.1, 0.8)
 
 [node name="ManaFill" type="ColorRect" parent="HUDPanel/HUDContainer/ResourceSection/ManaContainer" unique_id=1722932469]
-custom_minimum_size = Vector2(280, 0)
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
+offset_right = 280.0
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.2, 0.4, 1, 1)
@@ -198,6 +212,11 @@ grow_horizontal = 2
 grow_vertical = 2
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="Blank3" type="PanelContainer" parent="HUDPanel/HUDContainer" unique_id=1442430574]
+custom_minimum_size = Vector2(8.23, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_gu2qw")
 
 [node name="ItemAndBackpack" type="VBoxContainer" parent="HUDPanel/HUDContainer" unique_id=646183557]
 layout_mode = 2

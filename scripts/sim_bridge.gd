@@ -10,6 +10,8 @@ var _last_snap_seq := -1
 @onready var entity_manager = $EntityManager
 @onready var health_bar_manager = $HealthBarManager
 @onready var stats_panel = $CanvasLayer/StatsPanel
+@onready var bottom_hud = $BottomHUD
+
 
 func _ready() -> void:
 	var file = FileAccess.open("res://data/maps/default.json", FileAccess.READ)
@@ -27,6 +29,7 @@ func _ready() -> void:
 	sim = SimServer.new()
 	sim.initialize(map_json)
 	print("SimServer initialized")
+
 
 func _spawn_wall_visuals(json_text: String) -> void:
 	var data = JSON.parse_string(json_text) as Dictionary
@@ -49,6 +52,7 @@ func _spawn_wall_visuals(json_text: String) -> void:
 		m.position = center
 		add_child(m)
 
+
 func _physics_process(delta: float) -> void:
 	var tick_rate = 1.0 / 30.0
 	elapsed += delta
@@ -59,11 +63,18 @@ func _physics_process(delta: float) -> void:
 			input_collector.fire,
 			input_collector.input_seq
 		)
+		sim.set_skill_input(
+			input_collector.skill_q,
+			input_collector.skill_w,
+			input_collector.skill_e,
+			input_collector.skill_r
+		)
 		sim.tick(tick_rate)
 		elapsed -= tick_rate
 		var snap = sim.pop_snapshot()
 		if snap is SimSnapshot:
 			last_snapshot = snap
+
 
 func _process(_delta: float) -> void:
 	if not last_snapshot:
@@ -77,3 +88,5 @@ func _process(_delta: float) -> void:
 		if p:
 			stats_panel.update(p)
 			camera_controller.follow_target(p.x, p.y)
+			bottom_hud.sync_player(p)
+			bottom_hud.sync_skills(p.skills)
