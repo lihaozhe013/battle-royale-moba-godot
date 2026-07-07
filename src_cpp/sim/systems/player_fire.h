@@ -15,6 +15,12 @@ inline void player_fire_system(entt::registry &reg, double now,
         if (!tag.IsLocal) continue;
         if (!view.get<PlayerInputState>(e).Fire) continue;
 
+        // Skip fire while in any cast state
+        if (reg.all_of<CastState>(e)) {
+            auto &cs = reg.get<CastState>(e);
+            if (cs.State != CastState::Phase::None) continue;
+        }
+
         auto &stats = view.get<CombatStats>(e);
         auto &pos = view.get<Position2D>(e);
         auto &input = view.get<PlayerInputState>(e);

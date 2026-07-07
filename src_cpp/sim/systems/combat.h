@@ -39,6 +39,14 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
             auto &hp = target_view.get<Health>(target);
             hp.Cur -= static_cast<int>(arrow_tag.Dmg);
 
+            // Lifesteal
+            if (arrow_tag.LifestealRatio > 0.0f && arrow_tag.OwnerEntity != entt::null
+                && reg.valid(arrow_tag.OwnerEntity) && reg.all_of<Health>(arrow_tag.OwnerEntity)) {
+                auto &ohp = reg.get<Health>(arrow_tag.OwnerEntity);
+                int heal = static_cast<int>(arrow_tag.Dmg * arrow_tag.LifestealRatio);
+                ohp.Cur = std::min(ohp.Max, ohp.Cur + heal);
+            }
+
             if (hp.Cur <= 0) {
                 hp.Cur = 0;
                 if (reg.all_of<Dead>(target)) {

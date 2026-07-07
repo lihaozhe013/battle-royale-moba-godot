@@ -11,6 +11,7 @@ var _last_snap_seq := -1
 @onready var health_bar_manager = $HealthBarManager
 @onready var stats_panel = $CanvasLayer/StatsPanel
 @onready var bottom_hud = $BottomHUD
+var _skill_vfx: Node3D
 
 
 func _ready() -> void:
@@ -29,6 +30,15 @@ func _ready() -> void:
 	sim = SimServer.new()
 	sim.initialize(map_json)
 	print("SimServer initialized")
+
+	# Auto-create SkillVFX if not in scene tree
+	_skill_vfx = $SkillVFX if has_node("SkillVFX") else Node3D.new()
+	_skill_vfx.name = "SkillVFX"
+	if not _skill_vfx.get_parent():
+		add_child(_skill_vfx)
+	var vfx_script = preload("res://scripts/view/skill_vfx.gd")
+	if not _skill_vfx.get_script():
+		_skill_vfx.set_script(vfx_script)
 
 
 func _spawn_wall_visuals(json_text: String) -> void:
@@ -63,11 +73,12 @@ func _physics_process(delta: float) -> void:
 			input_collector.fire,
 			input_collector.input_seq
 		)
-		sim.set_skill_input(
-			input_collector.skill_q,
-			input_collector.skill_w,
-			input_collector.skill_e,
-			input_collector.skill_r
+		sim.set_cast_input(
+			input_collector.cast_slot,
+			input_collector.cast_confirm,
+			input_collector.cast_cancel,
+			input_collector.cast_aim.x,
+			input_collector.cast_aim.y
 		)
 		sim.tick(tick_rate)
 		elapsed -= tick_rate
@@ -90,3 +101,5 @@ func _process(_delta: float) -> void:
 			camera_controller.follow_target(p.x, p.y)
 			bottom_hud.sync_player(p)
 			bottom_hud.sync_skills(p.skills)
+			var ev = entity_manager.get_entity(p.id)
+			_skill_vfx.sync(last_snapshot, ev)

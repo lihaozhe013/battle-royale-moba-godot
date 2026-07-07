@@ -92,6 +92,7 @@ struct GameConfig {
     static constexpr int BotIdStart = 1001;
     static constexpr int ArrowIdStart = 2001;
     static constexpr int PickupIdStart = 3001;
+    static constexpr int AoEIdStart = 4001;
 
     static constexpr int XpPerLevelBase = 250;
     static constexpr int HpPerLevel = 10;
@@ -111,7 +112,7 @@ struct GameConfig {
     static constexpr int SmallHealPickupCount = 2;
 
     // ── Mana ──
-    static constexpr float PlayerBaseMana = 100.0f;
+    static constexpr float PlayerBaseMana = 300.0f;
     static constexpr float PlayerManaRegen = 5.0f;
     static constexpr float BotBaseMana = 80.0f;
     static constexpr float BotManaRegen = 3.0f;

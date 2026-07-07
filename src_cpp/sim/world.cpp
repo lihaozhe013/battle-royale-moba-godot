@@ -1,5 +1,6 @@
 #include "world.h"
 #include "game_config.h"
+#include "skill_defs.h"
 #include "json_util.h"
 #include <cmath>
 
@@ -18,12 +19,14 @@ void World::initialize(const std::string &map_json) {
 
     _local_input_entity = _reg.create();
     _reg.emplace<LocalInputSingleton>(_local_input_entity,
-        Vec2{0.0f}, Vec2{0.0f}, false, 0, false, false, false, false);
+        Vec2{0.0f}, Vec2{0.0f}, false, 0,
+        -1, false, false, Vec2{0.0f});
 
     _id_state_entity = _reg.create();
     _reg.emplace<IdState>(_id_state_entity,
         GameConfig::PlayerIdStart, GameConfig::BotIdStart,
-        GameConfig::ArrowIdStart, GameConfig::PickupIdStart);
+        GameConfig::ArrowIdStart, GameConfig::PickupIdStart,
+        GameConfig::AoEIdStart);
 
     _kill_event_entity = _reg.create();
     _reg.emplace<KillEventBuffer>(_kill_event_entity);
@@ -53,13 +56,13 @@ void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int se
     }
 }
 
-void World::set_skill_input(bool skill_q, bool skill_w, bool skill_e, bool skill_r) {
+void World::set_cast_input(int cast_slot, bool confirm, bool cancel, float aim_x, float aim_y) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
-        li.SkillQ = skill_q;
-        li.SkillW = skill_w;
-        li.SkillE = skill_e;
-        li.SkillR = skill_r;
+        li.CastSlot = cast_slot;
+        li.CastConfirm = confirm;
+        li.CastCancel = cancel;
+        li.CastAim = Vec2{aim_x, aim_y};
     }
 }
 
@@ -75,7 +78,7 @@ void World::tick(double dt) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
     player_fire_system(_reg, _time, _cb, ids);
 
-    skill_input_system(_reg);
+    skill_cast_system(_reg, fdt, _cb, ids, _time);
     bot_targeting_system(_reg, _rng, fdt);
     bot_ai_system(_reg, fdt, map_half, _rng);
     bot_combat_system(_reg, _time, _cb, ids);
@@ -83,6 +86,8 @@ void World::tick(double dt) {
     wall_collision_system(_reg, _cb);
     combat_system(_reg, _cb);
     pickup_system(_reg, fdt, _cb, ids);
+    aoe_system(_reg, fdt, _cb);
+    status_effect_system(_reg, fdt);
     mana_regen_system(_reg, fdt);
     skill_cooldown_system(_reg, fdt);
     progression_system(_reg);
@@ -108,19 +113,24 @@ void World::_spawn_player(int player_id, bool is_local) {
         GameConfig::PlayerManaRegen, GameConfig::ManaRegenDelay, 0.0f);
     _reg.emplace<CombatStats>(e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, 0.0);
     _reg.emplace<Kills>(e, 0);
-    _reg.emplace<PlayerInputState>(e, Vec2{0.0f}, Vec2{0.0f}, false, 0, false, false, false, false);
+    _reg.emplace<PlayerInputState>(e, Vec2{0.0f}, Vec2{0.0f}, false, 0,
+        -1, false, false, Vec2{0.0f});
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, 1);
     _reg.emplace<Experience>(e, 0, GameConfig::XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, GameConfig::PlayerSpeed);
+    _reg.emplace<CastState>(e);
+    _reg.emplace<StatusEffect>(e);
 
     SkillComponent sc;
     for (int i = 0; i < 4; ++i) {
-        sc.Slots[i].SkillId = GameConfig::PlayerSkillIds[i];
+        int sid = GameConfig::PlayerSkillIds[i];
+        const auto &def = get_skill_def(sid);
+        sc.Slots[i].SkillId = sid;
         sc.Slots[i].Level = 1;
-        sc.Slots[i].MaxCooldown = GameConfig::SkillCooldowns[i];
-        sc.Slots[i].ManaCost = GameConfig::SkillManaCosts[i];
+        sc.Slots[i].MaxCooldown = def.Cooldown;
+        sc.Slots[i].ManaCost = def.ManaCost;
     }
     _reg.emplace<SkillComponent>(e, sc);
     _reg.emplace<SkillPoints>(e, 0);
@@ -176,13 +186,16 @@ void World::_spawn_bot_with_role(BotRole role) {
     _reg.emplace<Level>(e, new_lv);
     _reg.emplace<Experience>(e, 0, new_lv * GameConfig::XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, spd);
+    _reg.emplace<StatusEffect>(e);
 
     SkillComponent sc;
     for (int i = 0; i < 4; ++i) {
-        sc.Slots[i].SkillId = GameConfig::BotSkillIds[i];
+        int sid = GameConfig::BotSkillIds[i];
+        const auto &def = get_skill_def(sid);
+        sc.Slots[i].SkillId = sid;
         sc.Slots[i].Level = 1;
-        sc.Slots[i].MaxCooldown = GameConfig::SkillCooldowns[i];
-        sc.Slots[i].ManaCost = GameConfig::SkillManaCosts[i];
+        sc.Slots[i].MaxCooldown = def.Cooldown;
+        sc.Slots[i].ManaCost = def.ManaCost;
     }
     _reg.emplace<SkillComponent>(e, sc);
     _reg.emplace<SkillPoints>(e, 0);

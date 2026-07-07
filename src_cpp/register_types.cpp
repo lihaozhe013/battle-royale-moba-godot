@@ -17,6 +17,7 @@ void initialize_topdown_sim_types(godot::ModuleInitializationLevel p_level) {
     godot::ClassDB::register_class<sim::SimArrowSnap>();
     godot::ClassDB::register_class<sim::SimPickupSnap>();
     godot::ClassDB::register_class<sim::SimEventSnap>();
+    godot::ClassDB::register_class<sim::SimAoESnap>();
 }
 
 void uninitialize_topdown_sim_types(godot::ModuleInitializationLevel p_level) {

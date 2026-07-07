@@ -16,10 +16,10 @@ inline void local_input_injection_system(entt::registry &reg, entt::entity local
         state.Aim = input.Aim;
         state.Fire = input.Fire;
         state.Seq = input.Seq;
-        state.SkillQ = input.SkillQ;
-        state.SkillW = input.SkillW;
-        state.SkillE = input.SkillE;
-        state.SkillR = input.SkillR;
+        state.CastSlot = input.CastSlot;
+        state.CastConfirm = input.CastConfirm;
+        state.CastCancel = input.CastCancel;
+        state.CastAim = input.CastAim;
     }
 }
 

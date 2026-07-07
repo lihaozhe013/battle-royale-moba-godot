@@ -75,3 +75,5 @@ mesh = SubResource("PlaneMesh_1vivr")
 environment = SubResource("Environment_gm6fy")
 
 [node name="BottomHUD" parent="." unique_id=324689015 instance=ExtResource("7_o6xl0")]
+
+[node name="SkillVFX" type="Node3D" parent="." unique_id=1251323724]

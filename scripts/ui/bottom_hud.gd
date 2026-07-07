@@ -61,6 +61,7 @@ func sync_skills(skills_data: Array) -> void:
 			_skill_slots[i].set_skill(s.skill_id, s.level)
 			var cd_ratio = s.cooldown / s.max_cooldown if s.max_cooldown > 0 else 0.0
 			_skill_slots[i].set_cooldown(cd_ratio)
+			_skill_slots[i].set_cooldown_text(s.cooldown)
 		else:
 			_skill_slots[i].reset()
 

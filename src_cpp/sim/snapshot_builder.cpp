@@ -1,6 +1,7 @@
 #include "snapshot_builder.h"
 #include "components.h"
 #include "game_config.h"
+#include "skill_defs.h"
 #include <chrono>
 
 namespace sim {
@@ -17,6 +18,7 @@ godot::Ref<SimSnapshot> SnapshotBuilder::build(entt::registry &reg, int seq) {
     _build_arrows(reg, snap);
     _build_pickups(reg, snap);
     _build_events(reg, snap);
+    _build_aoes(reg, snap);
 
     return snap;
 }
@@ -66,6 +68,28 @@ void SnapshotBuilder::_build_players(entt::registry &reg, const godot::Ref<SimSn
         if (reg.all_of<SkillComponent>(e)) {
             _build_skills(s->skills, reg.get<SkillComponent>(e));
         }
+
+        // CastState fields
+        if (reg.all_of<CastState>(e)) {
+            auto &cs = reg.get<CastState>(e);
+            s->cast_state = static_cast<int>(cs.State);
+            s->cast_slot = cs.ActiveSlot;
+            s->cast_aim_x = cs.AimPos.x;
+            s->cast_aim_y = cs.AimPos.y;
+            s->dash_sx = cs.DashStart.x;
+            s->dash_sy = cs.DashStart.y;
+            s->dash_tx = cs.DashTarget.x;
+            s->dash_ty = cs.DashTarget.y;
+
+            // Calculate progress
+            const auto &def = get_skill_def(cs.SkillId);
+            float max_timer = 0.0f;
+            if (cs.State == CastState::Phase::Casting) max_timer = def.CastTime;
+            else if (cs.State == CastState::Phase::Channeling) max_timer = def.EffectValue;
+            else if (cs.State == CastState::Phase::Dashing) max_timer = def.Range / (def.ProjectileSpeed > 0 ? def.ProjectileSpeed : 20.0f);
+            s->cast_progress = (max_timer > 0.0f) ? (1.0f - cs.Timer / max_timer) : 0.0f;
+        }
+
         snap->players.push_back(s);
     }
 }
@@ -97,6 +121,14 @@ void SnapshotBuilder::_build_bots(entt::registry &reg, const godot::Ref<SimSnaps
         if (reg.all_of<SkillComponent>(e)) {
             _build_skills(s->skills, reg.get<SkillComponent>(e));
         }
+
+        // StatusEffect (root)
+        s->root_timer = 0.0f;
+        if (reg.all_of<StatusEffect>(e)) {
+            auto &st = reg.get<StatusEffect>(e);
+            if (st.Type == StatusType::Root) s->root_timer = st.Timer;
+        }
+
         snap->bots.push_back(s);
     }
 }
@@ -136,6 +168,22 @@ void SnapshotBuilder::_build_events(entt::registry &reg, const godot::Ref<SimSna
             s->victim_id = ev.VictimId;
             snap->events.push_back(s);
         }
+    }
+}
+
+void SnapshotBuilder::_build_aoes(entt::registry &reg, const godot::Ref<SimSnapshot> &snap) {
+    auto view = reg.view<AoETag, Position2D>();
+    for (auto e : view) {
+        auto s = godot::Ref<SimAoESnap>(memnew(SimAoESnap));
+        auto &aoe = view.get<AoETag>(e);
+        auto &pos = view.get<Position2D>(e);
+        s->id = reg.all_of<NetworkId>(e) ? reg.get<NetworkId>(e).Value : 0;
+        s->x = pos.Value.x;
+        s->y = pos.Value.y;
+        s->radius = aoe.Radius;
+        s->remaining = aoe.Timer;
+        s->duration = aoe.Duration;
+        snap->aoes.push_back(s);
     }
 }
 
