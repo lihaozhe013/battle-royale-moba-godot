@@ -11,10 +11,10 @@ var _item_slots: Array[ItemSlotUI] = []
 @onready var _hp_label: Label = $HUDPanel/HUDContainer/ResourceSection/HPContainer/HPLabel
 @onready var _mana_fill: ColorRect = $HUDPanel/HUDContainer/ResourceSection/ManaContainer/ManaFill
 @onready var _mana_label: Label = $HUDPanel/HUDContainer/ResourceSection/ManaContainer/ManaLabel
-@onready var _stats_label: Label = $HUDPanel/HUDContainer/ResourceSection/StatsLabel
-@onready var _skill_section: HBoxContainer = $HUDPanel/HUDContainer/SkillSection
-@onready var _item_section: HBoxContainer = $HUDPanel/HUDContainer/ItemSection
-@onready var _backpack_section: HBoxContainer = $HUDPanel/HUDContainer/BackpackSection
+@onready var _stats_label: Label = $HUDPanel/HUDContainer/StatsTextContainer/StatsLabel
+@onready var _skill_section: HBoxContainer = $HUDPanel/HUDContainer/ResourceSection/SkillSection
+@onready var _item_container: VBoxContainer = $HUDPanel/HUDContainer/ItemAndBackpack/ItemSection
+@onready var _backpack_section: HBoxContainer = $HUDPanel/HUDContainer/ItemAndBackpack/BackpackSection
 
 
 func _ready() -> void:
@@ -23,9 +23,11 @@ func _ready() -> void:
 			child.set_key_hint(KEY_HINTS[_skill_slots.size()])
 			_skill_slots.append(child)
 
-	for child in _item_section.get_children():
-		if child is ItemSlotUI:
-			_item_slots.append(child)
+	for row in _item_container.get_children():
+		if row is HBoxContainer:
+			for child in row.get_children():
+				if child is ItemSlotUI:
+					_item_slots.append(child)
 
 	for child in _backpack_section.get_children():
 		if child is ItemSlotUI:
@@ -33,13 +35,10 @@ func _ready() -> void:
 
 
 func sync_player(p) -> void:
-	var hp_ratio := float(p.hp) / float(p.max_hp) if p.max_hp > 0 else 0.0
-	_hp_fill.size.x = _hp_fill.size.x  # placeholder, user will set bar width
 	_hp_label.text = "%d/%d" % [p.hp, p.max_hp]
 
 	var mana_val = p.get("mana") if p.get("mana") != null else 0
 	var max_mana_val = p.get("max_mana") if p.get("max_mana") != null else 0
-	var mana_ratio := float(mana_val) / float(max_mana_val) if max_mana_val > 0 else 0.0
 	_mana_label.text = "%d/%d" % [mana_val, max_mana_val]
 
 	_stats_label.text = "Lv%d | ATK:%.0f | ASP:%.2f | Kills:%d | XP:%d/%d" % [

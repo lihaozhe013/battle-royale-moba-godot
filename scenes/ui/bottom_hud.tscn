@@ -2,27 +2,114 @@
 
 [ext_resource type="Script" uid="uid://bfyny6e7865i3" path="res://scripts/ui/bottom_hud.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://dhgs8ga4xay08" path="res://scenes/ui/skill_slot_ui.tscn" id="2"]
+[ext_resource type="Texture2D" uid="uid://bfih632qk2n1s" path="res://resources/characters/protagonist/skaterMaleA.png" id="2_qjyqg"]
 [ext_resource type="PackedScene" uid="uid://7nytn7njs0uq" path="res://scenes/ui/item_slot_ui.tscn" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e2x0h"]
+bg_color = Color(0.11403758, 0.114013754, 0.12308272, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gm6fy"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
 
 [node name="BottomHUD" type="CanvasLayer" unique_id=324689015]
 layer = 100
 script = ExtResource("1")
 
 [node name="HUDPanel" type="Control" parent="." unique_id=1248696174]
+custom_minimum_size = Vector2(750, 108)
 layout_mode = 3
-anchors_preset = 0
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="PanelContainer" type="PanelContainer" parent="HUDPanel" unique_id=1366368087]
+custom_minimum_size = Vector2(616, 108)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -330.0
+offset_top = -118.0
+offset_right = 327.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_e2x0h")
 
 [node name="HUDContainer" type="HBoxContainer" parent="HUDPanel" unique_id=1845627551]
 layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -308.0
+offset_top = -111.0
+offset_right = 308.0
+grow_horizontal = 2
+grow_vertical = 0
 
-[node name="AvatarSection" type="VBoxContainer" parent="HUDPanel/HUDContainer" unique_id=101507422]
+[node name="StatsTextContainer" type="PanelContainer" parent="HUDPanel/HUDContainer" unique_id=402499980]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_gm6fy")
+
+[node name="StatsLabel" type="Label" parent="HUDPanel/HUDContainer/StatsTextContainer" unique_id=247158680]
+layout_mode = 2
+text = "ATK:
+ASP:
+"
+
+[node name="AvatarSection" type="Control" parent="HUDPanel/HUDContainer" unique_id=1519863114]
+custom_minimum_size = Vector2(110, 110)
+custom_maximum_size = Vector2(110, 110)
 layout_mode = 2
 
 [node name="Avatar" type="TextureRect" parent="HUDPanel/HUDContainer/AvatarSection" unique_id=315010615]
-custom_minimum_size = Vector2(64, 64)
-layout_mode = 2
+custom_maximum_size = Vector2(110, 110)
+layout_mode = 0
+offset_right = 110.0
+offset_bottom = 110.0
+texture = ExtResource("2_qjyqg")
+
+[node name="Label" type="Label" parent="HUDPanel/HUDContainer/AvatarSection" unique_id=1591781690]
+custom_minimum_size = Vector2(5, 5)
+layout_mode = 0
+offset_top = 84.08
+offset_right = 110.0
+offset_bottom = 107.08001
+text = "Player"
+horizontal_alignment = 1
 
 [node name="ResourceSection" type="VBoxContainer" parent="HUDPanel/HUDContainer" unique_id=282545693]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+
+[node name="SkillSection" type="HBoxContainer" parent="HUDPanel/HUDContainer/ResourceSection" unique_id=515700282]
+layout_mode = 2
+
+[node name="SkillSlotUI1" parent="HUDPanel/HUDContainer/ResourceSection/SkillSection" unique_id=2013641181 instance=ExtResource("2")]
+layout_mode = 2
+
+[node name="SkillSlotUI2" parent="HUDPanel/HUDContainer/ResourceSection/SkillSection" unique_id=871540369 instance=ExtResource("2")]
+layout_mode = 2
+
+[node name="SkillSlotUI3" parent="HUDPanel/HUDContainer/ResourceSection/SkillSection" unique_id=811053742 instance=ExtResource("2")]
+layout_mode = 2
+
+[node name="SkillSlotUI4" parent="HUDPanel/HUDContainer/ResourceSection/SkillSection" unique_id=130185078 instance=ExtResource("2")]
 layout_mode = 2
 
 [node name="HPContainer" type="Control" parent="HUDPanel/HUDContainer/ResourceSection" unique_id=1451788403]
@@ -30,16 +117,16 @@ custom_minimum_size = Vector2(200, 14)
 layout_mode = 2
 
 [node name="HPBackground" type="ColorRect" parent="HUDPanel/HUDContainer/ResourceSection/HPContainer" unique_id=1959162041]
+custom_minimum_size = Vector2(280, 14)
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
+anchors_preset = 9
 anchor_bottom = 1.0
-grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.1, 0.1, 0.1, 0.8)
 
 [node name="HPFill" type="ColorRect" parent="HUDPanel/HUDContainer/ResourceSection/HPContainer" unique_id=768704722]
+custom_minimum_size = Vector2(280, 14)
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
@@ -52,6 +139,9 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = -4.5
+offset_right = -121.0
+offset_bottom = 4.5
 grow_horizontal = 2
 grow_vertical = 2
 horizontal_alignment = 1
@@ -62,16 +152,19 @@ custom_minimum_size = Vector2(200, 10)
 layout_mode = 2
 
 [node name="ManaBackground" type="ColorRect" parent="HUDPanel/HUDContainer/ResourceSection/ManaContainer" unique_id=1069979473]
+custom_minimum_size = Vector2(280, 0)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_right = -3.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.1, 0.1, 0.1, 0.8)
 
 [node name="ManaFill" type="ColorRect" parent="HUDPanel/HUDContainer/ResourceSection/ManaContainer" unique_id=1722932469]
+custom_minimum_size = Vector2(280, 0)
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
@@ -84,67 +177,43 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = -6.5
+offset_right = -120.0
+offset_bottom = 6.5
 grow_horizontal = 2
 grow_vertical = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="StatsLabel" type="Label" parent="HUDPanel/HUDContainer/ResourceSection" unique_id=247158680]
+[node name="ItemAndBackpack" type="VBoxContainer" parent="HUDPanel/HUDContainer" unique_id=646183557]
 layout_mode = 2
 
-[node name="SkillSection" type="HBoxContainer" parent="HUDPanel/HUDContainer" unique_id=515700282]
+[node name="ItemSection" type="VBoxContainer" parent="HUDPanel/HUDContainer/ItemAndBackpack" unique_id=1638804097]
 layout_mode = 2
 
-[node name="SkillSlotQ" parent="HUDPanel/HUDContainer/SkillSection" unique_id=854663158 instance=ExtResource("2")]
+[node name="Row1" type="HBoxContainer" parent="HUDPanel/HUDContainer/ItemAndBackpack/ItemSection" unique_id=157500942]
 layout_mode = 2
 
-[node name="SkillSlotW" parent="HUDPanel/HUDContainer/SkillSection" unique_id=1107396491 instance=ExtResource("2")]
+[node name="ItemSlot1" parent="HUDPanel/HUDContainer/ItemAndBackpack/ItemSection/Row1" unique_id=2139784040 instance=ExtResource("3")]
 layout_mode = 2
 
-[node name="SkillSlotE" parent="HUDPanel/HUDContainer/SkillSection" unique_id=1996656063 instance=ExtResource("2")]
+[node name="ItemSlot2" parent="HUDPanel/HUDContainer/ItemAndBackpack/ItemSection/Row1" unique_id=437061224 instance=ExtResource("3")]
 layout_mode = 2
 
-[node name="SkillSlotR" parent="HUDPanel/HUDContainer/SkillSection" unique_id=801298294 instance=ExtResource("2")]
+[node name="ItemSlot3" parent="HUDPanel/HUDContainer/ItemAndBackpack/ItemSection/Row1" unique_id=360502950 instance=ExtResource("3")]
 layout_mode = 2
 
-[node name="ItemSection" type="HBoxContainer" parent="HUDPanel/HUDContainer" unique_id=189865640]
+[node name="Row2" type="HBoxContainer" parent="HUDPanel/HUDContainer/ItemAndBackpack/ItemSection" unique_id=1833267553]
 layout_mode = 2
 
-[node name="ItemSlot1" parent="HUDPanel/HUDContainer/ItemSection" unique_id=2139784040 instance=ExtResource("3")]
+[node name="ItemSlot4" parent="HUDPanel/HUDContainer/ItemAndBackpack/ItemSection/Row2" unique_id=1661429937 instance=ExtResource("3")]
 layout_mode = 2
 
-[node name="ItemSlot2" parent="HUDPanel/HUDContainer/ItemSection" unique_id=437061224 instance=ExtResource("3")]
+[node name="ItemSlot5" parent="HUDPanel/HUDContainer/ItemAndBackpack/ItemSection/Row2" unique_id=2042334445 instance=ExtResource("3")]
 layout_mode = 2
 
-[node name="ItemSlot3" parent="HUDPanel/HUDContainer/ItemSection" unique_id=360502950 instance=ExtResource("3")]
+[node name="ItemSlot6" parent="HUDPanel/HUDContainer/ItemAndBackpack/ItemSection/Row2" unique_id=1996124178 instance=ExtResource("3")]
 layout_mode = 2
 
-[node name="ItemSlot4" parent="HUDPanel/HUDContainer/ItemSection" unique_id=1661429937 instance=ExtResource("3")]
-layout_mode = 2
-
-[node name="ItemSlot5" parent="HUDPanel/HUDContainer/ItemSection" unique_id=2042334445 instance=ExtResource("3")]
-layout_mode = 2
-
-[node name="ItemSlot6" parent="HUDPanel/HUDContainer/ItemSection" unique_id=1996124178 instance=ExtResource("3")]
-layout_mode = 2
-
-[node name="BackpackSection" type="HBoxContainer" parent="HUDPanel/HUDContainer" unique_id=269535520]
-layout_mode = 2
-
-[node name="BackpackSlot1" parent="HUDPanel/HUDContainer/BackpackSection" unique_id=1480571251 instance=ExtResource("3")]
-layout_mode = 2
-
-[node name="BackpackSlot2" parent="HUDPanel/HUDContainer/BackpackSection" unique_id=1678534106 instance=ExtResource("3")]
-layout_mode = 2
-
-[node name="BackpackSlot3" parent="HUDPanel/HUDContainer/BackpackSection" unique_id=434618000 instance=ExtResource("3")]
-layout_mode = 2
-
-[node name="BackpackSlot4" parent="HUDPanel/HUDContainer/BackpackSection" unique_id=735759225 instance=ExtResource("3")]
-layout_mode = 2
-
-[node name="BackpackSlot5" parent="HUDPanel/HUDContainer/BackpackSection" unique_id=1004904120 instance=ExtResource("3")]
-layout_mode = 2
-
-[node name="BackpackSlot6" parent="HUDPanel/HUDContainer/BackpackSection" unique_id=748007813 instance=ExtResource("3")]
+[node name="BackpackSection" type="HBoxContainer" parent="HUDPanel/HUDContainer/ItemAndBackpack" unique_id=269535520]
 layout_mode = 2
