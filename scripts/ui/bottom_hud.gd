@@ -1,7 +1,9 @@
 class_name BottomHUD
 extends CanvasLayer
 
-const KEY_HINTS := ["Q", "W", "E", "R"]
+const KEY_HINTS := ["C", "E", "R", "F"]
+const HP_BAR_WIDTH := 280.0
+const MANA_BAR_WIDTH := 280.0
 
 var _skill_slots: Array[SkillSlotUI] = []
 var _item_slots: Array[ItemSlotUI] = []
@@ -35,13 +37,19 @@ func _ready() -> void:
 
 
 func sync_player(p) -> void:
+	var hp_ratio := float(p.hp) / float(p.max_hp) if p.max_hp > 0 else 0.0
+	hp_ratio = clampf(hp_ratio, 0.0, 1.0)
+	_hp_fill.size = Vector2(HP_BAR_WIDTH * hp_ratio, _hp_fill.size.y)
 	_hp_label.text = "%d/%d" % [p.hp, p.max_hp]
 
 	var mana_val = p.get("mana") if p.get("mana") != null else 0
 	var max_mana_val = p.get("max_mana") if p.get("max_mana") != null else 0
+	var mana_ratio := float(mana_val) / float(max_mana_val) if max_mana_val > 0 else 0.0
+	mana_ratio = clampf(mana_ratio, 0.0, 1.0)
+	_mana_fill.size = Vector2(MANA_BAR_WIDTH * mana_ratio, _mana_fill.size.y)
 	_mana_label.text = "%d/%d" % [mana_val, max_mana_val]
 
-	_stats_label.text = "Lv%d | ATK:%.0f | ASP:%.2f | Kills:%d | XP:%d/%d" % [
+	_stats_label.text = "Lv%d\nATK:%.0f\nASP:%.2f\nKills:%d\nXP:%d/%d" % [
 		p.level, p.atk, p.asp, p.kills, p.xp, p.xp_needed
 	]
 

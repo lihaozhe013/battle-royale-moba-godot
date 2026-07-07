@@ -100,6 +100,22 @@ struct GameConfig {
     static constexpr int XpPickupCount = 120;
     static constexpr int HealPickupCount = 2;
     static constexpr int SmallHealPickupCount = 2;
+
+    // ── Mana ──
+    static constexpr float PlayerBaseMana = 100.0f;
+    static constexpr float PlayerManaRegen = 5.0f;
+    static constexpr float BotBaseMana = 80.0f;
+    static constexpr float BotManaRegen = 3.0f;
+    static constexpr float ManaRegenDelay = 3.0f;
+
+    // ── Serialised ── Skill Definitions ──
+    static constexpr int SkillCount = 4;
+    // Player test skills: slot 0-3
+    static constexpr int PlayerSkillIds[4] = {1, 2, 3, 4};
+    static constexpr float SkillCooldowns[4] = {4.0f, 6.0f, 8.0f, 15.0f};
+    static constexpr float SkillManaCosts[4] = {10.0f, 20.0f, 30.0f, 50.0f};
+    // Bot test skills: slot 0-3 (same for now)
+    static constexpr int BotSkillIds[4] = {1, 2, 3, 4};
 };
 
 } // namespace sim

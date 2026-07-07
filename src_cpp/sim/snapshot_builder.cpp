@@ -21,6 +21,26 @@ godot::Ref<SimSnapshot> SnapshotBuilder::build(entt::registry &reg, int seq) {
     return snap;
 }
 
+namespace {
+
+godot::Ref<SimSkillSlotSnap> _build_skill_slot(const SkillSlot &slot) {
+    auto s = godot::Ref<SimSkillSlotSnap>(memnew(SimSkillSlotSnap));
+    s->skill_id = slot.SkillId;
+    s->level = slot.Level;
+    s->cooldown = slot.CooldownTimer;
+    s->max_cooldown = slot.MaxCooldown;
+    s->mana_cost = slot.ManaCost;
+    return s;
+}
+
+void _build_skills(godot::TypedArray<SimSkillSlotSnap> &arr, const SkillComponent &skills) {
+    for (int i = 0; i < 4; ++i) {
+        arr.push_back(_build_skill_slot(skills.Slots[i]));
+    }
+}
+
+} // namespace
+
 void SnapshotBuilder::_build_players(entt::registry &reg, const godot::Ref<SimSnapshot> &snap) {
     auto view = reg.view<PlayerTag, Position2D, FacingAngle, Health, CombatStats,
                           Kills, NetworkId, Level, Experience, MoveSpeed>();
@@ -32,6 +52,10 @@ void SnapshotBuilder::_build_players(entt::registry &reg, const godot::Ref<SimSn
         s->ang = view.get<FacingAngle>(e).Radians;
         s->hp = view.get<Health>(e).Cur;
         s->max_hp = view.get<Health>(e).Max;
+        if (reg.all_of<Mana>(e)) {
+            s->mana = reg.get<Mana>(e).Cur;
+            s->max_mana = reg.get<Mana>(e).Max;
+        }
         s->atk = view.get<CombatStats>(e).Atk;
         s->asp = view.get<CombatStats>(e).Asp;
         s->kills = view.get<Kills>(e).Value;
@@ -39,6 +63,9 @@ void SnapshotBuilder::_build_players(entt::registry &reg, const godot::Ref<SimSn
         s->xp = view.get<Experience>(e).Cur;
         s->xp_needed = view.get<Experience>(e).Needed;
         s->speed = view.get<MoveSpeed>(e).Value;
+        if (reg.all_of<SkillComponent>(e)) {
+            _build_skills(s->skills, reg.get<SkillComponent>(e));
+        }
         snap->players.push_back(s);
     }
 }
@@ -55,6 +82,10 @@ void SnapshotBuilder::_build_bots(entt::registry &reg, const godot::Ref<SimSnaps
         s->hp = view.get<Health>(e).Cur;
         s->max_hp = view.get<Health>(e).Max;
         s->dead = reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled;
+        if (reg.all_of<Mana>(e)) {
+            s->mana = reg.get<Mana>(e).Cur;
+            s->max_mana = reg.get<Mana>(e).Max;
+        }
         s->atk = view.get<CombatStats>(e).Atk;
         s->asp = view.get<CombatStats>(e).Asp;
         s->kills = view.get<Kills>(e).Value;
@@ -63,6 +94,9 @@ void SnapshotBuilder::_build_bots(entt::registry &reg, const godot::Ref<SimSnaps
         s->xp_needed = view.get<Experience>(e).Needed;
         s->speed = view.get<MoveSpeed>(e).Value;
         s->tier = static_cast<int>(reg.get<BotTier>(e));
+        if (reg.all_of<SkillComponent>(e)) {
+            _build_skills(s->skills, reg.get<SkillComponent>(e));
+        }
         snap->bots.push_back(s);
     }
 }

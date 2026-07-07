@@ -30,6 +30,14 @@ struct Dead {
     bool enabled = false;
 };
 
+struct Mana {
+    float Cur = 0.0f;
+    float Max = 0.0f;
+    float RegenRate = 0.0f;
+    float RegenDelay = 3.0f;
+    float RegenTimer = 0.0f;
+};
+
 struct Lifetime {
     float Remaining = 0.0f;
 };
@@ -51,6 +59,10 @@ struct PlayerInputState {
     Vec2 Aim{0.0f};
     bool Fire = false;
     int Seq = 0;
+    bool SkillQ = false;
+    bool SkillW = false;
+    bool SkillE = false;
+    bool SkillR = false;
 };
 
 struct CombatStats {
@@ -156,6 +168,24 @@ struct MoveSpeed {
     float Value = 0.0f;
 };
 
+// ── SkillComponents.cs ──────────────────────────────────────────────────
+
+struct SkillSlot {
+    int SkillId = 0;
+    int Level = 0;
+    float CooldownTimer = 0.0f;
+    float MaxCooldown = 0.0f;
+    float ManaCost = 0.0f;
+};
+
+struct SkillComponent {
+    SkillSlot Slots[4];
+};
+
+struct SkillPoints {
+    int Available = 0;
+};
+
 // ── SingletonComponents.cs ───────────────────────────────────────────────
 
 struct LocalInputSingleton {
@@ -163,6 +193,10 @@ struct LocalInputSingleton {
     Vec2 Aim{0.0f};
     bool Fire = false;
     int Seq = 0;
+    bool SkillQ = false;
+    bool SkillW = false;
+    bool SkillE = false;
+    bool SkillR = false;
 };
 
 struct MapBounds {

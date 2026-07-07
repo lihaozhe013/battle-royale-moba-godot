@@ -19,6 +19,7 @@ public:
 
     void initialize(const godot::String &map_json);
     void set_local_input(const godot::Vector2 &move, const godot::Vector2 &aim, bool fire, int seq);
+    void set_skill_input(bool q, bool w, bool e, bool r);
     void tick(double delta);
     godot::Ref<godot::RefCounted> pop_snapshot();
 

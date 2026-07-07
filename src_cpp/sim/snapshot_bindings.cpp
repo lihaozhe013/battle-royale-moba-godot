@@ -14,6 +14,18 @@ using namespace godot;
 
 namespace sim {
 
+void SimSkillSlotSnap::_bind_methods() {
+    BIND(SimSkillSlotSnap, skill_id); BIND(SimSkillSlotSnap, level);
+    BIND(SimSkillSlotSnap, cooldown); BIND(SimSkillSlotSnap, max_cooldown);
+    BIND(SimSkillSlotSnap, mana_cost);
+
+    PROP(SimSkillSlotSnap, Variant::INT, skill_id);
+    PROP(SimSkillSlotSnap, Variant::INT, level);
+    PROP(SimSkillSlotSnap, Variant::FLOAT, cooldown);
+    PROP(SimSkillSlotSnap, Variant::FLOAT, max_cooldown);
+    PROP(SimSkillSlotSnap, Variant::FLOAT, mana_cost);
+}
+
 void SimEventSnap::_bind_methods() {
     BIND(SimEventSnap, killer_id);
     BIND(SimEventSnap, victim_id);
@@ -24,9 +36,12 @@ void SimEventSnap::_bind_methods() {
 void SimPlayerSnap::_bind_methods() {
     BIND(SimPlayerSnap, id); BIND(SimPlayerSnap, x); BIND(SimPlayerSnap, y);
     BIND(SimPlayerSnap, ang); BIND(SimPlayerSnap, hp); BIND(SimPlayerSnap, max_hp);
+    BIND(SimPlayerSnap, mana); BIND(SimPlayerSnap, max_mana);
     BIND(SimPlayerSnap, atk); BIND(SimPlayerSnap, asp); BIND(SimPlayerSnap, speed);
     BIND(SimPlayerSnap, kills); BIND(SimPlayerSnap, level);
     BIND(SimPlayerSnap, xp); BIND(SimPlayerSnap, xp_needed);
+    ClassDB::bind_method(D_METHOD("get_skills"), &SimPlayerSnap::get_skills);
+    ClassDB::bind_method(D_METHOD("set_skills", "v"), &SimPlayerSnap::set_skills);
 
     PROP(SimPlayerSnap, Variant::INT, id);
     PROP(SimPlayerSnap, Variant::FLOAT, x);
@@ -34,6 +49,8 @@ void SimPlayerSnap::_bind_methods() {
     PROP(SimPlayerSnap, Variant::FLOAT, ang);
     PROP(SimPlayerSnap, Variant::INT, hp);
     PROP(SimPlayerSnap, Variant::INT, max_hp);
+    PROP(SimPlayerSnap, Variant::FLOAT, mana);
+    PROP(SimPlayerSnap, Variant::FLOAT, max_mana);
     PROP(SimPlayerSnap, Variant::FLOAT, atk);
     PROP(SimPlayerSnap, Variant::FLOAT, asp);
     PROP(SimPlayerSnap, Variant::FLOAT, speed);
@@ -41,16 +58,20 @@ void SimPlayerSnap::_bind_methods() {
     PROP(SimPlayerSnap, Variant::INT, level);
     PROP(SimPlayerSnap, Variant::INT, xp);
     PROP(SimPlayerSnap, Variant::INT, xp_needed);
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "skills", PROPERTY_HINT_ARRAY_TYPE, "SimSkillSlotSnap"), "set_skills", "get_skills");
 }
 
 void SimBotSnap::_bind_methods() {
     BIND(SimBotSnap, id); BIND(SimBotSnap, x); BIND(SimBotSnap, y);
     BIND(SimBotSnap, ang); BIND(SimBotSnap, hp); BIND(SimBotSnap, max_hp);
     BIND(SimBotSnap, dead);
+    BIND(SimBotSnap, mana); BIND(SimBotSnap, max_mana);
     BIND(SimBotSnap, atk); BIND(SimBotSnap, asp);
     BIND(SimBotSnap, kills); BIND(SimBotSnap, level);
     BIND(SimBotSnap, xp); BIND(SimBotSnap, xp_needed);
     BIND(SimBotSnap, speed); BIND(SimBotSnap, tier);
+    ClassDB::bind_method(D_METHOD("get_skills"), &SimBotSnap::get_skills);
+    ClassDB::bind_method(D_METHOD("set_skills", "v"), &SimBotSnap::set_skills);
 
     PROP(SimBotSnap, Variant::INT, id);
     PROP(SimBotSnap, Variant::FLOAT, x);
@@ -59,6 +80,8 @@ void SimBotSnap::_bind_methods() {
     PROP(SimBotSnap, Variant::INT, hp);
     PROP(SimBotSnap, Variant::INT, max_hp);
     PROP(SimBotSnap, Variant::BOOL, dead);
+    PROP(SimBotSnap, Variant::FLOAT, mana);
+    PROP(SimBotSnap, Variant::FLOAT, max_mana);
     PROP(SimBotSnap, Variant::FLOAT, atk);
     PROP(SimBotSnap, Variant::FLOAT, asp);
     PROP(SimBotSnap, Variant::INT, kills);
@@ -67,12 +90,12 @@ void SimBotSnap::_bind_methods() {
     PROP(SimBotSnap, Variant::INT, xp_needed);
     PROP(SimBotSnap, Variant::FLOAT, speed);
     PROP(SimBotSnap, Variant::INT, tier);
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "skills", PROPERTY_HINT_ARRAY_TYPE, "SimSkillSlotSnap"), "set_skills", "get_skills");
 }
 
 void SimArrowSnap::_bind_methods() {
     BIND(SimArrowSnap, id); BIND(SimArrowSnap, x); BIND(SimArrowSnap, y);
     BIND(SimArrowSnap, ang);
-
     PROP(SimArrowSnap, Variant::INT, id);
     PROP(SimArrowSnap, Variant::FLOAT, x);
     PROP(SimArrowSnap, Variant::FLOAT, y);
@@ -82,7 +105,6 @@ void SimArrowSnap::_bind_methods() {
 void SimPickupSnap::_bind_methods() {
     BIND(SimPickupSnap, id); BIND(SimPickupSnap, x); BIND(SimPickupSnap, y);
     BIND(SimPickupSnap, type); BIND(SimPickupSnap, value);
-
     PROP(SimPickupSnap, Variant::INT, id);
     PROP(SimPickupSnap, Variant::FLOAT, x);
     PROP(SimPickupSnap, Variant::FLOAT, y);
