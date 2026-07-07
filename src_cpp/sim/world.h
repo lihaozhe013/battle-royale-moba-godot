@@ -11,6 +11,7 @@
 #include "systems/player_fire.h"
 #include "systems/bot_targeting.h"
 #include "systems/bot_ai.h"
+#include "systems/bot_role_rules.h"
 #include "systems/bot_combat.h"
 #include "systems/arrow_movement.h"
 #include "systems/wall_collision.h"
@@ -55,6 +56,7 @@ public:
 private:
     void _spawn_player(int player_id, bool is_local);
     void _spawn_bot();
+    void _spawn_bot_with_role(BotRole role);
     void _spawn_pickup_spawners();
     void _spawn_one_spawner(PickupType type, int value, Vec2 pos, float respawn_time);
     Vec2 _random_map_pos(float half, float radius);
