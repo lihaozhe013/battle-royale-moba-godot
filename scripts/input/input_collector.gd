@@ -8,7 +8,8 @@ var input_seq := 0
 # 施法信号（帧脉冲，Sim 每 tick 消费）
 var cast_slot := -1        # -1=无, 0-3=技能槽号（仅首次按下帧有效）
 var cast_confirm := false  # 左键确认（仅按下帧有效）
-var cast_cancel := false   # 取消（仅按下帧有效）
+var cast_cancel := false   # 右键取消（Aiming + Casting 都响应）
+var cast_interrupt := false  # ESC/S/H 打断（仅 Casting 响应）
 var cast_aim := Vector2.ZERO
 
 var _prev_skill := [false, false, false, false]
@@ -57,6 +58,7 @@ func _read_skill_input() -> void:
 	# 每帧先清脉冲信号（cast_slot 保留为按住持续）
 	cast_confirm = false
 	cast_cancel = false
+	cast_interrupt = false
 
 	# 1. 技能键按住持续设 cast_slot（松开后归 -1）
 	var any_held := -1
@@ -69,28 +71,29 @@ func _read_skill_input() -> void:
 	if cast_slot >= 0:
 		cast_aim = aim_world
 
-	# 2. 取消键边沿（右键/ESC/S/H）
+	# 2. 取消键边沿：右键 = cast_cancel（Aiming+Casting 响应）
 	var right_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 	if right_now and not _prev_right:
 		cast_cancel = true
 	_prev_right = right_now
 
+	# 3. 打断键边沿：ESC/S/H = cast_interrupt（仅 Casting 响应）
 	var esc_now := Input.is_key_pressed(KEY_ESCAPE)
 	if esc_now and not _prev_esc:
-		cast_cancel = true
+		cast_interrupt = true
 	_prev_esc = esc_now
 
 	var h_now := Input.is_key_pressed(KEY_H)
 	if h_now and not _prev_h:
-		cast_cancel = true
+		cast_interrupt = true
 	_prev_h = h_now
 
 	var s_now := Input.is_key_pressed(KEY_S)
 	if s_now and not _prev_s:
-		cast_cancel = true
+		cast_interrupt = true
 	_prev_s = s_now
 
-	# 3. 左键：边缘=确认施法，持续=普攻
+	# 4. 左键：边缘=确认施法，持续=普攻
 	var left_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if left_now and not _prev_left:
 		cast_confirm = true

@@ -19,6 +19,7 @@ inline void local_input_injection_system(entt::registry &reg, entt::entity local
         state.CastSlot = input.CastSlot;
         state.CastConfirm = input.CastConfirm;
         state.CastCancel = input.CastCancel;
+        state.CastInterrupt = input.CastInterrupt;
         state.CastAim = input.CastAim;
     }
 }

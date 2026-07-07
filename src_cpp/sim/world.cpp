@@ -20,7 +20,7 @@ void World::initialize(const std::string &map_json) {
     _local_input_entity = _reg.create();
     _reg.emplace<LocalInputSingleton>(_local_input_entity,
         Vec2{0.0f}, Vec2{0.0f}, false, 0,
-        -1, false, false, Vec2{0.0f});
+        -1, false, false, false, Vec2{0.0f});
 
     _id_state_entity = _reg.create();
     _reg.emplace<IdState>(_id_state_entity,
@@ -56,12 +56,13 @@ void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int se
     }
 }
 
-void World::set_cast_input(int cast_slot, bool confirm, bool cancel, float aim_x, float aim_y) {
+void World::set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
         li.CastSlot = cast_slot;
         li.CastConfirm = confirm;
         li.CastCancel = cancel;
+        li.CastInterrupt = interrupt;
         li.CastAim = Vec2{aim_x, aim_y};
     }
 }
@@ -114,7 +115,7 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<CombatStats>(e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, 0.0);
     _reg.emplace<Kills>(e, 0);
     _reg.emplace<PlayerInputState>(e, Vec2{0.0f}, Vec2{0.0f}, false, 0,
-        -1, false, false, Vec2{0.0f});
+        -1, false, false, false, Vec2{0.0f});
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, 1);

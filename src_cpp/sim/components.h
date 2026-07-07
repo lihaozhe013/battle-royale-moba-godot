@@ -76,6 +76,7 @@ struct PlayerInputState {
     int CastSlot = -1;
     bool CastConfirm = false;
     bool CastCancel = false;
+    bool CastInterrupt = false;
     Vec2 CastAim{0.0f};
 };
 
@@ -254,6 +255,7 @@ struct LocalInputSingleton {
     int CastSlot = -1;
     bool CastConfirm = false;
     bool CastCancel = false;
+    bool CastInterrupt = false;
     Vec2 CastAim{0.0f};
 };
 
