@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://bottomhud0001"]
 
-[ext_resource type="Script" uid="uid://bfyny6e7865i3" path="res://scripts/ui/bottom_hud.gd" id="1"]
+[ext_resource type="Script" uid="uid://npmewnu2w04t" path="res://scripts/ui/bottom_hud.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://dhgs8ga4xay08" path="res://scenes/ui/skill_slot_ui.tscn" id="2"]
-[ext_resource type="Texture2D" uid="uid://bfih632qk2n1s" path="res://resources/characters/protagonist/skaterMaleA.png" id="2_qjyqg"]
+[ext_resource type="Texture2D" uid="uid://2m33xal6h822" path="res://resources/characters/protagonist/skaterMaleA.png" id="2_qjyqg"]
 [ext_resource type="PackedScene" uid="uid://7nytn7njs0uq" path="res://scenes/ui/item_slot_ui.tscn" id="3"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e2x0h"]
@@ -167,11 +167,13 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -4.5
-offset_right = -121.0
-offset_bottom = 4.5
+offset_left = 61.0
+offset_top = -3.735
+offset_right = -60.0
+offset_bottom = 5.2649994
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_font_sizes/font_size = 14
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -205,11 +207,13 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -6.5
-offset_right = -120.0
-offset_bottom = 6.5
+offset_left = 60.44446
+offset_top = -5.777785
+offset_right = -59.555542
+offset_bottom = 7.2222157
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_font_sizes/font_size = 11
 horizontal_alignment = 1
 vertical_alignment = 1
 
