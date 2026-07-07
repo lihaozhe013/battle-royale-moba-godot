@@ -39,3 +39,4 @@ src_cpp/.sconsign.dblite
 # godot-cpp generated files
 src_cpp/godot-cpp/gen/
 src_cpp/godot-cpp/bin/
+.vscode/settings.json
