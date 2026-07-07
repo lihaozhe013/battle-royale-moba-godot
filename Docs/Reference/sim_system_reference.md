@@ -1,6 +1,6 @@
 # Sim System Reference — C++ ECS 层完整参考
 
-> 最后更新：2026-07-07
+> 最后更新：2026-07-07 (v2 — added Mana + Skill system)
 > 关联：`Docs/Reference/prompt.md`、`Docs/Reference/bot_ai_optimization.md`
 
 ---
@@ -28,7 +28,7 @@
 │                  C++ Sim Layer (entt ECS)                  │
 │                                                            │
 │  World (entt::registry)                                    │
-│    ├── 12 Systems (header-only, inline 函数)               │
+│    ├── 15 Systems (header-only, inline 函数)               │
 │    ├── 21+ Component types                                 │
 │    ├── 4 Singleton entities                                │
 │    ├── CommandBuffer (延迟实体创建/销毁)                    │
@@ -81,16 +81,19 @@ src_cpp/
         ├── local_input_injection.h  # 1. 输入注入
         ├── player_movement.h        # 2. 玩家移动
         ├── player_fire.h            # 3. 玩家射击
-        ├── bot_targeting.h          # 4. Bot 目标选择
-        ├── bot_ai.h                 # 5. Bot 决策+移动
-        ├── bot_combat.h             # 6. Bot 射击
-        ├── arrow_movement.h         # 7. 箭矢运动
-        ├── wall_collision.h         # 8. 墙壁碰撞
-        ├── combat.h                 # 9. 伤害判定
-        ├── pickup.h                 # 10. 拾取物
-        ├── progression.h            # 11. 击杀成长
+        ├── skill_input.h            # 4. 技能按键 → 冷却+Mana
+        ├── bot_targeting.h          # 5. Bot 目标选择
+        ├── bot_ai.h                 # 6. Bot 决策+移动
+        ├── bot_combat.h             # 7. Bot 射击
+        ├── arrow_movement.h         # 8. 箭矢运动
+        ├── wall_collision.h         # 9. 墙壁碰撞
+        ├── combat.h                 # 10. 伤害判定
+        ├── pickup.h                 # 11. 拾取物
+        ├── mana_regen.h             # 12. Mana 回复
+        ├── skill_cooldown.h         # 13. 技能冷却递减
+        ├── progression.h            # 14. 击杀成长
         ├── xp_helper.h              # 共用 XP 升级逻辑
-        └── snapshot_export.h        # 12. 快照导出
+        └── snapshot_export.h        # 15. 快照导出
 ```
 
 ---
@@ -109,13 +112,14 @@ src_cpp/
 | `Lifetime` | `float Remaining` | 剩余存活时间 | Arrow |
 | `NetworkId` | `int Value` | 网络唯一 ID | Player, Bot, Arrow, Pickup |
 | `Damageable` | _(空标记)_ | 可受伤 | Player, Bot |
+| `Mana` | `float Cur, Max, RegenRate, RegenDelay, RegenTimer` | 法力值+回复 | Player, Bot |
 
 ### 3.2 玩家组件
 
 | 组件 | 字段 | 用途 |
 |------|------|------|
 | `PlayerTag` | `bool IsLocal` | 玩家标记 + 是否本地 |
-| `PlayerInputState` | `Vec2 Move, Aim; bool Fire; int Seq` | 当前帧输入 |
+| `PlayerInputState` | `Vec2 Move, Aim; bool Fire; int Seq; bool SkillQ, SkillW, SkillE, SkillR` | 当前帧输入（含技能按键） |
 | `CombatStats` | `float Atk, Asp; double LastFireTime` | 战斗属性 |
 | `Kills` | `int Value` | 击杀计数 |
 
@@ -157,7 +161,15 @@ src_cpp/
 | `Experience` | `int Cur, Needed` | 经验值 |
 | `MoveSpeed` | `float Value` | 移动速度 |
 
-### 3.8 枚举
+### 3.8 技能组件
+
+| 组件 | 字段 | 用途 |
+|------|------|------|
+| `SkillSlot` | `int SkillId, Level; float CooldownTimer, MaxCooldown, ManaCost` | 单个技能槽 |
+| `SkillComponent` | `SkillSlot Slots[4]` | 4 个技能槽（Q/W/E/R） |
+| `SkillPoints` | `int Available` | 未分配的技能点 |
+
+### 3.9 枚举
 
 | 枚举 | 值 | 用途 |
 |------|-----|------|
@@ -177,15 +189,18 @@ src_cpp/
 | 1 | LocalInputInjection | `void (registry&, entity)` | `local_input_injection.h` | 读 LocalInputSingleton → 写 PlayerInputState |
 | 2 | PlayerMovement | `void (registry&, float dt, float map_half)` | `player_movement.h` | 读 PlayerInputState/MoveSpeed → 写 Position2D/FacingAngle |
 | 3 | PlayerFire | `void (registry&, double now, CommandBuffer&, IdState&)` | `player_fire.h` | 读 PlayerInputState/CombatStats → 写 CommandBuffer(创建箭矢) |
-| 4 | BotTargeting | `void (registry&, mt19937&, float dt)` | `bot_targeting.h` | 读 Position2D/Health/BotVisionRange → 写 BotAIState.TargetEntity |
-| 5 | BotAI | `void (registry&, float dt, float map_half, mt19937&)` | `bot_ai.h` | 读 BotBehaviorState/Health → 写 Position2D/FacingAngle/BotAIState |
-| 6 | BotCombat | `void (registry&, double now, CommandBuffer&, IdState&)` | `bot_combat.h` | 读 BotAIState/CombatStats → 写 CommandBuffer(创建箭矢) |
-| 7 | ArrowMovement | `void (registry&, float dt)` | `arrow_movement.h` | 读 Velocity2D → 写 Position2D/Lifetime |
-| 8 | WallCollision | `void (registry&, CommandBuffer&)` | `wall_collision.h` | 读 WallBounds → 写 Position2D(推回) / CommandBuffer(销毁箭矢) |
-| 9 | Combat | `void (registry&, CommandBuffer&)` | `combat.h` | 读 ArrowTag/Position2D → 写 Health/Dead/KillEventBuffer |
-| 10 | Pickup | `void (registry&, float dt, CommandBuffer&, IdState&)` | `pickup.h` | 读 PickupSpawner/PickupTag → 写 Health/Experience/CommandBuffer |
-| 11 | Progression | `void (registry&)` | `progression.h` | 读 KillEventBuffer → 写 CombatStats/Experience/Level/MoveSpeed/Health |
-| 12 | SnapshotExport | `bool (registry&, int&, Ref<SimSnapshot>&)` | `snapshot_export.h` | 读全部 → 写 SimSnapshot |
+| 4 | SkillInput | `void (registry&)` | `skill_input.h` | 读 PlayerInputState/SkillComponent/Mana → 写 SkillSlot(冷却)/Mana(消耗) |
+| 5 | BotTargeting | `void (registry&, mt19937&, float dt)` | `bot_targeting.h` | 读 Position2D/Health/BotVisionRange → 写 BotAIState.TargetEntity |
+| 6 | BotAI | `void (registry&, float dt, float map_half, mt19937&)` | `bot_ai.h` | 读 BotBehaviorState/Health → 写 Position2D/FacingAngle/BotAIState |
+| 7 | BotCombat | `void (registry&, double now, CommandBuffer&, IdState&)` | `bot_combat.h` | 读 BotAIState/CombatStats → 写 CommandBuffer(创建箭矢) |
+| 8 | ArrowMovement | `void (registry&, float dt)` | `arrow_movement.h` | 读 Velocity2D → 写 Position2D/Lifetime |
+| 9 | WallCollision | `void (registry&, CommandBuffer&)` | `wall_collision.h` | 读 WallBounds → 写 Position2D(推回) / CommandBuffer(销毁箭矢) |
+| 10 | Combat | `void (registry&, CommandBuffer&)` | `combat.h` | 读 ArrowTag/Position2D → 写 Health/Dead/KillEventBuffer |
+| 11 | Pickup | `void (registry&, float dt, CommandBuffer&, IdState&)` | `pickup.h` | 读 PickupSpawner/PickupTag → 写 Health/Experience/CommandBuffer |
+| 12 | ManaRegen | `void (registry&, float dt)` | `mana_regen.h` | 读 Mana → 写 Mana.Cur(回复) |
+| 13 | SkillCooldown | `void (registry&, float dt)` | `skill_cooldown.h` | 读 SkillComponent → 写 SkillSlot.CooldownTimer(递减) |
+| 14 | Progression | `void (registry&)` | `progression.h` | 读 KillEventBuffer → 写 CombatStats/Experience/Level/MoveSpeed/Health |
+| 15 | SnapshotExport | `bool (registry&, int&, Ref<SimSnapshot>&)` | `snapshot_export.h` | 读全部 → 写 SimSnapshot |
 
 **所有 System 执行完毕后**，`CommandBuffer::flush()` 执行延迟的实体创建/销毁。
 
@@ -435,15 +450,57 @@ src_cpp/
 3. 调用 `SnapshotBuilder::build(reg, tick_counter)` 构建完整快照
 4. 返回 `true` 表示有新快照
 
----
 
-## 6. Singleton 组件
+### 5.13 ManaRegenSystem
+
+```
+文件: systems/mana_regen.h (20 行)
+函数: mana_regen_system(registry &reg, float dt)
+```
+
+**逻辑：**
+1. 遍历所有 `Mana` 组件
+2. `Mana.RegenTimer -= dt`
+3. 若 `RegenTimer <= 0`：`Mana.Cur = min(Mana.Cur + Mana.RegenRate * dt, Mana.Max)`
+4. 技能消耗 Mana 时会重置 `RegenTimer = ManaRegenDelay`，暂停回复 3 秒
+
+
+### 5.14 SkillInputSystem
+
+```
+文件: systems/skill_input.h (32 行)
+函数: skill_input_system(registry &reg)
+```
+
+**逻辑：**
+1. 遍历 `PlayerTag(IsLocal) + PlayerInputState + SkillComponent + Mana`
+2. 对 4 个技能槽分别检查 `input.SkillQ/W/E/R`
+3. 若按键按下且 `SkillId > 0`、`CooldownTimer == 0`、`Mana >= ManaCost`：
+   - `Mana.Cur -= ManaCost`
+   - `Mana.RegenTimer = ManaRegenDelay`
+   - `CooldownTimer = MaxCooldown`（触发冷却）
+4. 无实际技能效果生成（纯冷却+消耗，效果待后续实现）
+
+
+### 5.15 SkillCooldownSystem
+
+```
+文件: systems/skill_cooldown.h (21 行)
+函数: skill_cooldown_system(registry &reg, float dt)
+```
+
+**逻辑：**
+1. 遍历所有 `SkillComponent`
+2. 对 4 个槽分别：若 `CooldownTimer > 0`，`CooldownTimer = max(0, CooldownTimer - dt)`
+
+
+---
 
 这些组件挂载在专用实体上，全局唯一：
 
 | 实体变量 | 组件 | 用途 |
 |---------|------|------|
-| `_local_input_entity` | `LocalInputSingleton` | 当前帧输入：Move/Aim/Fire/Seq |
+| `_local_input_entity` | `LocalInputSingleton` | 当前帧输入：Move/Aim/Fire/Seq/SkillQ/SkillW/SkillE/SkillR |
 | `_map_bounds_entity` | `MapBounds` | 地图半径 Half |
 | `_id_state_entity` | `IdState` | 自增 ID 分配器（4 种实体类型） |
 | `_kill_event_entity` | `KillEventBuffer` | 击杀事件队列（tick 末清空） |
@@ -483,6 +540,8 @@ SimSnapshot (RefCounted)
 | `ang` | `float` | `FacingAngle.Radians` | 朝向弧度 |
 | `hp` | `int` | `Health.Cur` | 当前 HP |
 | `max_hp` | `int` | `Health.Max` | 最大 HP |
+| `mana` | `float` | `Mana.Cur` | 当前 Mana |
+| `max_mana` | `float` | `Mana.Max` | 最大 Mana |
 | `atk` | `float` | `CombatStats.Atk` | 攻击力 |
 | `asp` | `float` | `CombatStats.Asp` | 攻速 |
 | `speed` | `float` | `MoveSpeed.Value` | 移动速度 |
@@ -490,6 +549,7 @@ SimSnapshot (RefCounted)
 | `level` | `int` | `Level.Value` | 等级 |
 | `xp` | `int` | `Experience.Cur` | 当前经验 |
 | `xp_needed` | `int` | `Experience.Needed` | 升级所需 |
+| `skills` | `TypedArray<SimSkillSlotSnap>` | `SkillComponent.Slots[]` | 4 个技能槽状态 |
 
 ### 7.3 SimBotSnap
 
@@ -502,6 +562,8 @@ SimSnapshot (RefCounted)
 | `hp` | `int` | `Health.Cur` | 当前 HP |
 | `max_hp` | `int` | `Health.Max` | 最大 HP |
 | `dead` | `bool` | `Dead.enabled` | 是否死亡 |
+| `mana` | `float` | `Mana.Cur` | 当前 Mana |
+| `max_mana` | `float` | `Mana.Max` | 最大 Mana |
 | `atk` | `float` | `CombatStats.Atk` | 攻击力 |
 | `asp` | `float` | `CombatStats.Asp` | 攻速 |
 | `kills` | `int` | `Kills.Value` | 击杀数 |
@@ -510,6 +572,17 @@ SimSnapshot (RefCounted)
 | `xp_needed` | `int` | `Experience.Needed` | 升级所需 |
 | `speed` | `float` | `MoveSpeed.Value` | 移动速度 |
 | `tier` | `int` | `BotTier` (cast) | 0=Normal 1=Elite 2=Boss |
+| `skills` | `TypedArray<SimSkillSlotSnap>` | `SkillComponent.Slots[]` | 4 个技能槽状态 |
+
+### 7.4 SimSkillSlotSnap
+
+| 字段 | GDScript 类型 | 来源组件 | 说明 |
+|------|-------------|---------|------|
+| `skill_id` | `int` | `SkillSlot.SkillId` | 技能模板 ID |
+| `level` | `int` | `SkillSlot.Level` | 技能等级 |
+| `cooldown` | `float` | `SkillSlot.CooldownTimer` | 当前冷却剩余 |
+| `max_cooldown` | `float` | `SkillSlot.MaxCooldown` | 最大冷却 |
+| `mana_cost` | `float` | `SkillSlot.ManaCost` | 法力消耗 |
 
 ### 7.4 SimArrowSnap
 
@@ -553,6 +626,12 @@ for pk in snap.pickups:
     print(pk.id, pk.type, pk.value)
 for ev in snap.events:
     print(ev.killer_id, " killed ", ev.victim_id)
+
+# 技能槽数据访问
+if snap.players.size() > 0:
+    var p = snap.players[0]
+    for s in p.skills:
+        print("skill_id=", s.skill_id, " cd=", s.cooldown, "/", s.max_cooldown)
 ```
 
 ---
@@ -564,7 +643,8 @@ for ev in snap.events:
 | 方法 | 签名 | 说明 |
 |------|------|------|
 | `initialize` | `(map_json: String) -> void` | 解析地图 JSON，创建所有初始实体 |
-| `set_local_input` | `(move: Vector2, aim: Vector2, fire: bool, seq: int) -> void` | 设置当前帧输入 |
+| `set_local_input` | `(move: Vector2, aim: Vector2, fire: bool, seq: int) -> void` | 设置当前帧移动/瞄准/射击输入 |
+| `set_skill_input` | `(q: bool, w: bool, e: bool, r: bool) -> void` | 设置当前帧技能按键输入 |
 | `tick` | `(delta: float) -> void` | 执行一个 tick（30Hz） |
 | `pop_snapshot` | `() -> RefCounted` | 取出最新快照（消费后清空） |
 
@@ -574,6 +654,7 @@ for ev in snap.events:
 // register_types.cpp
 ClassDB::register_class<SimServer>();
 ClassDB::register_class<sim::SimSnapshot>();
+ClassDB::register_class<sim::SimSkillSlotSnap>();
 ClassDB::register_class<sim::SimPlayerSnap>();
 ClassDB::register_class<sim::SimBotSnap>();
 ClassDB::register_class<sim::SimArrowSnap>();
@@ -610,13 +691,16 @@ ClassDB::register_class<sim::SimEventSnap>();
 | `FacingAngle` | `0.0f` |
 | `Health` | `100 / 100` |
 | `CombatStats` | `Atk=10, Asp=1.0, LastFireTime=0` |
+| `Mana` | `Cur=100, Max=100, RegenRate=5, RegenDelay=3, RegenTimer=0` |
 | `Kills` | `0` |
-| `PlayerInputState` | `Move=(0,0), Aim=(0,0), Fire=false, Seq=0` |
+| `PlayerInputState` | `Move=(0,0), Aim=(0,0), Fire=false, Seq=0, SkillQ/W/E/R=false` |
 | `Damageable` | _(空)_ |
 | `Dead` | `false` |
 | `Level` | `1` |
 | `Experience` | `Cur=0, Needed=500` |
 | `MoveSpeed` | `5.0` |
+| `SkillComponent` | `Slots[0-3] = {SkillId=1..4, Level=1, MaxCooldown=4/6/8/15s, ManaCost=10/20/30/50}` |
+| `SkillPoints` | `Available=0` |
 
 ### 9.2 Bot（`_spawn_bot`）
 
@@ -632,12 +716,15 @@ ClassDB::register_class<sim::SimEventSnap>();
 | `BotTier` | 随机 roll |
 | `BotVisionRange` | `BotVisionRange * TierVisionMul` |
 | `CombatStats` | `Atk/Asp 按等级+Tier计算` |
+| `Mana` | `Cur=80, Max=80, RegenRate=3, RegenDelay=3, RegenTimer=0` |
 | `Kills` | `0` |
 | `Damageable` | _(空)_ |
 | `Dead` | `false` |
 | `Level` | 随机 1~30 |
 | `Experience` | `Cur=0, Needed=lv*500` |
 | `MoveSpeed` | `(BotSpeed + (lv-1)*SpeedPerLv) * TierSpeedMul` |
+| `SkillComponent` | `Slots[0-3] = {SkillId=1..4, Level=1, MaxCooldown=4/6/8/15s, ManaCost=10/20/30/50}` |
+| `SkillPoints` | `Available=0` |
 
 ### 9.3 Arrow（`try_fire` → CommandBuffer 创建）
 
@@ -718,7 +805,27 @@ ClassDB::register_class<sim::SimEventSnap>();
 | `SpeedPerLevel` | 0.5 | 升级 Speed 增量 |
 | `HealFraction` | 0.5 | 大血包回血比例 |
 
-### 10.6 Pickup
+### 10.6 Mana
+
+| 常量 | 值 | 说明 |
+|------|-----|------|
+| `PlayerBaseMana` | 100.0 | 玩家基础 Mana |
+| `PlayerManaRegen` | 5.0 | 玩家每秒回复 |
+| `BotBaseMana` | 80.0 | Bot 基础 Mana |
+| `BotManaRegen` | 3.0 | Bot 每秒回复 |
+| `ManaRegenDelay` | 3.0 | 使用技能后暂停回复时间 |
+
+### 10.7 技能
+
+| 常量 | 值 | 说明 |
+|------|-----|------|
+| `SkillCount` | 4 | 技能槽数量 |
+| `PlayerSkillIds[4]` | `{1,2,3,4}` | 玩家测试技能 ID |
+| `SkillCooldowns[4]` | `{4,6,8,15}` | 各技能冷却时间（秒） |
+| `SkillManaCosts[4]` | `{10,20,30,50}` | 各技能法力消耗 |
+| `BotSkillIds[4]` | `{1,2,3,4}` | Bot 测试技能 ID |
+
+### 10.8 Pickup
 
 | 常量 | 值 | 说明 |
 |------|-----|------|
@@ -740,15 +847,16 @@ ClassDB::register_class<sim::SimEventSnap>();
 > 对应 `prompt.md` §MOBA 大逃杀升级方案
 > 每项标注：涉及文件、新增组件、新增 System、Snapshot 扩展、SimServer API 扩展
 
-### P0-1: Mana 系统
+### P0-1: Mana 系统 ✅ 已实现
+
+> 参考实际代码：`components.h` `Mana`、`systems/mana_regen.h`、`world.cpp` 中 emplace
 
 **新增组件：**
 ```cpp
-// components.h 新增
 struct Mana {
     float Cur = 0.0f;
-    float Max = 100.0f;
-    float RegenRate = 5.0f;
+    float Max = 0.0f;
+    float RegenRate = 0.0f;
     float RegenDelay = 3.0f;
     float RegenTimer = 0.0f;
 };
@@ -756,7 +864,6 @@ struct Mana {
 
 **新增 System：**
 ```cpp
-// systems/mana_regen.h
 inline void mana_regen_system(entt::registry &reg, float dt) {
     auto view = reg.view<Mana>();
     for (auto e : view) {
@@ -769,46 +876,39 @@ inline void mana_regen_system(entt::registry &reg, float dt) {
 }
 ```
 
-**新增 GameConfig：**
-```cpp
-static constexpr float PlayerBaseMana = 100.0f;
-static constexpr float PlayerManaRegen = 5.0f;
-static constexpr float PlayerManaRegenDelay = 3.0f;
-static constexpr float BotBaseMana = 100.0f;
-static constexpr float BotManaRegen = 3.0f;
-```
-
 **Snapshot 扩展：**
-- `SimPlayerSnap` + `mana: float, max_mana: float`
-- `SimBotSnap` + `mana: float, max_mana: float`
-- `snapshot_builder.cpp` 对应导出
-- `snapshot_bindings.cpp` 对应 BIND + PROP
+- `SimPlayerSnap` + `mana: float, max_mana: float` ✅
+- `SimBotSnap` + `mana: float, max_mana: float` ✅
 
-**World 改动：**
-- `_spawn_player` 中 emplace `Mana(PlayerBaseMana, PlayerBaseMana, ...)`
-- `_spawn_bot` 中 emplace `Mana(BotBaseMana, ...)`
-- `tick()` 中插入 `mana_regen_system` 顺序（在 PlayerFire 之后、BotCombat 之后，使技能消耗先扣，再回复）
-- Bot 重生时重置 Mana
-
-**SimServer 改动：** 无新 API
-
-**涉及文件：** `components.h`, `game_config.h`, `world.h`, `world.cpp`, `systems/mana_regen.h`(新), `snapshot_types.h`, `snapshot_builder.cpp`, `snapshot_bindings.cpp`
+**涉及文件：** `components.h`, `game_config.h`, `world.h`, `world.cpp`, `systems/mana_regen.h`, `snapshot_types.h`, `snapshot_builder.cpp`, `snapshot_bindings.cpp`
 
 ---
 
-### P0-2: 技能系统框架
+### P0-2: 技能系统框架（部分实现 ✅ / 部分待做 ❌）
 
-**新增组件：**
+#### ✅ 已完成（本次实现）
+
+**组件：**
+- `SkillSlot`（`SkillId/Level/CooldownTimer/MaxCooldown/ManaCost`）
+- `SkillComponent`（`Slots[4]`）
+- `SkillPoints`（`Available`）
+- `LocalInputSingleton` + `PlayerInputState` 扩展 `SkillQ/SkillW/SkillE/SkillR`
+
+**System：**
+- `SkillInputSystem`（读取技能按键 → 消耗 Mana + 触发冷却）
+- `SkillCooldownSystem`（每 tick 递减冷却计时）
+
+**SimServer API：**
+- 新增 `set_skill_input(q, w, e, r)` 方法
+
+**Snapshot 扩展：**
+- 新增 `SimSkillSlotSnap`（`skill_id/level/cooldown/max_cooldown/mana_cost`）
+- `SimPlayerSnap.skills[]` + `SimBotSnap.skills[]`
+
+#### ❌ 待实现
+
+**剩余组件：**
 ```cpp
-// components.h 新增
-enum class SkillTargetType : uint8_t {
-    Skillshot = 0,
-    Targeted  = 1,
-    AoEGround = 2,
-    SelfBuff  = 3,
-    Dash      = 4,
-};
-
 struct SkillDef {
     int Id = 0;
     SkillTargetType TargetType = SkillTargetType::Skillshot;
@@ -823,17 +923,6 @@ struct SkillDef {
     bool InterruptOnMove = true;
 };
 
-struct SkillSlot {
-    int SkillId = 0;
-    int Level = 0;
-    float CooldownTimer = 0.0f;
-    float MaxCooldown = 0.0f;
-};
-
-struct SkillComponent {
-    SkillSlot Slots[4];
-};
-
 struct CastState {
     bool IsCasting = false;
     int ActiveSlot = -1;
@@ -841,174 +930,17 @@ struct CastState {
     Vec2 AimPosition{0.0f};
     int TargetEntityId = 0;
 };
-
-struct SkillPoints {
-    int Available = 0;
-};
-
-// 泛化投射物
-enum class ProjectileType : uint8_t {
-    BasicAttack = 0,
-    Skillshot   = 1,
-    Missile     = 2,
-};
-
-struct ProjectileTag {
-    int OwnerId = 0;
-    int SkillId = 0;
-    float Damage = 0.0f;
-    ProjectileType Type = ProjectileType::BasicAttack;
-    float Radius = 0.3f;
-    float Speed = 20.0f;
-    float Lifetime = 2.0f;
-    entt::entity HomingTarget = entt::null;
-};
-
-struct AoETag {
-    int OwnerId = 0;
-    int SkillId = 0;
-    float Radius = 3.0f;
-    float Duration = 2.0f;
-    float Timer = 0.0f;
-    float TickRate = 0.5f;
-    float TickTimer = 0.0f;
-    float Damage = 10.0f;
-    bool HasTicked = false;
-};
 ```
 
-**新增 System：**
-```cpp
-// systems/skill_input.h — 读取技能按键 → 触发施法
-inline void skill_input_system(entt::registry &reg, entt::entity local_input_entity);
+**剩余 System：**
+- `SkillCastSystem` — 管理前摇 → 释放 → 实际技能效果
+- `SkillEffectSystem` — 执行技能效果（生成投射物/AoE/Buff）
+- `SkillLevelSystem` — 技能点分配
 
-// systems/skill_cast.h — 管理前摇 → 释放 → 冷却
-inline void skill_cast_system(entt::registry &reg, double now, CommandBuffer &cb, IdState &ids);
-
-// systems/skill_effect.h — 执行技能效果
-inline void skill_effect_system(entt::registry &reg, float dt, CommandBuffer &cb);
-
-// systems/skill_cooldown.h — 冷却递减
-inline void skill_cooldown_system(entt::registry &reg, float dt);
-
-// systems/skill_level.h — 技能点分配
-inline void skill_level_system(entt::registry &reg);
-
-// systems/projectile_movement.h — 泛化投射物运动（替换 arrow_movement）
-inline void projectile_movement_system(entt::registry &reg, float dt);
-
-// systems/aoe_tick.h — AoE 区域伤害 tick
-inline void aoe_tick_system(entt::registry &reg, float dt, CommandBuffer &cb);
-```
-
-**输入扩展：**
-```cpp
-// LocalInputSingleton 扩展
-struct LocalInputSingleton {
-    Vec2 Move{0.0f};
-    Vec2 Aim{0.0f};
-    bool Fire = false;
-    int Seq = 0;
-    bool SkillQ = false;   // 新增
-    bool SkillW = false;   // 新增
-    bool SkillE = false;   // 新增
-    bool SkillR = false;   // 新增
-};
-
-// PlayerInputState 同步扩展
-struct PlayerInputState {
-    Vec2 Move{0.0f};
-    Vec2 Aim{0.0f};
-    bool Fire = false;
-    int Seq = 0;
-    bool SkillQ = false;   // 新增
-    bool SkillW = false;   // 新增
-    bool SkillE = false;   // 新增
-    bool SkillR = false;   // 新增
-};
-```
-
-**SimServer API 扩展：**
-```cpp
-// sim_server.h 新增
-void set_local_input(const godot::Vector2 &move, const godot::Vector2 &aim,
-                     bool fire, int seq,
-                     bool skill_q, bool skill_w, bool skill_e, bool skill_r);  // 新增重载
-void set_skill_levelup(int slot_index);  // 技能加点
-```
-
-**Snapshot 扩展：**
-```cpp
-class SimSkillSlotSnap : public godot::RefCounted {
-    GDCLASS(SimSkillSlotSnap, godot::RefCounted)
-public:
-    int skill_id = 0;
-    int level = 0;
-    float cooldown = 0.0f;
-    float max_cooldown = 0.0f;
-    float mana_cost = 0.0f;
-    // ... getter/setter + _bind_methods
-};
-
-// SimPlayerSnap 新增
-TypedArray<SimSkillSlotSnap> skills;
-int skill_points = 0;
-
-// SimBotSnap 新增
-TypedArray<SimSkillSlotSnap> skills;
-
-// SimSnapshot 新增
-TypedArray<SimAoESnap> aoes;  // AoE 区域快照
-
-class SimAoESnap : public godot::RefCounted {
-    GDCLASS(SimAoESnap, godot::RefCounted)
-public:
-    int id = 0;
-    float x = 0, y = 0;
-    float radius = 0;
-    int skill_id = 0;
-    float duration = 0;
-    float timer = 0;
-    int owner_id = 0;
-    // ... getter/setter + _bind_methods
-};
-```
-
-**World tick 新顺序：**
-```
-1.  local_input_injection_system
-2.  player_movement_system
-3.  skill_input_system          ← 新增
-4.  skill_cast_system           ← 新增
-5.  player_fire_system          (改为普攻技能触发，或保持为独立 System)
-6.  bot_targeting_system
-7.  bot_ai_system
-8.  bot_combat_system
-9.  projectile_movement_system  ← 替换 arrow_movement_system
-10. aoe_tick_system             ← 新增
-11. wall_collision_system
-12. combat_system               (扩展 AoE + ProjectileTag 碰撞)
-13. pickup_system
-14. mana_regen_system           ← 新增
-15. skill_cooldown_system       ← 新增
-16. progression_system
-17. skill_level_system          ← 新增
-18. snapshot_export_system
-```
-
-**重构 `player_fire.h`：**
-- 普攻 = SkillId=0 的 skillshot，仍通过 `try_fire` 创建
-- 或将 `ArrowTag` 全面替换为 `ProjectileTag`，`player_fire` 改为构造 `ProjectileTag`
-
-**重构 `arrow_movement.h` → `projectile_movement.h`：**
-- 支持 `ProjectileTag` + 可选 `HomingTarget` 追踪逻辑
-- 保留 `ArrowTag` 兼容期，或一步到位替换
-
-**重构 `combat.h`：**
-- 扩展碰撞检测：`ProjectileTag` → `Damageable`（与现有 Arrow 逻辑相同）
-- 新增 `AoETag` → `Damageable` 碰撞（circle-circle）
-
-**涉及文件：** `components.h`, `game_config.h`, `world.h`, `world.cpp`, `arrow_spawner.h`(重构), `systems/player_fire.h`(重构), `systems/arrow_movement.h`(重构→projectile_movement.h), `systems/combat.h`(扩展), `systems/bot_combat.h`(适配), `systems/skill_input.h`(新), `systems/skill_cast.h`(新), `systems/skill_effect.h`(新), `systems/skill_cooldown.h`(新), `systems/skill_level.h`(新), `systems/projectile_movement.h`(新), `systems/aoe_tick.h`(新), `snapshot_types.h`, `snapshot_builder.h`, `snapshot_builder.cpp`, `snapshot_bindings.cpp`, `sim_server.h`, `sim_server.cpp`, `register_types.cpp`
+**剩余重构：**
+- `arrow_movement.h` → `projectile_movement.h`（泛化投射物）
+- `player_fire.h` 改为技能系统触发（普攻 = SkillId=0）
+- `combat.h` 扩展 AoE 碰撞检测
 
 ---
 
