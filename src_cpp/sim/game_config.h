@@ -85,20 +85,20 @@ struct GameConfig {
     static constexpr float BotKiteRetreatEnter = 0.25f;
 
     // ── 击杀 XP ──
-    static constexpr int KillXpBase = 15;
-    static constexpr float KillXpHighBonus = 0.5f;
+    static constexpr int KillXpBase = 200;
+    static constexpr float KillXpHighBonus = 0.75f;
 
     static constexpr int PlayerIdStart = 1;
     static constexpr int BotIdStart = 1001;
     static constexpr int ArrowIdStart = 2001;
     static constexpr int PickupIdStart = 3001;
 
-    static constexpr int XpPerLevelBase = 500;
+    static constexpr int XpPerLevelBase = 250;
     static constexpr int HpPerLevel = 10;
     static constexpr float SpeedPerLevel = 0.5f;
     static constexpr float HealFraction = 0.5f;
 
-    static constexpr int XpPickupValue = 16;
+    static constexpr int XpPickupValue = 48;
     static constexpr int HealPickupValue = 30;
     static constexpr int SmallHealPickupValue = 25;
     static constexpr float XpPickupRespawnTime = 10.0f;

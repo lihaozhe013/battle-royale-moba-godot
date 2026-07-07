@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://cry0jayrxwnon"]
 
-[ext_resource type="Script" uid="uid://bwlalitrgnqls" path="res://scripts/sim_bridge.gd" id="1"]
-[ext_resource type="Script" uid="uid://bdppam86y7vha" path="res://scripts/input/input_collector.gd" id="2"]
-[ext_resource type="Script" uid="uid://b3thijxvorrs1" path="res://scripts/view/camera_controller.gd" id="3"]
-[ext_resource type="Script" uid="uid://bxqepavj2fq3s" path="res://scripts/view/entity_manager.gd" id="4"]
+[ext_resource type="Script" uid="uid://df80gsa7bpecq" path="res://scripts/sim_bridge.gd" id="1"]
+[ext_resource type="Script" uid="uid://c4syamod1yhm8" path="res://scripts/input/input_collector.gd" id="2"]
+[ext_resource type="Script" uid="uid://brnrujh7vsgny" path="res://scripts/view/camera_controller.gd" id="3"]
+[ext_resource type="Script" uid="uid://dt2wkai6x8lsc" path="res://scripts/view/entity_manager.gd" id="4"]
 [ext_resource type="Script" uid="uid://b8gmdysmppq68" path="res://scripts/ui/stats_panel.gd" id="5"]
 [ext_resource type="Script" uid="uid://drplmxv7r2mk7" path="res://scripts/ui/health_bar_manager.gd" id="5_tefeu"]
 [ext_resource type="PackedScene" uid="uid://bottomhud0001" path="res://scenes/ui/bottom_hud.tscn" id="7_o6xl0"]
