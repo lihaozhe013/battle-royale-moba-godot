@@ -9,6 +9,7 @@
 #include "../components.h"
 #include "../game_config.h"
 #include "../vec2.h"
+#include "bot_role_rules.h"
 
 namespace sim {
 
@@ -74,40 +75,49 @@ inline void bot_ai_system(entt::registry &reg, float dt, float map_half, std::mt
             if (ai.RespawnTimer <= 0.0f) {
                 reg.get<Dead>(e).enabled = false;
 
-                int new_lv = std::uniform_int_distribution<int>(1, GameConfig::MaxBotLevel)(rng);
-                float r = std::uniform_real_distribution<float>(0.0f, 1.0f)(rng);
-                BotTier tier;
-                float hp_mul, atk_mul, asp_mul, speed_mul, vision_mul;
-                if (r < GameConfig::BossRoll) {
-                    tier = BotTier::Boss;
-                    hp_mul = GameConfig::BossHpMul; atk_mul = GameConfig::BossAtkMul;
-                    asp_mul = GameConfig::BossAspMul; speed_mul = GameConfig::BossSpeedMul;
-                    vision_mul = GameConfig::BossVisionMul;
-                } else if (r < GameConfig::EliteRoll) {
-                    tier = BotTier::Elite;
-                    hp_mul = GameConfig::EliteHpMul; atk_mul = GameConfig::EliteAtkMul;
-                    asp_mul = GameConfig::EliteAspMul; speed_mul = GameConfig::EliteSpeedMul;
-                    vision_mul = GameConfig::EliteVisionMul;
-                } else {
-                    tier = BotTier::Normal;
-                    hp_mul = GameConfig::NormalHpMul; atk_mul = GameConfig::NormalAtkMul;
-                    asp_mul = GameConfig::NormalAspMul; speed_mul = GameConfig::NormalSpeedMul;
-                    vision_mul = GameConfig::NormalVisionMul;
+                // step 1: scan alive bot role distribution
+                int counts[3] = {0, 0, 0};
+                auto role_view = reg.view<BotTag, BotRole>(entt::exclude<Dead>);
+                for (auto b : role_view) {
+                    counts[static_cast<int>(role_view.get<BotRole>(b))]++;
                 }
 
+                // step 2: select least dense role
+                float density[3] = {
+                    counts[0] / (float)GameConfig::FodderWeight,
+                    counts[1] / (float)GameConfig::StalkerWeight,
+                    counts[2] / (float)GameConfig::BruteWeight,
+                };
+                BotRole role;
+                if      (density[0] <= density[1] && density[0] <= density[2]) role = BotRole::Fodder;
+                else if (density[1] <= density[2])                              role = BotRole::Stalker;
+                else                                                            role = BotRole::Brute;
+
+                reg.get_or_emplace<BotRole>(e) = role;
+
+                // step 3: roll level by role
+                int new_lv = detail::roll_bot_level_for_role(reg, role, rng);
+
+                // step 4: roll tier by role
+                BotTier tier = detail::roll_bot_tier_for_role(role, rng);
+                auto mult = detail::tier_mult(tier);
+
+                // step 5: apply stats
+                reg.get_or_emplace<BotTier>(e) = tier;
                 lv.Value = new_lv;
                 int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::BotHpPerLevel;
-                hp.Max = static_cast<int>(base_hp * hp_mul);
+                hp.Max = static_cast<int>(base_hp * mult.HpMul);
                 hp.Cur = hp.Max;
-                stats.Atk = (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::BotAtkPerLevel) * atk_mul;
+                stats.Atk = (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::BotAtkPerLevel) * mult.AtkMul;
                 stats.Asp = std::min(
-                    (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::BotAspPerLevel) * asp_mul,
+                    (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::BotAspPerLevel) * mult.AspMul,
                     GameConfig::AspMax);
-                speed.Value = (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) * speed_mul;
-                vision.Value = GameConfig::BotVisionRange * vision_mul;
+                speed.Value = (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) * mult.SpeedMul;
+                vision.Value = GameConfig::BotVisionRange * mult.VisionMul;
                 exp.Cur = 0;
                 exp.Needed = new_lv * GameConfig::XpPerLevelBase;
 
+                // step 6: respawn position + wander reset
                 float half = map_half - GameConfig::BotRadius;
                 pos.Value = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),

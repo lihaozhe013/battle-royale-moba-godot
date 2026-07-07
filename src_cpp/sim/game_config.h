@@ -22,7 +22,7 @@ struct GameConfig {
     static constexpr float ArrowLifetime = 2.0f;
     static constexpr float ArrowRadius = 0.3f;
 
-    static constexpr int BotCount = 5;
+    static constexpr int BotCount = 10;
     static constexpr float BotRadius = 0.5f;
     static constexpr float BotSpeed = 2.0f;
     static constexpr int BotHp = 50;
@@ -58,6 +58,15 @@ struct GameConfig {
     static constexpr float BossVisionMul = 1.5f;
     static constexpr float BossRoll = 0.05f;
     static constexpr float EliteRoll = 0.20f;
+
+    // ── Bot Role 阶梯 ──
+    static constexpr int FodderMaxLv = 5;
+    static constexpr int BruteMinLv = 22;
+    static constexpr int StalkerOffset = 2;
+    static constexpr int FodderWeight = 4;
+    static constexpr int StalkerWeight = 4;
+    static constexpr int BruteWeight = 2;
+    static constexpr float BruteEliteRoll = 0.6f;
 
     // ── 决策树参数 ──
     static constexpr float BotDecisionCooldown = 0.3f;

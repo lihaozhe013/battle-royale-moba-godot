@@ -85,6 +85,12 @@ enum class BotTier : uint8_t {
     Boss = 2,
 };
 
+enum class BotRole : uint8_t {
+    Fodder = 0,
+    Stalker = 1,
+    Brute = 2,
+};
+
 struct BotBehaviorState {
     enum class Goal : uint8_t {
         Flee = 0,

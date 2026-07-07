@@ -127,53 +127,47 @@ void World::_spawn_player(int player_id, bool is_local) {
 }
 
 void World::_spawn_bot() {
+    int total_w = GameConfig::FodderWeight + GameConfig::StalkerWeight + GameConfig::BruteWeight;
+    int r = std::uniform_int_distribution<int>(0, total_w - 1)(_rng);
+    BotRole role;
+    if (r < GameConfig::FodderWeight)                        role = BotRole::Fodder;
+    else if (r < GameConfig::FodderWeight + GameConfig::StalkerWeight) role = BotRole::Stalker;
+    else                                                     role = BotRole::Brute;
+    _spawn_bot_with_role(role);
+}
+
+void World::_spawn_bot_with_role(BotRole role) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
     int bot_id = ids.NextBotId++;
+
+    int new_lv = detail::roll_bot_level_for_role(_reg, role, _rng);
+    BotTier tier = detail::roll_bot_tier_for_role(role, _rng);
+    auto mult = detail::tier_mult(tier);
+
+    int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::BotHpPerLevel;
+    float atk = (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::BotAtkPerLevel) * mult.AtkMul;
+    float asp = std::min(
+        (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::BotAspPerLevel) * mult.AspMul,
+        GameConfig::AspMax);
+    float spd = (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) * mult.SpeedMul;
+    float vis = GameConfig::BotVisionRange * mult.VisionMul;
 
     float half = GameConfig::MapHalf - GameConfig::BotRadius;
     Vec2 pos = _random_map_pos(half, GameConfig::BotRadius);
     Vec2 target = _random_map_pos(half, GameConfig::BotRadius);
-
-    int new_lv = std::uniform_int_distribution<int>(1, GameConfig::MaxBotLevel)(_rng);
-    float r = std::uniform_real_distribution<float>(0.0f, 1.0f)(_rng);
-    BotTier tier;
-    float hp_mul, atk_mul, asp_mul, speed_mul, vision_mul;
-    if (r < GameConfig::BossRoll) {
-        tier = BotTier::Boss;
-        hp_mul = GameConfig::BossHpMul; atk_mul = GameConfig::BossAtkMul;
-        asp_mul = GameConfig::BossAspMul; speed_mul = GameConfig::BossSpeedMul;
-        vision_mul = GameConfig::BossVisionMul;
-    } else if (r < GameConfig::EliteRoll) {
-        tier = BotTier::Elite;
-        hp_mul = GameConfig::EliteHpMul; atk_mul = GameConfig::EliteAtkMul;
-        asp_mul = GameConfig::EliteAspMul; speed_mul = GameConfig::EliteSpeedMul;
-        vision_mul = GameConfig::EliteVisionMul;
-    } else {
-        tier = BotTier::Normal;
-        hp_mul = GameConfig::NormalHpMul; atk_mul = GameConfig::NormalAtkMul;
-        asp_mul = GameConfig::NormalAspMul; speed_mul = GameConfig::NormalSpeedMul;
-        vision_mul = GameConfig::NormalVisionMul;
-    }
-
-    int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::BotHpPerLevel;
-    float atk = (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::BotAtkPerLevel) * atk_mul;
-    float asp = std::min(
-        (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::BotAspPerLevel) * asp_mul,
-        GameConfig::AspMax);
-    float spd = (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) * speed_mul;
-    float vis = GameConfig::BotVisionRange * vision_mul;
 
     auto e = _reg.create();
     _reg.emplace<BotTag>(e);
     _reg.emplace<NetworkId>(e, bot_id);
     _reg.emplace<Position2D>(e, pos);
     _reg.emplace<FacingAngle>(e, 0.0f);
-    _reg.emplace<Health>(e, static_cast<int>(base_hp * hp_mul), static_cast<int>(base_hp * hp_mul));
+    _reg.emplace<Health>(e, static_cast<int>(base_hp * mult.HpMul), static_cast<int>(base_hp * mult.HpMul));
     _reg.emplace<Mana>(e, GameConfig::BotBaseMana, GameConfig::BotBaseMana,
         GameConfig::BotManaRegen, GameConfig::ManaRegenDelay, 0.0f);
     _reg.emplace<BotAIState>(e, target, 0.0f, entt::null, _random_wander_time());
     _reg.emplace<BotBehaviorState>(e);
     _reg.emplace<BotTier>(e, tier);
+    _reg.emplace<BotRole>(e, role);
     _reg.emplace<BotVisionRange>(e, vis);
     _reg.emplace<CombatStats>(e, atk, asp, 0.0);
     _reg.emplace<Kills>(e, 0);
