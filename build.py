@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -52,6 +53,24 @@ def load_config():
 
 def _path(p):
     return os.path.normpath(p) if p else p
+
+
+def _get_vs_env(vs_install_dir, arch="x64"):
+    """Run vcvarsall.bat and return the resulting environment as a dict."""
+    if sys.platform != "win32":
+        return None
+    vcvarsall = os.path.join(vs_install_dir, "VC", "Auxiliary", "Build", "vcvarsall.bat")
+    if not os.path.isfile(vcvarsall):
+        return None
+    script = "import json, os; print(json.dumps(dict(os.environ)))"
+    cmd = f'call "{vcvarsall}" {arch} >nul 2>&1 && "{sys.executable}" -c "{script}"'
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    try:
+        return json.loads(result.stdout.strip())
+    except (json.JSONDecodeError, ValueError):
+        return None
 
 
 def _require(raw, key, label):
@@ -114,27 +133,8 @@ def _find_python(cfg):
 
 
 def _generator_name(cfg, tc):
-    """Determine CMake generator name based on platform and toolchain."""
-    VS_GENERATORS = {
-        2017: "Visual Studio 15 2017",
-        2019: "Visual Studio 16 2019",
-        2022: "Visual Studio 17 2022",
-        2026: "Visual Studio 18 2026",
-    }
-    if sys.platform == "win32":
-        if tc == "msvc":
-            vs_year = cfg.get("msvc", {}).get("vs_year", 2022)
-            gen = VS_GENERATORS.get(vs_year)
-            if gen is None:
-                _panic(f"Unsupported VS year '{vs_year}' in msvc.vs_year. Supported: {list(VS_GENERATORS.keys())}")
-            return gen
-        elif tc == "mingw":
-            return "MinGW Makefiles"
-        elif tc == "clang":
-            return "Ninja"
-    elif sys.platform == "darwin":
-        return "Ninja" if tc == "clang" else "Unix Makefiles"
-    return "Unix Makefiles"
+    """Ninja is used on all platforms for fast, parallel builds."""
+    return "Ninja"
 
 
 def _target_to_cmake_config(target):
@@ -167,10 +167,15 @@ def _configure(cfg, tc, cmake, python, target, generator):
         f"-DPython3_EXECUTABLE={python}",
     ]
 
-    if sys.platform == "win32" and tc == "msvc":
-        configure_cmd.extend(["-A", "x64"])
+    env = None
+    if tc == "msvc" and sys.platform == "win32":
+        vs_dir = cfg.get("msvc", {}).get("vs_install_dir", "")
+        if vs_dir:
+            vs_env = _get_vs_env(vs_dir)
+            if vs_env:
+                env = vs_env
 
-    result = subprocess.call(configure_cmd, cwd=SRC_CPP_DIR)
+    result = subprocess.call(configure_cmd, cwd=SRC_CPP_DIR, env=env)
     if result != 0:
         _panic("CMake configuration failed")
 
@@ -194,7 +199,15 @@ def _build(cfg, tc, cmake, target, jobs, verbose):
     if verbose:
         build_cmd.append("--verbose")
 
-    return subprocess.call(build_cmd, cwd=SRC_CPP_DIR)
+    env = None
+    if tc == "msvc" and sys.platform == "win32":
+        vs_dir = cfg.get("msvc", {}).get("vs_install_dir", "")
+        if vs_dir:
+            vs_env = _get_vs_env(vs_dir)
+            if vs_env:
+                env = vs_env
+
+    return subprocess.call(build_cmd, cwd=SRC_CPP_DIR, env=env)
 
 
 def setup_toolchain(cfg):

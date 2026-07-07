@@ -2,6 +2,19 @@
 
 类 MOBA 游戏原型。C++ GDExtension 模拟层 + GDScript 视图层，ECS 架构。
 
+## 环境需求
+
+构建 C++ GDExtension 需要以下工具（构建脚本会自动检测）：
+
+| 工具 | 版本 | 安装方式 |
+|------|------|----------|
+| CMake | ≥ 3.17 | `brew install cmake` (macOS), `apt install cmake` (Linux), 或从 [cmake.org](https://cmake.org) 下载 |
+| Ninja | ≥ 1.10 | `brew install ninja` (macOS), `apt install ninja-build` (Linux), `pip install ninja` (全平台) |
+| Python | ≥ 3.13 | 项目使用 uv 管理，参考 `pyproject.toml` |
+| C++编译器 | C++17 | macOS: Xcode CLT (`xcode-select --install`), Linux: GCC ≥ 8 或 Clang ≥ 7, Windows: 需从 Visual Studio Developer Command Prompt 执行 |
+
+首次构建前，复制对应的 `build_env.*.example` 为 `build_env.yaml` 并按需配置。
+
 ## 架构
 
 ```
