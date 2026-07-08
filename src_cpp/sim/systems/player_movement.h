@@ -78,6 +78,10 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                     path.CurrentIndex++;
                     if (path.CurrentIndex >= static_cast<int>(path.Waypoints.size())) {
                         path.Following = false;
+                    } else {
+                        Vec2 next_target = path.Waypoints[path.CurrentIndex];
+                        Vec2 next_dir = vec2_normalize(next_target - pos.Value);
+                        angle.Radians = std::atan2(next_dir.y, next_dir.x);
                     }
                     continue;
                 }
@@ -91,6 +95,10 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                     path.CurrentIndex++;
                     if (path.CurrentIndex >= static_cast<int>(path.Waypoints.size())) {
                         path.Following = false;
+                    } else {
+                        Vec2 next_target = path.Waypoints[path.CurrentIndex];
+                        Vec2 next_dir = vec2_normalize(next_target - pos.Value);
+                        angle.Radians = std::atan2(next_dir.y, next_dir.x);
                     }
                 } else {
                     pos.Value = vec2_clamp_to_map(pos.Value + step, map_half);
