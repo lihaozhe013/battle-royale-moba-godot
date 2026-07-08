@@ -1,9 +1,14 @@
 [gd_scene format=3 uid="uid://dxl3jci1dkw6l"]
 
 [ext_resource type="Script" uid="uid://c5l804ug4o0bn" path="res://scripts/ui/settings_panel.gd" id="1"]
+[ext_resource type="FontFile" uid="uid://c25ek4nraiw4t" path="res://resources/ui/Cinzel-SemiBold.ttf" id="2_qm286"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1vivr"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="Theme" id="Theme_1vivr"]
+default_font = ExtResource("2_qm286")
+default_font_size = 15
 
 [node name="SettingsPanel" type="CanvasLayer" unique_id=512102333]
 process_mode = 3
@@ -18,6 +23,8 @@ anchor_right = 0.5
 anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(1.8, 1.8)
+pivot_offset = Vector2(200, 150)
 color = Color(0.12, 0.12, 0.14, 0.92)
 
 [node name="Title" type="Label" parent="PanelBg" unique_id=11527446]
@@ -30,92 +37,160 @@ offset_right = 46.5
 offset_bottom = 34.0
 grow_horizontal = 2
 size_flags_horizontal = 4
+theme_override_fonts/font = ExtResource("2_qm286")
 theme_override_font_sizes/font_size = 24
 text = "Settings"
 horizontal_alignment = 1
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelBg" unique_id=907368223]
+[node name="ConfigName" type="VBoxContainer" parent="PanelBg" unique_id=779471918]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -92.0
+offset_left = -111.0
 offset_top = -83.0
-offset_right = 92.0
+offset_right = 111.0
 offset_bottom = 83.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="ConfigName" type="VBoxContainer" parent="PanelBg/HBoxContainer" unique_id=779471918]
+[node name="Mode" type="HBoxContainer" parent="PanelBg/ConfigName" unique_id=1496375663]
 layout_mode = 2
 
-[node name="ModeLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=1562585981]
+[node name="ModeLabel" type="Label" parent="PanelBg/ConfigName/Mode" unique_id=1562585981]
+custom_maximum_size = Vector2(-1, 21.04)
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
+theme_override_fonts/font = ExtResource("2_qm286")
+theme_override_font_sizes/font_size = 15
 text = "Mode"
 
-[node name="CameraModeLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=582395177]
+[node name="BlankSpace" type="PanelContainer" parent="PanelBg/ConfigName/Mode" unique_id=656424001]
+custom_minimum_size = Vector2(15, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Camera"
-
-[node name="EdgePanLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=1529044391]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Edge Pan"
-
-[node name="EdgeSpeedLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=1628897389]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Edge Speed"
-
-[node name="SmoothPanLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=1836861306]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Smooth Pan"
-
-[node name="FullscreenLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=204251778]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Fullscreen"
-
-[node name="BlankSpace" type="PanelContainer" parent="PanelBg/HBoxContainer" unique_id=656424001]
-custom_minimum_size = Vector2(65, 0)
-layout_mode = 2
+size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_1vivr")
 
-[node name="Value" type="VBoxContainer" parent="PanelBg/HBoxContainer" unique_id=1974734412]
-layout_mode = 2
-
-[node name="ModeOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=573673923]
+[node name="ModeOption" type="OptionButton" parent="PanelBg/ConfigName/Mode" unique_id=573673923]
+custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
 size_flags_vertical = 4
+theme_override_fonts/font = ExtResource("2_qm286")
 
-[node name="CameraModeOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=563206615]
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelBg/ConfigName" unique_id=1655693625]
+layout_mode = 2
+
+[node name="CameraModeLabel" type="Label" parent="PanelBg/ConfigName/HBoxContainer2" unique_id=582395177]
+custom_maximum_size = Vector2(-1, 21.04)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_qm286")
+theme_override_font_sizes/font_size = 15
+text = "Camera"
+
+[node name="BlankSpace2" type="PanelContainer" parent="PanelBg/ConfigName/HBoxContainer2" unique_id=803437689]
+custom_minimum_size = Vector2(15, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_1vivr")
+
+[node name="CameraModeOption" type="OptionButton" parent="PanelBg/ConfigName/HBoxContainer2" unique_id=563206615]
+custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
 size_flags_vertical = 4
+theme_override_fonts/font = ExtResource("2_qm286")
 
-[node name="EdgePanOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=1863649276]
+[node name="HBoxContainer3" type="HBoxContainer" parent="PanelBg/ConfigName" unique_id=662663647]
+layout_mode = 2
+
+[node name="EdgePanLabel" type="Label" parent="PanelBg/ConfigName/HBoxContainer3" unique_id=1529044391]
+custom_maximum_size = Vector2(-1, 21.04)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_qm286")
+theme_override_font_sizes/font_size = 15
+text = "Edge Pan"
+
+[node name="BlankSpace3" type="PanelContainer" parent="PanelBg/ConfigName/HBoxContainer3" unique_id=1697232655]
+custom_minimum_size = Vector2(15, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_1vivr")
+
+[node name="EdgePanOption" type="OptionButton" parent="PanelBg/ConfigName/HBoxContainer3" unique_id=1863649276]
+custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
 size_flags_vertical = 4
+theme_override_fonts/font = ExtResource("2_qm286")
 
-[node name="EdgeSpeedSpinBox" type="SpinBox" parent="PanelBg/HBoxContainer/Value" unique_id=814361283]
+[node name="HBoxContainer4" type="HBoxContainer" parent="PanelBg/ConfigName" unique_id=90218218]
+layout_mode = 2
+
+[node name="EdgeSpeedLabel" type="Label" parent="PanelBg/ConfigName/HBoxContainer4" unique_id=1628897389]
+custom_maximum_size = Vector2(-1, 21.04)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_qm286")
+theme_override_font_sizes/font_size = 15
+text = "Edge Speed"
+
+[node name="BlankSpace4" type="PanelContainer" parent="PanelBg/ConfigName/HBoxContainer4" unique_id=1360978636]
+custom_minimum_size = Vector2(15, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_1vivr")
+
+[node name="EdgeSpeedSpinBox" type="SpinBox" parent="PanelBg/ConfigName/HBoxContainer4" unique_id=814361283]
+custom_minimum_size = Vector2(4.91, 0)
 layout_mode = 2
 size_flags_vertical = 4
+theme = SubResource("Theme_1vivr")
 min_value = 1.0
 max_value = 50.0
 step = 0.5
 value = 14.0
 
-[node name="SmoothPanOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=738425930]
+[node name="HBoxContainer5" type="HBoxContainer" parent="PanelBg/ConfigName" unique_id=719601521]
 layout_mode = 2
-size_flags_vertical = 4
 
-[node name="FullscreenOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=776202412]
+[node name="SmoothPanLabel" type="Label" parent="PanelBg/ConfigName/HBoxContainer5" unique_id=1836861306]
+custom_maximum_size = Vector2(-1, 21.04)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_qm286")
+theme_override_font_sizes/font_size = 15
+text = "Smooth Pan"
+
+[node name="BlankSpace5" type="PanelContainer" parent="PanelBg/ConfigName/HBoxContainer5" unique_id=1073599489]
+custom_minimum_size = Vector2(15, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_1vivr")
+
+[node name="SmoothPanOption" type="OptionButton" parent="PanelBg/ConfigName/HBoxContainer5" unique_id=738425930]
+custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
 size_flags_vertical = 4
+theme_override_fonts/font = ExtResource("2_qm286")
+
+[node name="HBoxContainer6" type="HBoxContainer" parent="PanelBg/ConfigName" unique_id=1750440770]
+layout_mode = 2
+
+[node name="FullscreenLabel" type="Label" parent="PanelBg/ConfigName/HBoxContainer6" unique_id=204251778]
+custom_maximum_size = Vector2(-1, 21.04)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_qm286")
+theme_override_font_sizes/font_size = 15
+text = "Fullscreen"
+
+[node name="BlankSpace6" type="PanelContainer" parent="PanelBg/ConfigName/HBoxContainer6" unique_id=861108163]
+custom_minimum_size = Vector2(15, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_1vivr")
+
+[node name="FullscreenOption" type="OptionButton" parent="PanelBg/ConfigName/HBoxContainer6" unique_id=776202412]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_fonts/font = ExtResource("2_qm286")
 
 [node name="QuitButton" type="Button" parent="PanelBg" unique_id=134980460]
 layout_mode = 1
@@ -129,6 +204,7 @@ offset_top = -31.0
 grow_horizontal = 0
 grow_vertical = 0
 size_flags_horizontal = 4
+theme_override_fonts/font = ExtResource("2_qm286")
 text = "Quit Game"
 
 [node name="CloseButton" type="Button" parent="PanelBg" unique_id=189669026]
@@ -141,11 +217,11 @@ offset_bottom = 31.0
 grow_horizontal = 0
 text = "×"
 
-[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/ModeOption" to="." method="_on_mode_selected"]
-[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/CameraModeOption" to="." method="_on_camera_mode_selected"]
-[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/EdgePanOption" to="." method="_on_edge_pan_selected"]
-[connection signal="value_changed" from="PanelBg/HBoxContainer/Value/EdgeSpeedSpinBox" to="." method="_on_edge_speed_changed"]
-[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/SmoothPanOption" to="." method="_on_smooth_pan_selected"]
-[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/FullscreenOption" to="." method="_on_fullscreen_selected"]
+[connection signal="item_selected" from="PanelBg/ConfigName/Mode/ModeOption" to="." method="_on_mode_selected"]
+[connection signal="item_selected" from="PanelBg/ConfigName/HBoxContainer2/CameraModeOption" to="." method="_on_camera_mode_selected"]
+[connection signal="item_selected" from="PanelBg/ConfigName/HBoxContainer3/EdgePanOption" to="." method="_on_edge_pan_selected"]
+[connection signal="value_changed" from="PanelBg/ConfigName/HBoxContainer4/EdgeSpeedSpinBox" to="." method="_on_edge_speed_changed"]
+[connection signal="item_selected" from="PanelBg/ConfigName/HBoxContainer5/SmoothPanOption" to="." method="_on_smooth_pan_selected"]
+[connection signal="item_selected" from="PanelBg/ConfigName/HBoxContainer6/FullscreenOption" to="." method="_on_fullscreen_selected"]
 [connection signal="pressed" from="PanelBg/QuitButton" to="." method="_on_quit_pressed"]
 [connection signal="pressed" from="PanelBg/CloseButton" to="." method="_on_close_pressed"]
