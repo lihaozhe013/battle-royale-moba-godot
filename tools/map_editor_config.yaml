@@ -1,0 +1,7 @@
+map: data/maps/default.json
+watch: true
+flip_y: false
+grid: 1.0
+zoom: 0
+width: 1280
+height: 800
