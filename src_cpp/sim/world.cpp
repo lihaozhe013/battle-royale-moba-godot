@@ -255,6 +255,13 @@ void World::_spawn_bot_with_role(BotRole role) {
 }
 
 void World::_spawn_pickup_spawners() {
+    // Collect wall bounds for spawn position validation
+    std::vector<WallBounds> walls;
+    auto wall_view = _reg.view<WallBounds>();
+    for (auto w : wall_view)
+        walls.push_back(_reg.get<WallBounds>(w));
+    float half = _reg.get<MapBounds>(_map_bounds_entity).Half;
+
     struct SpawnDef {
         PickupType type;
         int value;
@@ -266,10 +273,25 @@ void World::_spawn_pickup_spawners() {
         for (int col = 0; col < 12; ++col) {
             float base_x = -44.0f + col * 8.0f;
             float base_y = -36.0f + row * 8.0f;
+            Vec2 pos{base_x + xp_offset(_rng), base_y + xp_offset(_rng)};
+
+            // Discard if outside map bounds or inside a wall
+            if (std::abs(pos.x) >= half || std::abs(pos.y) >= half)
+                continue;
+            bool blocked = false;
+            for (auto &w : walls) {
+                if (point_inside_aabb(pos, w.Min, w.Max)) {
+                    blocked = true;
+                    break;
+                }
+            }
+            if (blocked)
+                continue;
+
             _spawn_one_spawner(
                 PickupType::Xp,
                 GameConfig::XpPickupValue,
-                Vec2{base_x + xp_offset(_rng), base_y + xp_offset(_rng)},
+                pos,
                 GameConfig::XpPickupRespawnTime
             );
         }
