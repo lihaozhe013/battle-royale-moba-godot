@@ -228,7 +228,11 @@ struct NavGrid {
             raw.push_back(cell_to_world(cx, cy));
         }
 
-        return smooth_path(raw);
+        auto result = smooth_path(raw);
+        if (!result.empty()) {
+            result[0] = start;
+        }
+        return result;
     }
 
 private:
