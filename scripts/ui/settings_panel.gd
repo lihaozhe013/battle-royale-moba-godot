@@ -1,13 +1,38 @@
 extends CanvasLayer
 
-@onready var _mode_option: OptionButton = $PanelBg/ModeOption
+@onready var _mode_option: OptionButton = $PanelBg/VBox/ModeRow/ModeOption
+@onready var _camera_mode_option: OptionButton = $PanelBg/VBox/CameraRow/CameraModeOption
+@onready var _edge_pan_option: OptionButton = $PanelBg/VBox/EdgeRow/EdgePanOption
+@onready var _edge_speed_spinbox: SpinBox = $PanelBg/VBox/EdgeSpeedRow/EdgeSpeedSpinBox
+@onready var _smooth_pan_option: OptionButton = $PanelBg/VBox/SmoothPanRow/SmoothPanOption
+@onready var _fullscreen_option: OptionButton = $PanelBg/VBox/FullscreenRow/FullscreenOption
 
 
 func _ready() -> void:
 	visible = false
+
 	_mode_option.add_item("WASD", 0)
 	_mode_option.add_item("MOBA", 1)
 	_mode_option.select(GameSettings.move_mode)
+
+	_camera_mode_option.add_item("Locked", 0)
+	_camera_mode_option.add_item("Free", 1)
+	_camera_mode_option.select(GameSettings.camera_mode)
+
+	_edge_pan_option.add_item("Off", 0)
+	_edge_pan_option.add_item("On", 1)
+	_edge_pan_option.select(int(GameSettings.edge_pan))
+
+	_edge_speed_spinbox.value = GameSettings.edge_pan_speed
+
+	_smooth_pan_option.add_item("Off", 0)
+	_smooth_pan_option.add_item("On", 1)
+	_smooth_pan_option.select(int(GameSettings.smooth_pan))
+
+	_fullscreen_option.add_item("Windowed", 0)
+	_fullscreen_option.add_item("Borderless", 1)
+	_fullscreen_option.add_item("Exclusive", 2)
+	_fullscreen_option.select(GameSettings.fullscreen)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -17,7 +42,27 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_mode_selected(index: int) -> void:
-	GameSettings.move_mode = index
+	GameSettings.move_mode = index as GameSettings.MoveMode
+
+
+func _on_camera_mode_selected(index: int) -> void:
+	GameSettings.camera_mode = index as GameSettings.CamMode
+
+
+func _on_edge_pan_selected(index: int) -> void:
+	GameSettings.edge_pan = (index == 1)
+
+
+func _on_edge_speed_changed(value: float) -> void:
+	GameSettings.edge_pan_speed = value
+
+
+func _on_smooth_pan_selected(index: int) -> void:
+	GameSettings.smooth_pan = (index == 1)
+
+
+func _on_fullscreen_selected(index: int) -> void:
+	GameSettings.fullscreen = index as GameSettings.FullscreenMode
 
 
 func _on_quit_pressed() -> void:
