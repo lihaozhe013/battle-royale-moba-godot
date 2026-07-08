@@ -113,8 +113,33 @@ inline void bot_ai_system(
 
                 reg.get_or_emplace<BotRole>(e) = role;
 
-                // step 3: roll level by role
-                int new_lv = detail::roll_bot_level_for_role(reg, role, rng);
+                // step 3: determine level — ensure 3 bots >= 25, rest at player ±3
+                int plv = 1;
+                auto pv = reg.view<PlayerTag, Level>();
+                for (auto p : pv) {
+                    if (pv.get<PlayerTag>(p).IsLocal) {
+                        plv = pv.get<Level>(p).Value;
+                        break;
+                    }
+                }
+                int high_count = 0;
+                auto bv = reg.view<BotTag, Level>();
+                for (auto b : bv) {
+                    if (b != e && bv.get<Level>(b).Value >= 25)
+                        high_count++;
+                }
+                int new_lv;
+                if (high_count < 3) {
+                    new_lv = std::uniform_int_distribution<int>(
+                        25, GameConfig::MaxHeroLevel
+                    )(rng);
+                } else {
+                    int offset =
+                        std::uniform_int_distribution<int>(-3, 3)(rng);
+                    new_lv = std::clamp(
+                        plv + offset, 1, GameConfig::MaxHeroLevel
+                    );
+                }
 
                 // step 4: roll tier by role
                 BotTier tier = detail::roll_bot_tier_for_role(role, rng);
@@ -124,20 +149,20 @@ inline void bot_ai_system(
                 reg.get_or_emplace<BotTier>(e) = tier;
                 lv.Value = new_lv;
                 int base_hp = GameConfig::BotHp +
-                              (new_lv - 1) * GameConfig::BotHpPerLevel;
+                              (new_lv - 1) * GameConfig::HpPerLevel;
                 hp.Max = static_cast<int>(base_hp * mult.HpMul);
                 hp.Cur = hp.Max;
                 stats.Atk = (GameConfig::BotBaseAttack +
-                             (new_lv - 1) * GameConfig::BotAtkPerLevel) *
+                             (new_lv - 1) * GameConfig::AtkPerLevel) *
                             mult.AtkMul;
                 stats.Asp = std::min(
                     (GameConfig::BotBaseAttackSpeed +
-                     (new_lv - 1) * GameConfig::BotAspPerLevel) *
+                     (new_lv - 1) * GameConfig::AspPerLevel) *
                         mult.AspMul,
                     GameConfig::AspMax
                 );
                 speed.Value = (GameConfig::BotSpeed +
-                               (new_lv - 1) * GameConfig::BotSpeedPerLevel) *
+                               (new_lv - 1) * GameConfig::SpeedPerLevel) *
                               mult.SpeedMul;
                 vision.Value = GameConfig::BotVisionRange * mult.VisionMul;
                 exp.Cur = 0;

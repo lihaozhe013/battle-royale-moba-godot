@@ -24,7 +24,7 @@ func _ready() -> void:
 	_cooldown_mask.size = Vector2(SLOT_SIZE, 0.0)
 
 
-func set_skill(skill_id: int, level: int, mana_cost: float = 0.0) -> void:
+func set_skill(skill_id: int, mana_cost: float = 0.0) -> void:
 	_skill_id = skill_id
 	if skill_id == 0:
 		_icon.color = GRAY

@@ -23,6 +23,7 @@ public:
     void set_move_command(float target_x, float target_y, bool issue);
     void set_stop(bool stop);
     void tick(double delta);
+    bool is_game_over();
     godot::Ref<godot::RefCounted> pop_snapshot();
 
 private:

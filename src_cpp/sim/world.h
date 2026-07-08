@@ -46,6 +46,7 @@ class World {
     void set_move_command(float target_x, float target_y, bool issue);
     void set_stop(bool stop);
     void tick(double dt);
+    bool is_game_over() const { return _game_over; }
 
     entt::registry &registry() { return _reg; }
     const entt::registry &registry() const { return _reg; }
@@ -69,7 +70,7 @@ class World {
   private:
     void _spawn_player(int player_id, bool is_local);
     void _spawn_bot();
-    void _spawn_bot_with_role(BotRole role);
+    void _spawn_bot_with_role(BotRole role, int level);
     void _spawn_pickup_spawners();
     void _spawn_one_spawner(
         PickupType type, int value, Vec2 pos, float respawn_time
@@ -77,6 +78,8 @@ class World {
     Vec2 _random_map_pos(float half, float radius);
     float _random_wander_time();
     void _build_nav_grid();
+    int _get_player_level();
+    int _count_high_level_bots();
 
     entt::registry _reg;
     NavGrid _nav_grid;
@@ -90,6 +93,7 @@ class World {
     entt::entity _map_bounds_entity = entt::null;
     entt::entity _id_state_entity = entt::null;
     entt::entity _kill_event_entity = entt::null;
+    bool _game_over = false;
 };
 
 } // namespace sim
