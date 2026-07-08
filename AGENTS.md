@@ -1,7 +1,7 @@
 # AGENTS.md — 项目上下文快照
 
 > 最后更新：2026-07-08
-> 当前阶段：视角操控方案（锁/自由 + 中键双模式 + 边缘推屏 + 全屏设置）已实施
+> 当前阶段：视角操控方案（锁/自由 + 像素精准拖屏 + 边缘推屏 + Smooth Pan + 全屏/按住居中）已实施
 > 引擎：Godot 4.7
 > 架构：C++ GDExtension ECS (Sim) + GDScript (View)
 
@@ -10,7 +10,7 @@
 ## 项目概况
 
 大逃杀 MOBA 游戏。当前为俯视角射击原型，左键普攻（箭矢），5 个 Bot，有等级/XP/血包/成长系统。
-已新增**右键点地板寻路移动**、双控制模式（WASD / MOBA 点地板）、设置面板、右键长按连点、视角操控方案（锁/自由 + 中键双模式 + 边缘推屏 + 全屏设置）。
+已新增**右键点地板寻路移动**、双控制模式（WASD / MOBA 点地板）、设置面板、右键长按连点、视角操控方案（锁/自由 + 像素精准拖屏 + 边缘推屏 + Smooth Pan 开关 + 全屏设置 + F1/Space 按住居中）。
 
 ## 架构
 
@@ -40,7 +40,7 @@ Docs/Reference/
 └── godot-editor-todo.md         ← 编辑器待办事项
 
 scripts/autoload/
-└── game_settings.gd             ← 操作模式/camera/全屏 autoload 单例（ConfigFile 持久化）
+└── game_settings.gd             ← 操作模式/camera/全屏 autoload 单例（ConfigFile 持久化，含 smooth_pan / edge_pan_speed）
 
 scripts/ui/
 ├── health_bar_ui.gd             ← 血条组件（已有）
@@ -49,12 +49,12 @@ scripts/ui/
 ├── item_slot_ui.gd              ← 物品槽（已有，已挂载）
 ├── bottom_hud.gd                ← 底部 HUD（已有，动态 QWER/CERF label）
 ├── stats_panel.gd               ← 旧 HUD 文字面板（已有）
-└── settings_panel.gd            ← 设置面板（ESC 开关，模式/相机/中键/边缘推屏/全屏切换）
+└── settings_panel.gd            ← 设置面板（ESC 开关，双列 HBox 布局，模式/相机/边缘推屏/速度/平滑/全屏 6 项设置）
 
 scripts/view/
 ├── entity_manager.gd            ← 3D 实体管理（已有）
 ├── entity_view.gd               ← 3D 实体视图（插值 + 动画，LERP 修复 1/30）
-├── camera_controller.gd         ← 相机控制（锁/自由 + 中键双模式 + 边缘推屏）
+├── camera_controller.gd         ← 相机控制（锁/自由 + 像素精准拖屏 + 边缘推屏 + Smooth Pan + F1/Space 按住居中）
 ├── skill_vfx.gd                 ← 技能场景 VFX（绿线/灰圈/dash 路径/光环）
 ├── skill_vfx_attachment.gd      ← 指向性技能命中 VFX 挂载节点（C 刀光等）
 └── move_target_vfx.gd           ← 右键 ping 地面标记（新增）
@@ -64,7 +64,7 @@ scenes/ui/
 ├── skill_slot_ui.tscn           ← 技能槽模板（4 个实例复用）
 ├── item_slot_ui.tscn            ← 物品槽模板
 ├── bottom_hud.tscn              ← 底部 HUD（含 4 技能槽 + 6 物品栏 + 6 背包）
-└── settings_panel.tscn          ← 设置面板（VBox，5 项设置）
+└── settings_panel.tscn          ← 设置面板（HBox 双列布局，6 项设置）
 
 tools/map_editor/                ← Python 地图编辑器（pygame + watchdog）
 ├── __main__.py                  ← 入口
@@ -117,7 +117,7 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | **右键关节流 + 目标死区 + 转向速率** | `nav_grid.h`, `player_movement.h`, `input_collector.gd` |
 | **右键长按连点（~6Hz）** | `input_collector.gd` |
 | **ConfigFile 持久化模式偏好** | `game_settings.gd` |
-| **视角操控方案（锁/自由 + 中键双模式 + 边缘推屏 + 全屏设置）** | `camera_control_design.md` → `game_settings.gd`, `camera_controller.gd`, `settings_panel.gd/tscn` |
+| **视角操控方案（锁/自由 + 像素精准拖屏 + 边缘推屏 + Smooth Pan + 全屏/按住居中）** | `camera_control_design.md` → `game_settings.gd`, `camera_controller.gd`, `settings_panel.gd/tscn` |
 
 ### ❌ 待做（C++ Sim 层 — 4 技能实施剩余）
 
