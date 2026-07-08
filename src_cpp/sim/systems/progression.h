@@ -1,19 +1,21 @@
 #pragma once
 
-#include <entt/entt.hpp>
 #include "../components.h"
 #include "../game_config.h"
 #include "xp_helper.h"
+#include <entt/entt.hpp>
 
 namespace sim {
 
 inline void progression_system(entt::registry &reg) {
     auto kill_view = reg.view<KillEventBuffer>();
-    if (kill_view.begin() == kill_view.end()) return;
+    if (kill_view.begin() == kill_view.end())
+        return;
 
     for (auto k : kill_view) {
         auto &buf = kill_view.get<KillEventBuffer>(k);
-        if (buf.events.empty()) continue;
+        if (buf.events.empty())
+            continue;
 
         auto combatant_view = reg.view<NetworkId, CombatStats>();
 
@@ -21,10 +23,13 @@ inline void progression_system(entt::registry &reg) {
             // ── Atk/Asp per kill (existing) ──
             for (auto c : combatant_view) {
                 auto &net = combatant_view.get<NetworkId>(c);
-                if (net.Value != ev.KillerId) continue;
+                if (net.Value != ev.KillerId)
+                    continue;
                 auto &stats = combatant_view.get<CombatStats>(c);
                 stats.Atk += GameConfig::AtkPerKill;
-                stats.Asp = std::min(stats.Asp + GameConfig::AspPerKill, GameConfig::AspMax);
+                stats.Asp = std::min(
+                    stats.Asp + GameConfig::AspPerKill, GameConfig::AspMax
+                );
                 break;
             }
 
@@ -50,7 +55,8 @@ inline void progression_system(entt::registry &reg) {
             if (killer_entity != entt::null && killer_entity != victim_entity) {
                 int level_diff = std::max(0, victim_lv - killer_lv);
                 int kill_xp = static_cast<int>(
-                    GameConfig::KillXpBase * victim_lv * (1.0f + level_diff * GameConfig::KillXpHighBonus)
+                    GameConfig::KillXpBase * victim_lv *
+                    (1.0f + level_diff * GameConfig::KillXpHighBonus)
                 );
                 apply_xp(reg, killer_entity, kill_xp);
             }

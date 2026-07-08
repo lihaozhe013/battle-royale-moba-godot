@@ -1,39 +1,46 @@
 #pragma once
 
-#include <entt/entt.hpp>
-#include <random>
-#include <string>
-#include "components.h"
-#include "vec2.h"
 #include "command_buffer.h"
-#include "systems/local_input_injection.h"
-#include "systems/player_movement.h"
-#include "systems/player_fire.h"
-#include "systems/bot_targeting.h"
-#include "systems/bot_ai.h"
-#include "systems/bot_role_rules.h"
-#include "systems/bot_combat.h"
+#include "components.h"
+#include "systems/aoe.h"
 #include "systems/arrow_movement.h"
-#include "systems/wall_collision.h"
+#include "systems/bot_ai.h"
+#include "systems/bot_combat.h"
+#include "systems/bot_role_rules.h"
+#include "systems/bot_targeting.h"
 #include "systems/combat.h"
-#include "systems/pickup.h"
-#include "systems/progression.h"
+#include "systems/local_input_injection.h"
 #include "systems/mana_regen.h"
+#include "systems/pickup.h"
+#include "systems/player_fire.h"
+#include "systems/player_movement.h"
+#include "systems/progression.h"
 #include "systems/skill_cast.h"
 #include "systems/skill_cooldown.h"
 #include "systems/snapshot_export.h"
 #include "systems/status_effect.h"
-#include "systems/aoe.h"
+#include "systems/wall_collision.h"
+#include "vec2.h"
+#include <entt/entt.hpp>
+#include <random>
+#include <string>
 
 namespace sim {
 
 class World {
-public:
+  public:
     World();
 
     void initialize(const std::string &map_json);
     void set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq);
-    void set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y);
+    void set_cast_input(
+        int cast_slot,
+        bool confirm,
+        bool cancel,
+        bool interrupt,
+        float aim_x,
+        float aim_y
+    );
     void tick(double dt);
 
     entt::registry &registry() { return _reg; }
@@ -55,12 +62,14 @@ public:
         return s;
     }
 
-private:
+  private:
     void _spawn_player(int player_id, bool is_local);
     void _spawn_bot();
     void _spawn_bot_with_role(BotRole role);
     void _spawn_pickup_spawners();
-    void _spawn_one_spawner(PickupType type, int value, Vec2 pos, float respawn_time);
+    void _spawn_one_spawner(
+        PickupType type, int value, Vec2 pos, float respawn_time
+    );
     Vec2 _random_map_pos(float half, float radius);
     float _random_wander_time();
 

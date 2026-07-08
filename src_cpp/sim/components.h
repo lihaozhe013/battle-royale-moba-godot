@@ -1,19 +1,19 @@
 #pragma once
 
-#include <entt/entt.hpp>
-#include <cstdint>
-#include <vector>
 #include "vec2.h"
+#include <cstdint>
+#include <entt/entt.hpp>
+#include <vector>
 
 namespace sim {
 
 // ── Skill enum forward declarations ──
 
 enum class SkillKind : uint8_t {
-    MeleeSingle  = 0,  // C
-    AoEField     = 1,  // E
-    Dash         = 2,  // R
-    ChannelBurst = 3,  // F
+    MeleeSingle = 0,  // C
+    AoEField = 1,     // E
+    Dash = 2,         // R
+    ChannelBurst = 3, // F
 };
 
 enum class StatusType : uint8_t {
@@ -145,11 +145,11 @@ struct StatusEffect {
 
 struct CastState {
     enum class Phase : uint8_t {
-        None       = 0,
-        Aiming     = 1,
-        Casting    = 2,
+        None = 0,
+        Aiming = 1,
+        Casting = 2,
         Channeling = 3,
-        Dashing    = 4,
+        Dashing = 4,
     };
     Phase State = Phase::None;
     int ActiveSlot = -1;

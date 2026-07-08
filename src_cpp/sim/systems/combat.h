@@ -1,10 +1,10 @@
 #pragma once
 
-#include <entt/entt.hpp>
+#include "../command_buffer.h"
 #include "../components.h"
 #include "../game_config.h"
 #include "../vec2.h"
-#include "../command_buffer.h"
+#include <entt/entt.hpp>
 
 namespace sim {
 
@@ -24,14 +24,21 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
         }
 
         for (auto target : target_view) {
-            if (target == arrow_tag.OwnerEntity) continue;
-            if (reg.all_of<Dead>(target) && reg.get<Dead>(target).enabled) continue;
+            if (target == arrow_tag.OwnerEntity)
+                continue;
+            if (reg.all_of<Dead>(target) && reg.get<Dead>(target).enabled)
+                continue;
 
             float target_radius = reg.all_of<BotTag>(target)
-                ? GameConfig::BotRadius : GameConfig::PlayerRadius;
+                                      ? GameConfig::BotRadius
+                                      : GameConfig::PlayerRadius;
 
-            if (!circles_overlap(arrow_pos.Value, GameConfig::ArrowRadius,
-                                 target_view.get<Position2D>(target).Value, target_radius)) {
+            if (!circles_overlap(
+                    arrow_pos.Value,
+                    GameConfig::ArrowRadius,
+                    target_view.get<Position2D>(target).Value,
+                    target_radius
+                )) {
                 continue;
             }
 
@@ -40,10 +47,13 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
             hp.Cur -= static_cast<int>(arrow_tag.Dmg);
 
             // Lifesteal
-            if (arrow_tag.LifestealRatio > 0.0f && arrow_tag.OwnerEntity != entt::null
-                && reg.valid(arrow_tag.OwnerEntity) && reg.all_of<Health>(arrow_tag.OwnerEntity)) {
+            if (arrow_tag.LifestealRatio > 0.0f &&
+                arrow_tag.OwnerEntity != entt::null &&
+                reg.valid(arrow_tag.OwnerEntity) &&
+                reg.all_of<Health>(arrow_tag.OwnerEntity)) {
                 auto &ohp = reg.get<Health>(arrow_tag.OwnerEntity);
-                int heal = static_cast<int>(arrow_tag.Dmg * arrow_tag.LifestealRatio);
+                int heal =
+                    static_cast<int>(arrow_tag.Dmg * arrow_tag.LifestealRatio);
                 ohp.Cur = std::min(ohp.Max, ohp.Cur + heal);
             }
 
@@ -53,24 +63,26 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
                     reg.get<Dead>(target).enabled = true;
                 }
                 if (reg.all_of<BotAIState>(target)) {
-                    reg.get<BotAIState>(target).RespawnTimer = GameConfig::BotRespawnTime;
+                    reg.get<BotAIState>(target).RespawnTimer =
+                        GameConfig::BotRespawnTime;
                 }
             }
 
             // Kill event
             if (hp.Cur <= 0) {
                 int victim_id = reg.all_of<NetworkId>(target)
-                    ? reg.get<NetworkId>(target).Value : 0;
+                                    ? reg.get<NetworkId>(target).Value
+                                    : 0;
                 auto kill_view = reg.view<KillEventBuffer>();
                 for (auto k : kill_view) {
-                    kill_view.get<KillEventBuffer>(k).events.push_back({
-                        arrow_tag.OwnerId,
-                        victim_id
-                    });
+                    kill_view.get<KillEventBuffer>(k).events.push_back(
+                        {arrow_tag.OwnerId, victim_id}
+                    );
                 }
 
                 // Increment killer kills
-                if (reg.valid(arrow_tag.OwnerEntity) && reg.all_of<Kills>(arrow_tag.OwnerEntity)) {
+                if (reg.valid(arrow_tag.OwnerEntity) &&
+                    reg.all_of<Kills>(arrow_tag.OwnerEntity)) {
                     reg.get<Kills>(arrow_tag.OwnerEntity).Value += 1;
                 }
             }

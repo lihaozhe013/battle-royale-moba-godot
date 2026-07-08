@@ -1,15 +1,12 @@
 #include "world.h"
 #include "game_config.h"
-#include "skill_defs.h"
 #include "json_util.h"
+#include "skill_defs.h"
 #include <cmath>
 
 namespace sim {
 
-World::World()
-    : _rng(42)
-{
-}
+World::World() : _rng(42) {}
 
 void World::initialize(const std::string &map_json) {
     auto map = parse_map_json(map_json);
@@ -18,15 +15,28 @@ void World::initialize(const std::string &map_json) {
     _reg.emplace<MapBounds>(_map_bounds_entity, map.half);
 
     _local_input_entity = _reg.create();
-    _reg.emplace<LocalInputSingleton>(_local_input_entity,
-        Vec2{0.0f}, Vec2{0.0f}, false, 0,
-        -1, false, false, false, Vec2{0.0f});
+    _reg.emplace<LocalInputSingleton>(
+        _local_input_entity,
+        Vec2{0.0f},
+        Vec2{0.0f},
+        false,
+        0,
+        -1,
+        false,
+        false,
+        false,
+        Vec2{0.0f}
+    );
 
     _id_state_entity = _reg.create();
-    _reg.emplace<IdState>(_id_state_entity,
-        GameConfig::PlayerIdStart, GameConfig::BotIdStart,
-        GameConfig::ArrowIdStart, GameConfig::PickupIdStart,
-        GameConfig::AoEIdStart);
+    _reg.emplace<IdState>(
+        _id_state_entity,
+        GameConfig::PlayerIdStart,
+        GameConfig::BotIdStart,
+        GameConfig::ArrowIdStart,
+        GameConfig::PickupIdStart,
+        GameConfig::AoEIdStart
+    );
 
     _kill_event_entity = _reg.create();
     _reg.emplace<KillEventBuffer>(_kill_event_entity);
@@ -41,12 +51,15 @@ void World::initialize(const std::string &map_json) {
         _reg.emplace<WallBounds>(wall, Vec2{min_x, min_y}, Vec2{max_x, max_y});
     }
 
-    for (int i = 0; i < GameConfig::BotCount; ++i) _spawn_bot();
+    for (int i = 0; i < GameConfig::BotCount; ++i)
+        _spawn_bot();
     _spawn_player(GameConfig::PlayerIdStart, true);
     _spawn_pickup_spawners();
 }
 
-void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq) {
+void World::set_local_input(
+    const Vec2 &move, const Vec2 &aim, bool fire, int seq
+) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
         li.Move = move;
@@ -56,7 +69,14 @@ void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int se
     }
 }
 
-void World::set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y) {
+void World::set_cast_input(
+    int cast_slot,
+    bool confirm,
+    bool cancel,
+    bool interrupt,
+    float aim_x,
+    float aim_y
+) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
         li.CastSlot = cast_slot;
@@ -110,12 +130,21 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<Position2D>(e, pos);
     _reg.emplace<FacingAngle>(e, 0.0f);
     _reg.emplace<Health>(e, GameConfig::PlayerBaseHp, GameConfig::PlayerBaseHp);
-    _reg.emplace<Mana>(e, GameConfig::PlayerBaseMana, GameConfig::PlayerBaseMana,
-        GameConfig::PlayerManaRegen, GameConfig::ManaRegenDelay, 0.0f);
-    _reg.emplace<CombatStats>(e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, 0.0);
+    _reg.emplace<Mana>(
+        e,
+        GameConfig::PlayerBaseMana,
+        GameConfig::PlayerBaseMana,
+        GameConfig::PlayerManaRegen,
+        GameConfig::ManaRegenDelay,
+        0.0f
+    );
+    _reg.emplace<CombatStats>(
+        e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, 0.0
+    );
     _reg.emplace<Kills>(e, 0);
-    _reg.emplace<PlayerInputState>(e, Vec2{0.0f}, Vec2{0.0f}, false, 0,
-        -1, false, false, false, Vec2{0.0f});
+    _reg.emplace<PlayerInputState>(
+        e, Vec2{0.0f}, Vec2{0.0f}, false, 0, -1, false, false, false, Vec2{0.0f}
+    );
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, 1);
@@ -138,12 +167,16 @@ void World::_spawn_player(int player_id, bool is_local) {
 }
 
 void World::_spawn_bot() {
-    int total_w = GameConfig::FodderWeight + GameConfig::StalkerWeight + GameConfig::BruteWeight;
+    int total_w = GameConfig::FodderWeight + GameConfig::StalkerWeight +
+                  GameConfig::BruteWeight;
     int r = std::uniform_int_distribution<int>(0, total_w - 1)(_rng);
     BotRole role;
-    if (r < GameConfig::FodderWeight)                        role = BotRole::Fodder;
-    else if (r < GameConfig::FodderWeight + GameConfig::StalkerWeight) role = BotRole::Stalker;
-    else                                                     role = BotRole::Brute;
+    if (r < GameConfig::FodderWeight)
+        role = BotRole::Fodder;
+    else if (r < GameConfig::FodderWeight + GameConfig::StalkerWeight)
+        role = BotRole::Stalker;
+    else
+        role = BotRole::Brute;
     _spawn_bot_with_role(role);
 }
 
@@ -156,11 +189,18 @@ void World::_spawn_bot_with_role(BotRole role) {
     auto mult = detail::tier_mult(tier);
 
     int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::BotHpPerLevel;
-    float atk = (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::BotAtkPerLevel) * mult.AtkMul;
+    float atk = (GameConfig::BotBaseAttack +
+                 (new_lv - 1) * GameConfig::BotAtkPerLevel) *
+                mult.AtkMul;
     float asp = std::min(
-        (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::BotAspPerLevel) * mult.AspMul,
-        GameConfig::AspMax);
-    float spd = (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) * mult.SpeedMul;
+        (GameConfig::BotBaseAttackSpeed +
+         (new_lv - 1) * GameConfig::BotAspPerLevel) *
+            mult.AspMul,
+        GameConfig::AspMax
+    );
+    float spd =
+        (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) *
+        mult.SpeedMul;
     float vis = GameConfig::BotVisionRange * mult.VisionMul;
 
     float half = GameConfig::MapHalf - GameConfig::BotRadius;
@@ -172,10 +212,22 @@ void World::_spawn_bot_with_role(BotRole role) {
     _reg.emplace<NetworkId>(e, bot_id);
     _reg.emplace<Position2D>(e, pos);
     _reg.emplace<FacingAngle>(e, 0.0f);
-    _reg.emplace<Health>(e, static_cast<int>(base_hp * mult.HpMul), static_cast<int>(base_hp * mult.HpMul));
-    _reg.emplace<Mana>(e, GameConfig::BotBaseMana, GameConfig::BotBaseMana,
-        GameConfig::BotManaRegen, GameConfig::ManaRegenDelay, 0.0f);
-    _reg.emplace<BotAIState>(e, target, 0.0f, entt::null, _random_wander_time());
+    _reg.emplace<Health>(
+        e,
+        static_cast<int>(base_hp * mult.HpMul),
+        static_cast<int>(base_hp * mult.HpMul)
+    );
+    _reg.emplace<Mana>(
+        e,
+        GameConfig::BotBaseMana,
+        GameConfig::BotBaseMana,
+        GameConfig::BotManaRegen,
+        GameConfig::ManaRegenDelay,
+        0.0f
+    );
+    _reg.emplace<BotAIState>(
+        e, target, 0.0f, entt::null, _random_wander_time()
+    );
     _reg.emplace<BotBehaviorState>(e);
     _reg.emplace<BotTier>(e, tier);
     _reg.emplace<BotRole>(e, role);
@@ -203,34 +255,58 @@ void World::_spawn_bot_with_role(BotRole role) {
 }
 
 void World::_spawn_pickup_spawners() {
-    struct SpawnDef { PickupType type; int value; Vec2 pos; float respawn; };
+    struct SpawnDef {
+        PickupType type;
+        int value;
+        Vec2 pos;
+        float respawn;
+    };
     std::uniform_real_distribution<float> xp_offset(-20.0f, 20.0f);
     for (int row = 0; row < 10; ++row) {
         for (int col = 0; col < 12; ++col) {
             float base_x = -44.0f + col * 8.0f;
             float base_y = -36.0f + row * 8.0f;
-            _spawn_one_spawner(PickupType::Xp, GameConfig::XpPickupValue,
+            _spawn_one_spawner(
+                PickupType::Xp,
+                GameConfig::XpPickupValue,
                 Vec2{base_x + xp_offset(_rng), base_y + xp_offset(_rng)},
-                GameConfig::XpPickupRespawnTime);
+                GameConfig::XpPickupRespawnTime
+            );
         }
     }
     SpawnDef heal[] = {
-        {PickupType::Heal, GameConfig::HealPickupValue, Vec2{-20, -20}, GameConfig::HealPickupRespawnTime},
-        {PickupType::Heal, GameConfig::HealPickupValue, Vec2{ 20,  20}, GameConfig::HealPickupRespawnTime},
+        {PickupType::Heal,
+         GameConfig::HealPickupValue,
+         Vec2{-20, -20},
+         GameConfig::HealPickupRespawnTime},
+        {PickupType::Heal,
+         GameConfig::HealPickupValue,
+         Vec2{20, 20},
+         GameConfig::HealPickupRespawnTime},
     };
-    for (auto &s : heal) _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
+    for (auto &s : heal)
+        _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
     SpawnDef small[] = {
-        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{-10, 10}, GameConfig::SmallHealPickupRespawnTime},
-        {PickupType::SmallHeal, GameConfig::SmallHealPickupValue, Vec2{ 10,-10}, GameConfig::SmallHealPickupRespawnTime},
+        {PickupType::SmallHeal,
+         GameConfig::SmallHealPickupValue,
+         Vec2{-10, 10},
+         GameConfig::SmallHealPickupRespawnTime},
+        {PickupType::SmallHeal,
+         GameConfig::SmallHealPickupValue,
+         Vec2{10, -10},
+         GameConfig::SmallHealPickupRespawnTime},
     };
-    for (auto &s : small) _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
+    for (auto &s : small)
+        _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
 }
 
-void World::_spawn_one_spawner(PickupType type, int value, Vec2 pos, float respawn_time) {
+void World::_spawn_one_spawner(
+    PickupType type, int value, Vec2 pos, float respawn_time
+) {
     auto e = _reg.create();
-    _reg.emplace<PickupSpawner>(e,
-        type, value, pos, respawn_time,
-        respawn_time * 0.5f, false, 0);
+    _reg.emplace<PickupSpawner>(
+        e, type, value, pos, respawn_time, respawn_time * 0.5f, false, 0
+    );
 }
 
 Vec2 World::_random_map_pos(float half, float radius) {
@@ -240,7 +316,8 @@ Vec2 World::_random_map_pos(float half, float radius) {
 
 float World::_random_wander_time() {
     std::uniform_real_distribution<float> dist(
-        GameConfig::BotWanderIntervalMin, GameConfig::BotWanderIntervalMax);
+        GameConfig::BotWanderIntervalMin, GameConfig::BotWanderIntervalMax
+    );
     return dist(_rng);
 }
 
