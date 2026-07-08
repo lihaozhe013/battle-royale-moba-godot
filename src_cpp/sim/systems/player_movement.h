@@ -8,6 +8,12 @@
 
 namespace sim {
 
+constexpr float PM_PI = 3.14159265358979323846f;
+
+inline float pm_angle_diff(float target, float current) {
+    return std::remainder(target - current, 2.0f * PM_PI);
+}
+
 inline void
 player_movement_system(entt::registry &reg, float dt, float map_half) {
     auto view = reg.view<
@@ -71,6 +77,14 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
         if (!cast_block && reg.all_of<MovePath>(e)) {
             auto &path = reg.get<MovePath>(e);
             if (path.Following && path.CurrentIndex < static_cast<int>(path.Waypoints.size())) {
+                auto smooth_facing = [&](Vec2 move_dir) {
+                    float target = std::atan2(move_dir.y, move_dir.x);
+                    float diff = pm_angle_diff(target, angle.Radians);
+                    float max_turn = GameConfig::PathTurnRate * dt;
+                    if (std::abs(diff) > max_turn)
+                        diff = (diff > 0 ? max_turn : -max_turn);
+                    angle.Radians += diff;
+                };
                 Vec2 target = path.Waypoints[path.CurrentIndex];
                 Vec2 dir = target - pos.Value;
                 float dist = vec2_length(dir);
@@ -81,12 +95,12 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                     } else {
                         Vec2 next_target = path.Waypoints[path.CurrentIndex];
                         Vec2 next_dir = vec2_normalize(next_target - pos.Value);
-                        angle.Radians = std::atan2(next_dir.y, next_dir.x);
+                        smooth_facing(next_dir);
                     }
                     continue;
                 }
                 dir = vec2_normalize(dir);
-                angle.Radians = std::atan2(dir.y, dir.x);
+                smooth_facing(dir);
                 Vec2 step = dir * speed.Value * dt;
                 // Don't overshoot the waypoint
                 float step_len = vec2_length(step);
@@ -98,7 +112,7 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                     } else {
                         Vec2 next_target = path.Waypoints[path.CurrentIndex];
                         Vec2 next_dir = vec2_normalize(next_target - pos.Value);
-                        angle.Radians = std::atan2(next_dir.y, next_dir.x);
+                        smooth_facing(next_dir);
                     }
                 } else {
                     pos.Value = vec2_clamp_to_map(pos.Value + step, map_half);

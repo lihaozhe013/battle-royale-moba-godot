@@ -111,6 +111,12 @@ struct GameConfig {
     static constexpr int HealPickupCount = 2;
     static constexpr int SmallHealPickupCount = 2;
 
+    // ── Pathfinding ──
+    static constexpr float RepathTargetDeadzone = 1.5f;
+    static constexpr float RepathTargetDeadzoneSq =
+        RepathTargetDeadzone * RepathTargetDeadzone;
+    static constexpr float PathTurnRate = 12.0f;  // rad/s
+
     // ── Mana ──
     static constexpr float PlayerBaseMana = 300.0f;
     static constexpr float PlayerManaRegen = 5.0f;
