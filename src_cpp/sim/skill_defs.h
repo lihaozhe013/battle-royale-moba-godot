@@ -18,13 +18,63 @@ struct SkillDef {
     int BulletCount = 0;      // F=bullets per wave
 };
 
-inline const SkillDef& get_skill_def(int id) {
+inline const SkillDef &get_skill_def(int id) {
     static const SkillDef table[] = {
-        {0, SkillKind::MeleeSingle,  0.0f,   0.0f,   0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0}, // [0] placeholder
-        {1, SkillKind::MeleeSingle,   0.5f,   20.0f,  5.0f, 40.0f, 3.0f,  0.0f, 0.0f, 0.0f, 0}, // C
-        {2, SkillKind::AoEField,      1.0f,  100.0f, 20.0f, 15.0f, 4.0f,  2.0f, 0.0f, 0.0f, 0}, // E
-        {3, SkillKind::Dash,          0.2f,   40.0f, 10.0f,  0.0f, 8.0f,  0.0f, 0.0f, 0.0f, 0}, // R
-        {4, SkillKind::ChannelBurst,  1.0f,  230.0f, 60.0f,  0.0f, 0.0f,  5.0f,20.0f, 0.5f,16}, // F
+        {0,
+         SkillKind::MeleeSingle,
+         0.0f,
+         0.0f,
+         0.0f,
+         0.0f,
+         0.0f,
+         0.0f,
+         0.0f,
+         0.0f,
+         0}, // [0] placeholder
+        {1,
+         SkillKind::MeleeSingle,
+         0.2f,
+         20.0f,
+         5.0f,
+         40.0f,
+         3.0f,
+         0.0f,
+         0.0f,
+         0.0f,
+         0}, // C
+        {2,
+         SkillKind::AoEField,
+         0.5f,
+         100.0f,
+         20.0f,
+         35.0f,
+         4.0f,
+         2.0f,
+         0.0f,
+         0.0f,
+         0}, // E
+        {3,
+         SkillKind::Dash,
+         0.2f,
+         40.0f,
+         10.0f,
+         0.0f,
+         8.0f,
+         0.0f,
+         0.0f,
+         0.0f,
+         0}, // R
+        {4,
+         SkillKind::ChannelBurst,
+         1.0f,
+         230.0f,
+         60.0f,
+         0.0f,
+         0.0f,
+         5.0f,
+         20.0f,
+         0.5f,
+         16}, // F
     };
     return table[id];
 }

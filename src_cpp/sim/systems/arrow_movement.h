@@ -1,7 +1,7 @@
 #pragma once
 
-#include <entt/entt.hpp>
 #include "../components.h"
+#include <entt/entt.hpp>
 
 namespace sim {
 

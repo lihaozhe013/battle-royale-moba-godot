@@ -1,8 +1,8 @@
 #pragma once
 
-#include <entt/entt.hpp>
 #include "../components.h"
 #include "../game_config.h"
+#include <entt/entt.hpp>
 
 namespace sim {
 

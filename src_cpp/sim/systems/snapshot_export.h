@@ -1,12 +1,13 @@
 #pragma once
 
-#include <entt/entt.hpp>
 #include "../snapshot_builder.h"
+#include <entt/entt.hpp>
 
 namespace sim {
 
-inline bool snapshot_export_system(entt::registry &reg, int &tick_counter,
-                                    godot::Ref<SimSnapshot> &out_snap) {
+inline bool snapshot_export_system(
+    entt::registry &reg, int &tick_counter, godot::Ref<SimSnapshot> &out_snap
+) {
     tick_counter++;
     if (tick_counter % 1 != 0) {
         return false;

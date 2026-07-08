@@ -1,24 +1,27 @@
 #pragma once
 
-#include <entt/entt.hpp>
-#include <cmath>
+#include "../command_buffer.h"
 #include "../components.h"
 #include "../game_config.h"
 #include "../vec2.h"
-#include "../command_buffer.h"
 #include "xp_helper.h"
+#include <cmath>
+#include <entt/entt.hpp>
 
 namespace sim {
 
-inline void pickup_system(entt::registry &reg, float dt,
-                          CommandBuffer &cb, IdState &id_state) {
+inline void pickup_system(
+    entt::registry &reg, float dt, CommandBuffer &cb, IdState &id_state
+) {
     // Phase 1: Spawner tick
     auto spawner_view = reg.view<PickupSpawner>();
     for (auto s : spawner_view) {
         auto &sp = spawner_view.get<PickupSpawner>(s);
-        if (sp.Active) continue;
+        if (sp.Active)
+            continue;
         sp.CurrentTimer -= dt;
-        if (sp.CurrentTimer > 0.0f) continue;
+        if (sp.CurrentTimer > 0.0f)
+            continue;
 
         int id = id_state.NextPickupId++;
         sp.Active = true;
@@ -42,27 +45,38 @@ inline void pickup_system(entt::registry &reg, float dt,
         int p_id = pickup_view.get<NetworkId>(pickup).Value;
 
         for (auto mover : mover_view) {
-            if (mover == pickup) continue;
+            if (mover == pickup)
+                continue;
             bool dead = reg.all_of<Dead>(mover) && reg.get<Dead>(mover).enabled;
-            if (dead) continue;
+            if (dead)
+                continue;
 
             float mover_radius = reg.all_of<BotTag>(mover)
-                ? GameConfig::BotRadius : GameConfig::PlayerRadius;
+                                     ? GameConfig::BotRadius
+                                     : GameConfig::PlayerRadius;
 
-            if (!circles_overlap(p_pos.Value, GameConfig::PickupRadius,
-                                mover_view.get<Position2D>(mover).Value, mover_radius)) {
+            if (!circles_overlap(
+                    p_pos.Value,
+                    GameConfig::PickupRadius,
+                    mover_view.get<Position2D>(mover).Value,
+                    mover_radius
+                )) {
                 continue;
             }
 
             // Apply pickup effect
             if (p_tag.Type == PickupType::Xp) {
                 apply_xp(reg, mover, p_tag.Value);
-            } else if ((p_tag.Type == PickupType::Heal || p_tag.Type == PickupType::SmallHeal)
-                       && reg.all_of<Health>(mover)) {
+            } else if (
+                (p_tag.Type == PickupType::Heal ||
+                 p_tag.Type == PickupType::SmallHeal) &&
+                reg.all_of<Health>(mover)
+            ) {
                 auto &hp = reg.get<Health>(mover);
-                float fraction = (p_tag.Type == PickupType::Heal)
-                    ? GameConfig::HealFraction
-                    : (GameConfig::SmallHealPickupValue / 100.0f);
+                float fraction =
+                    (p_tag.Type == PickupType::Heal)
+                        ? GameConfig::HealFraction
+                        : (GameConfig::SmallHealPickupValue / 100.0f);
                 int heal = static_cast<int>(std::ceil(hp.Max * fraction));
                 hp.Cur = std::min(hp.Cur + heal, hp.Max);
             }

@@ -7,7 +7,7 @@
 namespace sim {
 
 class CommandBuffer {
-public:
+  public:
     void push(std::function<void(entt::registry &)> op) {
         _ops.push_back(std::move(op));
     }
@@ -21,7 +21,7 @@ public:
 
     bool empty() const { return _ops.empty(); }
 
-private:
+  private:
     std::vector<std::function<void(entt::registry &)>> _ops;
 };
 

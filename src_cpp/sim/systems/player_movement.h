@@ -1,18 +1,25 @@
 #pragma once
 
-#include <entt/entt.hpp>
-#include <glm/glm.hpp>
 #include "../components.h"
 #include "../game_config.h"
 #include "../vec2.h"
+#include <entt/entt.hpp>
+#include <glm/glm.hpp>
 
 namespace sim {
 
-inline void player_movement_system(entt::registry &reg, float dt, float map_half) {
-    auto view = reg.view<PlayerTag, Position2D, FacingAngle, PlayerInputState, MoveSpeed>();
+inline void
+player_movement_system(entt::registry &reg, float dt, float map_half) {
+    auto view = reg.view<
+        PlayerTag,
+        Position2D,
+        FacingAngle,
+        PlayerInputState,
+        MoveSpeed>();
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
-        if (!tag.IsLocal) continue;
+        if (!tag.IsLocal)
+            continue;
         auto &pos = view.get<Position2D>(e);
         auto &angle = view.get<FacingAngle>(e);
         auto &input = view.get<PlayerInputState>(e);
@@ -21,15 +28,19 @@ inline void player_movement_system(entt::registry &reg, float dt, float map_half
         // Root gate
         if (reg.all_of<StatusEffect>(e)) {
             auto &st = reg.get<StatusEffect>(e);
-            if (st.Type == StatusType::Root && st.Timer > 0.0f) continue;
+            if (st.Type == StatusType::Root && st.Timer > 0.0f)
+                continue;
         }
 
         // Cast state gate (Aiming allows movement)
         if (reg.all_of<CastState>(e)) {
             auto &cs = reg.get<CastState>(e);
-            if (cs.State == CastState::Phase::Casting) continue;
-            if (cs.State == CastState::Phase::Channeling) continue;
-            if (cs.State == CastState::Phase::Dashing) continue;
+            if (cs.State == CastState::Phase::Casting)
+                continue;
+            if (cs.State == CastState::Phase::Channeling)
+                continue;
+            if (cs.State == CastState::Phase::Dashing)
+                continue;
         }
 
         if (glm::length(input.Move) > 0.01f) {

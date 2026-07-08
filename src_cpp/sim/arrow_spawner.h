@@ -1,10 +1,10 @@
 #pragma once
 
-#include <entt/entt.hpp>
-#include <glm/glm.hpp>
+#include "command_buffer.h"
 #include "components.h"
 #include "game_config.h"
-#include "command_buffer.h"
+#include <entt/entt.hpp>
+#include <glm/glm.hpp>
 
 namespace sim {
 
@@ -38,7 +38,9 @@ inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
         reg.emplace<Position2D>(e, ctx.spawn_pos);
         reg.emplace<Velocity2D>(e, vel);
         reg.emplace<FacingAngle>(e, ctx.angle);
-        reg.emplace<ArrowTag>(e, ctx.owner_id, ctx.owner_entity, ctx.dmg, ctx.lifesteal_ratio);
+        reg.emplace<ArrowTag>(
+            e, ctx.owner_id, ctx.owner_entity, ctx.dmg, ctx.lifesteal_ratio
+        );
         reg.emplace<Lifetime>(e, GameConfig::ArrowLifetime);
         reg.emplace<NetworkId>(e, arrow_id);
     });
