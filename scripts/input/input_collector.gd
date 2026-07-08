@@ -1,19 +1,50 @@
 extends Node
 
+signal move_issued(target: Vector2)
+
 var move_input := Vector2.ZERO
 var aim_world := Vector2.ZERO
 var fire := false
 var input_seq := 0
 
 # 施法信号（帧脉冲，Sim 每 tick 消费）
-var cast_slot := -1        # -1=无, 0-3=技能槽号（仅首次按下帧有效）
-var cast_confirm := false  # 左键确认（仅按下帧有效）
-var cast_cancel := false   # 右键取消（Aiming + Casting 都响应）
-var cast_interrupt := false  # ESC/S/H 打断（仅 Casting 响应）
+var cast_slot := -1        # -1=无, 0-3=技能槽号
+var cast_confirm := false  # 左键确认/普攻（每帧持续）
+var cast_cancel := false   # 右键取消（每帧持续）
+var cast_interrupt := false  # H/S 打断（每帧持续）
 var cast_aim := Vector2.ZERO
 
+# 移动指令（MOBA 模式：右键点地板）
+var move_cmd_target := Vector2.ZERO
+var move_cmd_issue := false  # 边沿脉冲（仅按下帧为 true）
+var stop := false            # S 键停止（边沿脉冲）
+
 var _prev_skill := [false, false, false, false]
-const SKILL_KEYS := [KEY_C, KEY_E, KEY_R, KEY_F]
+var _prev_right := false
+var _prev_s := false
+
+# 右键节流
+const MIN_MOVE_INTERVAL := 0.08
+const MOVE_REPEAT_INTERVAL := 0.167  # 长按重复 ~6 次/秒
+var _last_move_time := 0.0
+
+# 模式相关键位表
+var _skill_keys := [KEY_C, KEY_E, KEY_R, KEY_F]
+const SKILL_KEYS_WASD := [KEY_C, KEY_E, KEY_R, KEY_F]
+const SKILL_KEYS_MOBA := [KEY_Q, KEY_W, KEY_E, KEY_R]
+
+
+func _ready() -> void:
+	GameSettings.mode_changed.connect(_on_mode_changed)
+	# 同步初始状态（GameSettings 的 _ready 在我们之前触发过 signal）
+	_on_mode_changed(GameSettings.move_mode)
+
+
+func _on_mode_changed(m: int) -> void:
+	if m == GameSettings.MoveMode.MOBA:
+		_skill_keys = SKILL_KEYS_MOBA
+	else:
+		_skill_keys = SKILL_KEYS_WASD
 
 
 func _process(_delta: float) -> void:
@@ -25,6 +56,10 @@ func _process(_delta: float) -> void:
 
 
 func _read_move() -> void:
+	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
+		move_input = Vector2.ZERO
+		return
+
 	var h := 0.0
 	var v := 0.0
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):   v += 1
@@ -50,15 +85,14 @@ func _read_aim() -> void:
 
 
 func _read_skill_input() -> void:
-	# 每帧先清脉冲信号（cast_slot 保留为按住持续）
+	# 每帧先清持续态脉冲（held 重读），边沿脉冲由 sim_bridge 消费后清
 	cast_confirm = false
-	cast_cancel = false
 	cast_interrupt = false
 
 	# 1. 技能键按住持续设 cast_slot（松开后归 -1）
 	var any_held := -1
 	for i in 4:
-		var pressed = Input.is_key_pressed(SKILL_KEYS[i])
+		var pressed = Input.is_key_pressed(_skill_keys[i])
 		if pressed:
 			any_held = i
 		_prev_skill[i] = pressed
@@ -66,12 +100,38 @@ func _read_skill_input() -> void:
 	if cast_slot >= 0:
 		cast_aim = aim_world
 
-	# 2. 右键按住 = cast_cancel（Aiming+Casting 响应，持续有效防 Sim 丢帧）
-	cast_cancel = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	# 2. 右键
+	var right_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	cast_cancel = right_now  # 持续压制 Sim cast_cancel
 
-	# 3. ESC/S/H 按住 = cast_interrupt（仅 Casting 响应，持续有效防 Sim 丢帧）
-	cast_interrupt = Input.is_key_pressed(KEY_ESCAPE) || Input.is_key_pressed(KEY_H) || Input.is_key_pressed(KEY_S)
+	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
+		# MOBA 模式：右键边沿 + 长按连点
+		var now := Time.get_ticks_msec() / 1000.0
+		var should_issue := false
+		if right_now and not _prev_right:
+			should_issue = now - _last_move_time >= MIN_MOVE_INTERVAL
+		elif right_now and _prev_right:
+			should_issue = now - _last_move_time >= MOVE_REPEAT_INTERVAL
+		if should_issue:
+			_last_move_time = now
+			move_cmd_target = aim_world
+			move_cmd_issue = true
+			move_issued.emit(move_cmd_target)
+	_prev_right = right_now
 
-	# 4. 左键按住 = cast_confirm（Aiming 中=确认施法，非 Aiming=普攻）
+	# 3. 打断键（H 通用，MOBA 模式增加 S）
+	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
+		cast_interrupt = Input.is_key_pressed(KEY_H) or Input.is_key_pressed(KEY_S)
+	else:
+		cast_interrupt = Input.is_key_pressed(KEY_H)
+
+	# 4. MOBA 模式：S 键边沿 = stop 脉冲（同时已作为打断键持续压制）
+	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
+		var s_now := Input.is_key_pressed(KEY_S)
+		if s_now and not _prev_s:
+			stop = true
+		_prev_s = s_now
+
+	# 5. 左键 = 确认施法 / 普攻
 	cast_confirm = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	fire = cast_confirm
