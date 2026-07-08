@@ -22,6 +22,13 @@ inline void player_fire_system(
         if (!view.get<PlayerInputState>(e).Fire)
             continue;
 
+        // Stun gate — 眩晕不能攻击
+        if (reg.all_of<StatusEffect>(e)) {
+            auto &st = reg.get<StatusEffect>(e);
+            if (st.Type == StatusType::Stun && st.Timer > 0.0f)
+                continue;
+        }
+
         // Skip fire while in any cast state
         if (reg.all_of<CastState>(e)) {
             auto &cs = reg.get<CastState>(e);

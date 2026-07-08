@@ -31,6 +31,7 @@ func sync_bars(snap: SimSnapshot) -> void:
 		bar.update_hp(p.hp, p.max_hp)
 		bar.update_mana(p.mana, p.max_mana)
 		bar.update_level(p.level, 0)
+		bar.update_status(p.status)
 		bar.set_team(0)
 
 	for b in snap.bots:
@@ -43,6 +44,7 @@ func sync_bars(snap: SimSnapshot) -> void:
 			bar.update_hp(b.hp, b.max_hp)
 			bar.update_mana(b.mana, b.max_mana)
 			bar.update_level(b.level, b.tier)
+			bar.update_status(b.status)
 			bar.set_team(2)
 
 	var to_release := []
@@ -132,6 +134,12 @@ func _create_bar() -> HealthBarUI:
 	mana.color = Color(0.2627451, 0.6666667, 1, 1)
 	mana.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(mana)
+
+	var st_label := Label.new()
+	st_label.name = "StatusLabel"
+	st_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	st_label.visible = false
+	bar.add_child(st_label)
 
 	return bar
 

@@ -59,6 +59,7 @@ class SimPlayerSnap : public godot::RefCounted {
     float cast_aim_x = 0.0f, cast_aim_y = 0.0f;
     float dash_sx = 0.0f, dash_sy = 0.0f;
     float dash_tx = 0.0f, dash_ty = 0.0f;
+    int status = 0; // StatusType: 0=None, 1=Root(禁锢), 2=Stun(眩晕)
     godot::TypedArray<SimSkillSlotSnap> skills;
 
     int get_id() const { return id; }
@@ -109,6 +110,8 @@ class SimPlayerSnap : public godot::RefCounted {
     void set_dash_tx(float v) { dash_tx = v; }
     float get_dash_ty() const { return dash_ty; }
     void set_dash_ty(float v) { dash_ty = v; }
+    int get_status() const { return status; }
+    void set_status(int v) { status = v; }
     godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
     void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) {
         skills = v;
@@ -132,7 +135,7 @@ class SimBotSnap : public godot::RefCounted {
     int xp = 0, xp_needed = 0;
     float speed = 0;
     int tier = 0;
-    float root_timer = 0.0f;
+    int status = 0; // StatusType: 0=None, 1=Root(禁锢), 2=Stun(眩晕)
     godot::TypedArray<SimSkillSlotSnap> skills;
 
     int get_id() const { return id; }
@@ -169,8 +172,8 @@ class SimBotSnap : public godot::RefCounted {
     void set_speed(float v) { speed = v; }
     int get_tier() const { return tier; }
     void set_tier(int v) { tier = v; }
-    float get_root_timer() const { return root_timer; }
-    void set_root_timer(float v) { root_timer = v; }
+    int get_status() const { return status; }
+    void set_status(int v) { status = v; }
     godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
     void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) {
         skills = v;

@@ -21,6 +21,13 @@ inline void bot_combat_system(
         if (dead)
             continue;
 
+        // Stun gate — 眩晕不能攻击
+        if (reg.all_of<StatusEffect>(e)) {
+            auto &st = reg.get<StatusEffect>(e);
+            if (st.Type == StatusType::Stun && st.Timer > 0.0f)
+                continue;
+        }
+
         auto &ai = view.get<BotAIState>(e);
         if (ai.TargetEntity == entt::null)
             continue;

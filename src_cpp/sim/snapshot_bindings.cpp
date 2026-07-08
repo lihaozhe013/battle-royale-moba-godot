@@ -60,6 +60,7 @@ void SimPlayerSnap::_bind_methods() {
     BIND(SimPlayerSnap, dash_sy);
     BIND(SimPlayerSnap, dash_tx);
     BIND(SimPlayerSnap, dash_ty);
+    BIND(SimPlayerSnap, status);
     ClassDB::bind_method(D_METHOD("get_skills"), &SimPlayerSnap::get_skills);
     ClassDB::bind_method(
         D_METHOD("set_skills", "v"), &SimPlayerSnap::set_skills
@@ -88,6 +89,7 @@ void SimPlayerSnap::_bind_methods() {
     PROP(SimPlayerSnap, Variant::FLOAT, dash_sy);
     PROP(SimPlayerSnap, Variant::FLOAT, dash_tx);
     PROP(SimPlayerSnap, Variant::FLOAT, dash_ty);
+    PROP(SimPlayerSnap, Variant::INT, status);
     ADD_PROPERTY(
         PropertyInfo(
             Variant::ARRAY,
@@ -118,7 +120,7 @@ void SimBotSnap::_bind_methods() {
     BIND(SimBotSnap, xp_needed);
     BIND(SimBotSnap, speed);
     BIND(SimBotSnap, tier);
-    BIND(SimBotSnap, root_timer);
+    BIND(SimBotSnap, status);
     ClassDB::bind_method(D_METHOD("get_skills"), &SimBotSnap::get_skills);
     ClassDB::bind_method(D_METHOD("set_skills", "v"), &SimBotSnap::set_skills);
     PROP(SimBotSnap, Variant::INT, id);
@@ -138,7 +140,7 @@ void SimBotSnap::_bind_methods() {
     PROP(SimBotSnap, Variant::INT, xp_needed);
     PROP(SimBotSnap, Variant::FLOAT, speed);
     PROP(SimBotSnap, Variant::INT, tier);
-    PROP(SimBotSnap, Variant::FLOAT, root_timer);
+    PROP(SimBotSnap, Variant::INT, status);
     ADD_PROPERTY(
         PropertyInfo(
             Variant::ARRAY,

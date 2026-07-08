@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://ctni6odkjphwu"]
 
 [ext_resource type="Script" uid="uid://bappdxj0rua8j" path="res://scripts/ui/health_bar_ui.gd" id="1"]
+[ext_resource type="FontFile" uid="uid://cdyq3782v82ef" path="res://resources/ui/Cinzel-SemiBold.ttf" id="2_ne3p4"]
 
 [node name="HealthBarUI" type="Control" unique_id=364785322]
 custom_minimum_size = Vector2(124, 16)
@@ -66,3 +67,14 @@ offset_top = 10.0
 offset_right = 124.0
 offset_bottom = 14.0
 color = Color(0.2627451, 0.6666667, 1, 1)
+
+[node name="StatusLabel" type="Label" parent="." unique_id=423352114]
+layout_mode = 0
+offset_left = 24.0
+offset_top = -19.0
+offset_right = 123.0
+offset_bottom = 6.0
+theme_override_colors/font_color = Color(0.07082722, 0.07082721, 0.07082722, 1)
+theme_override_fonts/font = ExtResource("2_ne3p4")
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1

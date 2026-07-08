@@ -32,7 +32,7 @@
 | 槽 | 键 | SkillId | 名称 | 蓝耗 | CD | 前摇 | 类型 | 核心参数 |
 |----|----|---------|------|------|----|----|------|---------|
 | 0 | C | 1 | 打击 | 20 | 5s | 0.5s | 近战单体 | 伤害 40，鼠标点半径 1.5 内最近敌人 |
-| 1 | E | 2 | 禁锢领域 | 100 | 20s | 1.0s | AoE+控制 | 半径 4.0，定身 2s，伤害 15 |
+| 1 | E | 2 | 眩晕领域 | 100 | 20s | 1.0s | AoE+控制 | 半径 4.0，眩晕 2s，伤害 15 |
 | 2 | R | 3 | 滑行 | 40 | 10s | 0.2s | 位移 | 距离 8，速度 20，无伤害 |
 | 3 | F | 4 | 弹幕风暴 | 230 | 60s | 1.0s | 引导弹幕 | 引导 5s，每 0.5s 16 方向齐射，子弹伤=玩家 Atk，100% 吸血 |
 
@@ -85,7 +85,8 @@ enum class SkillKind : uint8_t {
 
 enum class StatusType : uint8_t {
     None = 0,
-    Root = 1,  // 定身：不能移动，可射击
+    Root = 1,  // 禁锢：不能移动，可射击/放技能
+    Stun = 2,  // 眩晕：不能移动，不能攻击，不能放技能
 };
 
 struct StatusEffect {
@@ -168,7 +169,7 @@ struct SkillDef {
     float Cooldown = 0.0f;
     float Damage = 0.0f;
     float Range = 0.0f;        // C=鼠标点半径；E/AoE=落地半径；R=dash 距离
-    float EffectValue = 0.0f;  // E=定身时长；F=引导时长
+    float EffectValue = 0.0f;  // E=眩晕时长；F=引导时长
 };
 
 inline const SkillDef& get_skill_def(int id) {
@@ -248,7 +249,7 @@ Phase::None → 无操作
 
 **E — AoEField**：
 - 一次性伤害：在 `AimPos` 周围 `Range`(4.0) 内所有 `Damageable`（非 owner）扣 `Damage`(15) HP
-- 对每个命中实体设 `StatusEffect.Type=Root, Timer=EffectValue`(2.0)
+- 对每个命中实体设 `StatusEffect.Type=Stun, Timer=EffectValue`(2.0)
 - 创建 AoE 实体（Position2D=AimPos, AoETag{OwnerId,SkillId,Radius=4,Duration=2,Timer=2}）供 View 渲染灰圈
 
 **R — Dash**：
@@ -344,14 +345,14 @@ if (reg.all_of<CastState>(e)) {
 
 ### 5.7 修改 `bot_ai_system`
 
-入口加 Root gate（Bot 不施法，仅 Root）：
+入口加 Status gate：
 ```cpp
 if (reg.all_of<StatusEffect>(e)) {
     auto &st = reg.get<StatusEffect>(e);
-    if (st.Type == StatusType::Root && st.Timer > 0.0f) continue;
+    if (st.Timer > 0.0f && (st.Type == StatusType::Root || st.Type == StatusType::Stun)) continue;
 }
 ```
-Bot 定身期间不能移动，但 `bot_targeting`/`bot_combat` 仍跑（能瞄准射击）。
+Bot 控制期间不能移动；Root(禁锢) 可瞄准射击，Stun(眩晕) 不可攻击。
 
 ### 5.8 修改 `combat_system`（Lifesteal）
 
@@ -414,7 +415,7 @@ progression → snapshot_export
 
 | 字段 | 类型 | 来源 | 用途 |
 |------|------|------|------|
-| `root_timer` | float | StatusEffect.Timer (Type==Root) | bot 头顶 root 图标/灰圈 |
+| `status` | int | StatusEffect.Type | 0=None 1=Root(禁锢) 2=Stun(眩晕) |
 
 ### 7.3 新增 `SimAoESnap`
 
@@ -438,7 +439,7 @@ godot::TypedArray<SimAoESnap> aoes;
 - `snapshot_bindings.cpp`：BIND/PROP 注册新字段
 - `snapshot_builder.cpp`：
   - `_build_player` 填 cast_*/dash_* 字段（若实体有 CastState）
-  - `_build_bot` 填 root_timer（若 StatusEffect.Type==Root）
+  - `_build_player`/`_build_bot` 都填 status（若实体有 StatusEffect）
   - 新增 `_build_aoes`：遍历 `AoETag` 实体填 SimAoESnap
 - `register_types.cpp`：`ClassDB::register_class<SimAoESnap>()`
 
@@ -675,14 +676,17 @@ func show_c_slash() -> void:
 | `game_config.h` | PlayerBaseMana 100→300, SkillCooldowns/SkillManaCosts 数值对齐 skill_defs.h（或删表改读 get_skill_def） |
 | `arrow_spawner.h` | ArrowSpawnContext +LifestealRatio, spawn 时写入 |
 | `systems/player_fire.h` | +CastState gate |
-| `systems/player_movement.h` | +Root/CastState gate |
-| `systems/bot_ai.h` | +Root gate |
+| `systems/player_movement.h` | +Root+Stun/CastState gate |
+| `systems/bot_ai.h` | +Root+Stun gate |
+| `systems/player_fire.h` | +Stun gate |
+| `systems/skill_cast.h` | +Stun gate |
+| `systems/bot_combat.h` | +Stun gate |
 | `systems/combat.h` | +Lifesteal 回血 |
 | `world.h/.cpp` | tick 顺序加 skill_cast/aoe/status_effect, _spawn_player/bot 加 CastState/StatusEffect, SkillSlot 初始化改读 get_skill_def, 新增 set_cast_input |
 | `sim_server.h/.cpp` | +set_cast_input 方法 |
-| `snapshot_types.h` | SimPlayerSnap +cast_*/dash_* 字段, SimBotSnap +root_timer, +SimAoESnap, SimSnapshot +aoes |
+| `snapshot_types.h` | SimPlayerSnap +cast_*/dash_*/status 字段, SimBotSnap +status(替代 root_timer), +SimAoESnap, SimSnapshot +aoes |
 | `snapshot_bindings.cpp` | 注册新字段 + SimAoESnap |
-| `snapshot_builder.cpp` | _build_player/bot 填新字段, +_build_aoes |
+| `snapshot_builder.cpp` | _build_player/bot 填新字段(status 替代 root_timer), +_build_aoes |
 | `register_types.cpp` | register SimAoESnap |
 
 ### 11.3 C++ 删除
@@ -736,14 +740,14 @@ func show_c_slash() -> void:
 5. skill_vfx 加 dash 路径
 6. **测试**：R → 左键 → 滑行 8 单位，撞墙停止
 
-**阶段 C — 加 E AoE+定身**
+**阶段 C — 加 E AoE+眩晕**
 1. skill_defs 加 id=2
-2. skill_cast 加 AoEField effect（即时伤害 + 创建 AoE 实体 + 设 Root）
+2. skill_cast 加 AoEField effect（即时伤害 + 创建 AoE 实体 + 设 Stun）
 3. status_effect.h + aoe.h
-4. bot_ai 加 Root gate
-5. snapshot 加 SimAoESnap + bot root_timer
-6. skill_vfx 加 E 灰圈 + bot root 图标
-7. **测试**：E → 左键 → 1s 前摇 → 落地灰圈 2s + bot 定身 2s
+4. bot_ai 加 Status gate
+5. snapshot 加 SimAoESnap + status
+6. skill_vfx 加 E 灰圈 + bot stun 图标
+7. **测试**：E → 左键 → 1s 前摇 → 落地灰圈 2s + bot 眩晕 2s
 
 **阶段 D — 加 F 大招**
 1. skill_defs 加 id=4
@@ -779,7 +783,7 @@ func show_c_slash() -> void:
 ### 13.4 F 不可打断
 - Channeling 分支**不读** input.Move / CastCancel。
 - 但 F 期间仍受伤害（combat 正常跑），仅流程不中断。
-- F 期间玩家 Root：player_movement gate Channeling。但 F 仍能被 E 类 root 叠加？建议 F 期间 StatusEffect.Root 不生效（Channeling 优先级高于 Root）。实现：status_effect_system 不对 Channeling 实体加 Root，或 player_movement 已 gate Channeling 跳过，Root 自然无意义。简单起见：E 不会命中自己（owner 排除），所以 F 期间自己不会被 root。
+- F 期间玩家 Root：player_movement gate Channeling。简单起见：E 的 AoE 排除 owner，所以 F 期间自己不会被 stun。
 
 ### 13.5 dash 撞墙
 - skill_cast Dashing 分支推进位置 → wall_collision 推回 → 下一 tick skill_cast 检测 `distance(pos, DashTarget)` 未减小 → 提前结束。
@@ -812,7 +816,7 @@ func show_c_slash() -> void:
 | C++ 施法状态机框架 | 中高 | 1 天 |
 | C 闭环节点 | 低 | 0.5 天 |
 | R dash | 中 | 0.5 天 |
-| E AoE+Root | 中 | 0.5 天 |
+| E AoE+Stun | 中 | 0.5 天 |
 | F channel+吸血 | 中 | 0.5 天 |
 | Snapshot 扩字段 | 低 | 0.3 天 |
 | input_collector 重写 | 中 | 0.5 天 |
