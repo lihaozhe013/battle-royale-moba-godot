@@ -18,6 +18,7 @@ const EDGE_PAN_PIXEL: float = 8.0
 
 const CAM_LOCKED := 0
 const CAM_FREE := 1
+const LERP_DURATION := 1.0 / 30.0
 
 var _height: float = HEIGHT
 var _distance: float = DISTANCE
@@ -28,6 +29,10 @@ var _smooth_pan: bool = true
 var _look_at: Vector3 = Vector3.ZERO
 var _target_x: float = 0.0
 var _target_z: float = 0.0
+var _interp_prev: Vector3 = Vector3.ZERO
+var _interp_curr: Vector3 = Vector3.ZERO
+var _interp_time: float = 0.0
+var _needs_center_snap: bool = true
 var _rotation_initialized: bool = false
 
 var _center_held: bool = false
@@ -55,6 +60,8 @@ func _ready() -> void:
 
 func _on_camera_mode_changed(m: int) -> void:
 	_mode = m
+	if m == CAM_LOCKED:
+		_needs_center_snap = true
 
 
 func _on_edge_pan_changed(on: bool) -> void:
@@ -70,8 +77,16 @@ func _on_smooth_pan_changed(on: bool) -> void:
 
 
 func follow_target(x: float, z: float) -> void:
+	if not _needs_center_snap and absf(_target_x - x) < 0.001 and absf(_target_z - z) < 0.001:
+		return
 	_target_x = x
 	_target_z = z
+	_interp_prev = _interp_curr
+	_interp_curr = Vector3(x, 0, z)
+	_interp_time = Time.get_ticks_msec() / 1000.0
+	if _needs_center_snap:
+		_interp_prev = _interp_curr
+		_needs_center_snap = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -124,7 +139,9 @@ func _process(delta: float) -> void:
 		_rotation_initialized = true
 
 	if _mode == CAM_LOCKED:
-		_look_at = Vector3(_target_x, 0, _target_z)
+		var elapsed := Time.get_ticks_msec() / 1000.0 - _interp_time
+		var t := clampf(elapsed / LERP_DURATION, 0.0, 1.0)
+		_look_at = _interp_prev.lerp(_interp_curr, t)
 
 	if _edge_pan and _ok_for_edge_pan():
 		var mp: Vector2 = get_viewport().get_mouse_position()
