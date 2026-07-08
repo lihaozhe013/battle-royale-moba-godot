@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" uid="uid://c5l804ug4o0bn" path="res://scripts/ui/settings_panel.gd" id="1"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1vivr"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
 [node name="SettingsPanel" type="CanvasLayer" unique_id=512102333]
 process_mode = 3
 script = ExtResource("1")
@@ -31,108 +34,87 @@ theme_override_font_sizes/font_size = 24
 text = "Settings"
 horizontal_alignment = 1
 
-[node name="VBox" type="VBoxContainer" parent="PanelBg" unique_id=1974734412]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelBg" unique_id=907368223]
 layout_mode = 1
-anchors_preset = 4
+anchors_preset = 8
+anchor_left = 0.5
 anchor_top = 0.5
+anchor_right = 0.5
 anchor_bottom = 0.5
-offset_top = -65.5
-offset_right = 115.0
-offset_bottom = 65.5
+offset_left = -92.0
+offset_top = -83.0
+offset_right = 92.0
+offset_bottom = 83.0
+grow_horizontal = 2
 grow_vertical = 2
 
-[node name="ModeRow" type="HBoxContainer" parent="PanelBg/VBox" unique_id=1291288409]
+[node name="ConfigName" type="VBoxContainer" parent="PanelBg/HBoxContainer" unique_id=779471918]
 layout_mode = 2
-size_flags_horizontal = 4
 
-[node name="ModeLabel" type="Label" parent="PanelBg/VBox/ModeRow" unique_id=1562585981]
+[node name="ModeLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=1562585981]
 layout_mode = 2
-size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 16
 text = "Mode"
 
-[node name="ModeOption" type="OptionButton" parent="PanelBg/VBox/ModeRow" unique_id=573673923]
+[node name="CameraModeLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=582395177]
 layout_mode = 2
-size_flags_horizontal = 6
-size_flags_vertical = 4
-
-[node name="CameraRow" type="HBoxContainer" parent="PanelBg/VBox" unique_id=1445342917]
-layout_mode = 2
-size_flags_horizontal = 4
-
-[node name="CameraModeLabel" type="Label" parent="PanelBg/VBox/CameraRow" unique_id=582395177]
-layout_mode = 2
-size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 16
 text = "Camera"
 
-[node name="CameraModeOption" type="OptionButton" parent="PanelBg/VBox/CameraRow" unique_id=563206615]
+[node name="EdgePanLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=1529044391]
 layout_mode = 2
-size_flags_horizontal = 6
-size_flags_vertical = 4
-
-[node name="EdgeRow" type="HBoxContainer" parent="PanelBg/VBox" unique_id=1317226636]
-layout_mode = 2
-size_flags_horizontal = 4
-
-[node name="EdgePanLabel" type="Label" parent="PanelBg/VBox/EdgeRow" unique_id=1529044391]
-layout_mode = 2
-size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 16
 text = "Edge Pan"
 
-[node name="EdgePanOption" type="OptionButton" parent="PanelBg/VBox/EdgeRow" unique_id=1863649276]
+[node name="EdgeSpeedLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=1628897389]
 layout_mode = 2
-size_flags_horizontal = 6
-size_flags_vertical = 4
-
-[node name="EdgeSpeedRow" type="HBoxContainer" parent="PanelBg/VBox"]
-layout_mode = 2
-size_flags_horizontal = 4
-
-[node name="EdgeSpeedLabel" type="Label" parent="PanelBg/VBox/EdgeSpeedRow"]
-layout_mode = 2
-size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 16
 text = "Edge Speed"
 
-[node name="EdgeSpeedSpinBox" type="SpinBox" parent="PanelBg/VBox/EdgeSpeedRow"]
+[node name="SmoothPanLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=1836861306]
 layout_mode = 2
-size_flags_horizontal = 6
+theme_override_font_sizes/font_size = 16
+text = "Smooth Pan"
+
+[node name="FullscreenLabel" type="Label" parent="PanelBg/HBoxContainer/ConfigName" unique_id=204251778]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Fullscreen"
+
+[node name="BlankSpace" type="PanelContainer" parent="PanelBg/HBoxContainer" unique_id=656424001]
+custom_minimum_size = Vector2(65, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_1vivr")
+
+[node name="Value" type="VBoxContainer" parent="PanelBg/HBoxContainer" unique_id=1974734412]
+layout_mode = 2
+
+[node name="ModeOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=573673923]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="CameraModeOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=563206615]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="EdgePanOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=1863649276]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="EdgeSpeedSpinBox" type="SpinBox" parent="PanelBg/HBoxContainer/Value" unique_id=814361283]
+layout_mode = 2
 size_flags_vertical = 4
 min_value = 1.0
 max_value = 50.0
 step = 0.5
 value = 14.0
 
-[node name="SmoothPanRow" type="HBoxContainer" parent="PanelBg/VBox"]
+[node name="SmoothPanOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=738425930]
 layout_mode = 2
-size_flags_horizontal = 4
-
-[node name="SmoothPanLabel" type="Label" parent="PanelBg/VBox/SmoothPanRow"]
-layout_mode = 2
-size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 16
-text = "Smooth Pan"
-
-[node name="SmoothPanOption" type="OptionButton" parent="PanelBg/VBox/SmoothPanRow"]
-layout_mode = 2
-size_flags_horizontal = 6
 size_flags_vertical = 4
 
-[node name="FullscreenRow" type="HBoxContainer" parent="PanelBg/VBox" unique_id=828879056]
+[node name="FullscreenOption" type="OptionButton" parent="PanelBg/HBoxContainer/Value" unique_id=776202412]
 layout_mode = 2
-size_flags_horizontal = 4
-
-[node name="FullscreenLabel" type="Label" parent="PanelBg/VBox/FullscreenRow" unique_id=204251778]
-layout_mode = 2
-size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 16
-text = "Fullscreen"
-
-[node name="FullscreenOption" type="OptionButton" parent="PanelBg/VBox/FullscreenRow" unique_id=776202412]
-layout_mode = 2
-size_flags_horizontal = 6
 size_flags_vertical = 4
 
 [node name="QuitButton" type="Button" parent="PanelBg" unique_id=134980460]
@@ -159,11 +141,11 @@ offset_bottom = 31.0
 grow_horizontal = 0
 text = "×"
 
-[connection signal="item_selected" from="PanelBg/VBox/ModeRow/ModeOption" to="." method="_on_mode_selected"]
-[connection signal="item_selected" from="PanelBg/VBox/CameraRow/CameraModeOption" to="." method="_on_camera_mode_selected"]
-[connection signal="item_selected" from="PanelBg/VBox/EdgeRow/EdgePanOption" to="." method="_on_edge_pan_selected"]
-[connection signal="value_changed" from="PanelBg/VBox/EdgeSpeedRow/EdgeSpeedSpinBox" to="." method="_on_edge_speed_changed"]
-[connection signal="item_selected" from="PanelBg/VBox/SmoothPanRow/SmoothPanOption" to="." method="_on_smooth_pan_selected"]
-[connection signal="item_selected" from="PanelBg/VBox/FullscreenRow/FullscreenOption" to="." method="_on_fullscreen_selected"]
+[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/ModeOption" to="." method="_on_mode_selected"]
+[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/CameraModeOption" to="." method="_on_camera_mode_selected"]
+[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/EdgePanOption" to="." method="_on_edge_pan_selected"]
+[connection signal="value_changed" from="PanelBg/HBoxContainer/Value/EdgeSpeedSpinBox" to="." method="_on_edge_speed_changed"]
+[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/SmoothPanOption" to="." method="_on_smooth_pan_selected"]
+[connection signal="item_selected" from="PanelBg/HBoxContainer/Value/FullscreenOption" to="." method="_on_fullscreen_selected"]
 [connection signal="pressed" from="PanelBg/QuitButton" to="." method="_on_quit_pressed"]
 [connection signal="pressed" from="PanelBg/CloseButton" to="." method="_on_close_pressed"]
