@@ -16,6 +16,12 @@ void SimServer::_bind_methods() {
         godot::D_METHOD("set_cast_input", "cast_slot", "confirm", "cancel", "interrupt", "aim_x", "aim_y"),
         &SimServer::set_cast_input);
     godot::ClassDB::bind_method(
+        godot::D_METHOD("set_move_command", "target_x", "target_y", "issue"),
+        &SimServer::set_move_command);
+    godot::ClassDB::bind_method(
+        godot::D_METHOD("set_stop", "stop"),
+        &SimServer::set_stop);
+    godot::ClassDB::bind_method(
         godot::D_METHOD("tick", "delta"),
         &SimServer::tick);
     godot::ClassDB::bind_method(
@@ -38,6 +44,14 @@ void SimServer::set_local_input(const godot::Vector2 &move, const godot::Vector2
 
 void SimServer::set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y) {
     _world.set_cast_input(cast_slot, confirm, cancel, interrupt, aim_x, aim_y);
+}
+
+void SimServer::set_move_command(float target_x, float target_y, bool issue) {
+    _world.set_move_command(target_x, target_y, issue);
+}
+
+void SimServer::set_stop(bool stop) {
+    _world.set_stop(stop);
 }
 
 void SimServer::tick(double delta) {

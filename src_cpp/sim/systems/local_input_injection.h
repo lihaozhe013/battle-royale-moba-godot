@@ -24,6 +24,9 @@ inline void local_input_injection_system(
         state.CastCancel = input.CastCancel;
         state.CastInterrupt = input.CastInterrupt;
         state.CastAim = input.CastAim;
+        state.MoveTarget = input.MoveTarget;
+        state.MoveIssue = input.MoveIssue;
+        state.Stop = input.Stop;
     }
 }
 

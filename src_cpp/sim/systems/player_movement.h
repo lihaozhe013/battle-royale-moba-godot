@@ -34,21 +34,68 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
         }
 
         // Cast state gate (Aiming allows movement)
+        bool cast_block = false;
         if (reg.all_of<CastState>(e)) {
             auto &cs = reg.get<CastState>(e);
-            if (cs.State == CastState::Phase::Casting)
-                continue;
-            if (cs.State == CastState::Phase::Channeling)
-                continue;
-            if (cs.State == CastState::Phase::Dashing)
-                continue;
+            if (cs.State == CastState::Phase::Casting ||
+                cs.State == CastState::Phase::Channeling ||
+                cs.State == CastState::Phase::Dashing)
+                cast_block = true;
         }
 
+        // Stop command (S key in MOBA mode)
+        if (input.Stop) {
+            if (reg.all_of<MovePath>(e)) {
+                auto &path = reg.get<MovePath>(e);
+                path.Following = false;
+            }
+            // Don't move this tick; keep facing
+            continue;
+        }
+
+        // WASD movement (highest priority when active)
         if (glm::length(input.Move) > 0.01f) {
             Vec2 dir = vec2_normalize(input.Move);
             angle.Radians = std::atan2(dir.y, dir.x);
             Vec2 step = dir * speed.Value * dt;
             pos.Value = vec2_clamp_to_map(pos.Value + step, map_half);
+            // Cancel any active path when WASD is used
+            if (reg.all_of<MovePath>(e)) {
+                auto &path = reg.get<MovePath>(e);
+                path.Following = false;
+            }
+            continue;
+        }
+
+        // Path-following movement (only when cast allows movement)
+        if (!cast_block && reg.all_of<MovePath>(e)) {
+            auto &path = reg.get<MovePath>(e);
+            if (path.Following && path.CurrentIndex < static_cast<int>(path.Waypoints.size())) {
+                Vec2 target = path.Waypoints[path.CurrentIndex];
+                Vec2 dir = target - pos.Value;
+                float dist = vec2_length(dir);
+                if (dist < 0.01f) {
+                    path.CurrentIndex++;
+                    if (path.CurrentIndex >= static_cast<int>(path.Waypoints.size())) {
+                        path.Following = false;
+                    }
+                    continue;
+                }
+                dir = vec2_normalize(dir);
+                angle.Radians = std::atan2(dir.y, dir.x);
+                Vec2 step = dir * speed.Value * dt;
+                // Don't overshoot the waypoint
+                float step_len = vec2_length(step);
+                if (step_len >= dist) {
+                    pos.Value = target;
+                    path.CurrentIndex++;
+                    if (path.CurrentIndex >= static_cast<int>(path.Waypoints.size())) {
+                        path.Following = false;
+                    }
+                } else {
+                    pos.Value = vec2_clamp_to_map(pos.Value + step, map_half);
+                }
+            }
         }
     }
 }

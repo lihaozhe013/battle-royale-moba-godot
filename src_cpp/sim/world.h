@@ -2,6 +2,7 @@
 
 #include "command_buffer.h"
 #include "components.h"
+#include "nav_grid.h"
 #include "systems/aoe.h"
 #include "systems/arrow_movement.h"
 #include "systems/bot_ai.h"
@@ -14,6 +15,7 @@
 #include "systems/pickup.h"
 #include "systems/player_fire.h"
 #include "systems/player_movement.h"
+#include "systems/player_pathfinding.h"
 #include "systems/progression.h"
 #include "systems/skill_cast.h"
 #include "systems/skill_cooldown.h"
@@ -41,6 +43,8 @@ class World {
         float aim_x,
         float aim_y
     );
+    void set_move_command(float target_x, float target_y, bool issue);
+    void set_stop(bool stop);
     void tick(double dt);
 
     entt::registry &registry() { return _reg; }
@@ -72,8 +76,10 @@ class World {
     );
     Vec2 _random_map_pos(float half, float radius);
     float _random_wander_time();
+    void _build_nav_grid();
 
     entt::registry _reg;
+    NavGrid _nav_grid;
     CommandBuffer _cb;
     double _time = 0.0;
     int _tick_counter = 0;

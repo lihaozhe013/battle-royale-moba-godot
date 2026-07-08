@@ -1,7 +1,8 @@
 class_name BottomHUD
 extends CanvasLayer
 
-const KEY_HINTS := ["C", "E", "R", "F"]
+const KEY_HINTS_WASD := ["C", "E", "R", "F"]
+const KEY_HINTS_MOBA := ["Q", "W", "E", "R"]
 const HP_BAR_WIDTH := 280.0
 const MANA_BAR_WIDTH := 280.0
 
@@ -22,8 +23,18 @@ var _item_slots: Array[ItemSlotUI] = []
 func _ready() -> void:
 	for child in _skill_section.get_children():
 		if child is SkillSlotUI:
-			child.set_key_hint(KEY_HINTS[_skill_slots.size()])
+			child.set_key_hint(_key_hints()[_skill_slots.size()])
 			_skill_slots.append(child)
+	GameSettings.mode_changed.connect(_on_mode_changed)
+
+
+func _key_hints() -> Array:
+	return KEY_HINTS_MOBA if GameSettings.move_mode == GameSettings.MoveMode.MOBA else KEY_HINTS_WASD
+
+
+func _on_mode_changed(_m: int) -> void:
+	for i in _skill_slots.size():
+		_skill_slots[i].set_key_hint(_key_hints()[i])
 
 	for row in _item_container.get_children():
 		if row is HBoxContainer:
