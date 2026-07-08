@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.17)
 
-set(GODOTCPP_TARGET "template_debug" CACHE STRING "")
+set(GODOTCPP_TARGET "template_release" CACHE STRING "")
 set(GODOTCPP_API_VERSION "4.7" CACHE STRING "")
 set(GODOTCPP_PRECISION "single" CACHE STRING "")
+set(GODOTCPP_DEPRECATED OFF CACHE BOOL "")
+set(GODOTCPP_GENERATE_TEMPLATE_GET_NODE OFF CACHE BOOL "")
+set(GODOTCPP_BUILD_PROFILE "${CMAKE_CURRENT_SOURCE_DIR}/build_profile.json" CACHE PATH "")
 
 project(battle_royale_sim LANGUAGES CXX)
 
@@ -25,6 +28,8 @@ target_include_directories(battle_royale_sim PRIVATE
 )
 
 target_link_libraries(battle_royale_sim PRIVATE godot-cpp)
+
+set_property(TARGET battle_royale_sim PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
 
 set(OUTPUT_DIR "${CMAKE_SOURCE_DIR}/../addons/battle_royale_sim")
 set_target_properties(battle_royale_sim PROPERTIES
