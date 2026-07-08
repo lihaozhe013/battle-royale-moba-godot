@@ -1,11 +1,11 @@
 extends CanvasLayer
 
-@onready var _mode_option: OptionButton = $PanelBg/VBox/ModeRow/ModeOption
-@onready var _camera_mode_option: OptionButton = $PanelBg/VBox/CameraRow/CameraModeOption
-@onready var _edge_pan_option: OptionButton = $PanelBg/VBox/EdgeRow/EdgePanOption
-@onready var _edge_speed_spinbox: SpinBox = $PanelBg/VBox/EdgeSpeedRow/EdgeSpeedSpinBox
-@onready var _smooth_pan_option: OptionButton = $PanelBg/VBox/SmoothPanRow/SmoothPanOption
-@onready var _fullscreen_option: OptionButton = $PanelBg/VBox/FullscreenRow/FullscreenOption
+@onready var _mode_option: OptionButton = $PanelBg/HBoxContainer/Value/ModeOption
+@onready var _camera_mode_option: OptionButton = $PanelBg/HBoxContainer/Value/CameraModeOption
+@onready var _edge_pan_option: OptionButton = $PanelBg/HBoxContainer/Value/EdgePanOption
+@onready var _edge_speed_spinbox: SpinBox = $PanelBg/HBoxContainer/Value/EdgeSpeedSpinBox
+@onready var _smooth_pan_option: OptionButton = $PanelBg/HBoxContainer/Value/SmoothPanOption
+@onready var _fullscreen_option: OptionButton = $PanelBg/HBoxContainer/Value/FullscreenOption
 
 
 func _ready() -> void:
