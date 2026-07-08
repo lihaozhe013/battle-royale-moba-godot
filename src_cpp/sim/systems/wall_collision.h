@@ -19,12 +19,17 @@ inline void wall_collision_system(entt::registry &reg, CommandBuffer &cb) {
         walls.push_back(wall_view.get<WallBounds>(w));
     }
 
-    // Movers (player/bot): push out of walls
-    auto mover_view = reg.view<Damageable, Position2D>();
-    for (auto e : mover_view) {
-        bool dead = reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled;
-        if (dead)
-            continue;
+	// Movers (player/bot): push out of walls
+	auto mover_view = reg.view<Damageable, Position2D>();
+	for (auto e : mover_view) {
+		bool dead = reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled;
+		if (dead)
+			continue;
+
+		// Skip wall collision during dash (Dashing phase moves through walls)
+		if (reg.all_of<CastState>(e) &&
+			reg.get<CastState>(e).State == CastState::Phase::Dashing)
+			continue;
 
         float radius = reg.all_of<BotTag>(e) ? GameConfig::BotRadius
                                              : GameConfig::PlayerRadius;
