@@ -123,7 +123,8 @@ func _read_skill_input() -> void:
 	# 4. MOBA 模式：S 键边沿 = stop 脉冲（同时已作为打断键持续压制）
 	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
 		var s_now := Input.is_key_pressed(KEY_S)
-		stop = s_now and not _prev_s
+		if s_now and not _prev_s:
+			stop = true
 		_prev_s = s_now
 
 	# 5. 左键 = 确认施法 / 普攻
