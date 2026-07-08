@@ -1,0 +1,7 @@
+[configuration]
+entry_symbol = "battle_royale_sim_library_init"
+compatibility_minimum = 4.7
+
+[libraries]
+windows.x86_64 = "res://addons/battle_royale_sim/battle_royale_sim.dll"
+macos.arm64 = "res://addons/battle_royale_sim/libbattle_royale_sim.dylib"

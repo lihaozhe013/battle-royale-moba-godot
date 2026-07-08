@@ -1,7 +1,0 @@
-[configuration]
-entry_symbol = "topdown_sim_library_init"
-compatibility_minimum = 4.7
-
-[libraries]
-windows.x86_64 = "res://addons/topdown_sim/topdown_sim.dll"
-macos.arm64 = "res://addons/topdown_sim/libtopdown_sim.dylib"

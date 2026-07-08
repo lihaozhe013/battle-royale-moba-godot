@@ -5,7 +5,7 @@
 #include "sim_server.h"
 #include "sim/snapshot_types.h"
 
-void initialize_topdown_sim_types(godot::ModuleInitializationLevel p_level) {
+void initialize_battle_royale_sim_types(godot::ModuleInitializationLevel p_level) {
     if (p_level != godot::MODULE_INITIALIZATION_LEVEL_SCENE) {
         return;
     }
@@ -20,14 +20,14 @@ void initialize_topdown_sim_types(godot::ModuleInitializationLevel p_level) {
     godot::ClassDB::register_class<sim::SimAoESnap>();
 }
 
-void uninitialize_topdown_sim_types(godot::ModuleInitializationLevel p_level) {
+void uninitialize_battle_royale_sim_types(godot::ModuleInitializationLevel p_level) {
     if (p_level != godot::MODULE_INITIALIZATION_LEVEL_SCENE) {
         return;
     }
 }
 
 extern "C" {
-    GDExtensionBool GDE_EXPORT topdown_sim_library_init(
+    GDExtensionBool GDE_EXPORT battle_royale_sim_library_init(
         GDExtensionInterfaceGetProcAddress p_get_proc_address,
         GDExtensionClassLibraryPtr p_library,
         GDExtensionInitialization *r_initialization
@@ -35,8 +35,8 @@ extern "C" {
         godot::GDExtensionBinding::InitObject init_obj(
             p_get_proc_address, p_library, r_initialization
         );
-        init_obj.register_initializer(initialize_topdown_sim_types);
-        init_obj.register_terminator(uninitialize_topdown_sim_types);
+        init_obj.register_initializer(initialize_battle_royale_sim_types);
+        init_obj.register_terminator(uninitialize_battle_royale_sim_types);
         init_obj.set_minimum_library_initialization_level(
             godot::MODULE_INITIALIZATION_LEVEL_SCENE
         );

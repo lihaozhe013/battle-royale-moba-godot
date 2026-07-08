@@ -50,7 +50,7 @@ sources = [
 ]
 
 library = env.SharedLibrary(
-    target=os.path.join("..", "addons", "topdown_sim", "topdown_sim"),
+    target=os.path.join("..", "addons", "battle_royale_sim", "battle_royale_sim"),
     source=sources,
 )
 

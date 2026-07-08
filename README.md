@@ -1,4 +1,4 @@
-# Topdown Shooter (Godot)
+# Battle Royale MOBA (Godot)
 
 类 MOBA 游戏原型。C++ GDExtension 模拟层 + GDScript 视图层，ECS 架构。
 
