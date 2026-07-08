@@ -33,12 +33,10 @@ struct GameConfig {
     static constexpr float BotWanderIntervalMin = 2.0f;
     static constexpr float BotWanderIntervalMax = 5.0f;
 
-    // ── Bot 等级成长 ──
-    static constexpr int MaxBotLevel = 30;
-    static constexpr int BotHpPerLevel = 8;
-    static constexpr float BotAtkPerLevel = 0.8f;
-    static constexpr float BotAspPerLevel = 0.03f;
-    static constexpr float BotSpeedPerLevel = 0.3f;
+    // ── 英雄（Hero）等级成长 ──
+    static constexpr int MaxHeroLevel = 30;
+    static constexpr float AtkPerLevel = 1.0f;
+    static constexpr float AspPerLevel = 0.03f;
 
     // ── Bot Tier 倍率 ──
     static constexpr float NormalHpMul = 1.0f;
@@ -132,6 +130,12 @@ struct GameConfig {
     static constexpr float SkillManaCosts[4] = {10.0f, 20.0f, 30.0f, 50.0f};
     // Bot test skills: slot 0-3 (same for now)
     static constexpr int BotSkillIds[4] = {1, 2, 3, 4};
+
+    // ── 技能成长 ──
+    static constexpr float SkillDamageAtkRatio = 0.9f;
+    static constexpr float SkillCDRPerLevel = 0.05f;
+    static constexpr float SkillCDRMin = 0.4f;
+    static constexpr float SkillManaReductionMin = 0.2f;
 };
 
 } // namespace sim

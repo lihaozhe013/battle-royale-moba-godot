@@ -99,6 +99,10 @@ func _physics_process(delta: float) -> void:
 		)
 		sim.tick(tick_rate)
 		elapsed -= tick_rate
+		if sim.is_game_over():
+			print("=== GAME OVER ===")
+			get_tree().paused = true
+			return
 		var snap = sim.pop_snapshot()
 		if snap is SimSnapshot:
 			last_snapshot = snap

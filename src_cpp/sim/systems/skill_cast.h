@@ -39,7 +39,8 @@ inline void skill_cast_system(
         Mana,
         Position2D,
         CombatStats,
-        NetworkId>();
+        NetworkId,
+        Level>();
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
         if (!tag.IsLocal)
@@ -50,6 +51,7 @@ inline void skill_cast_system(
         auto &pos = view.get<Position2D>(e);
         auto &stats = view.get<CombatStats>(e);
         auto &net = view.get<NetworkId>(e);
+        auto &lv = view.get<Level>(e);
 
         // Stun gate — 眩晕不能施法
         if (reg.all_of<StatusEffect>(e)) {
@@ -75,16 +77,22 @@ inline void skill_cast_system(
         case CastState::Phase::None: {
             if (cast_slot >= 0 && cast_slot < 4 && cs.RejectTimer <= 0.0f) {
                 auto &slot = skills.Slots[cast_slot];
-                if (slot.SkillId > 0 && slot.CooldownTimer <= 0.0f &&
-                    mana.Cur >= slot.ManaCost) {
-                    cs.State = CastState::Phase::Aiming;
-                    cs.ActiveSlot = cast_slot;
-                    cs.EnteredSlot = cast_slot;
-                    cs.RejectTimer = 0.15f;
-                    cs.SkillId = slot.SkillId;
-                    cs.Timer = 0.0f;
-                    cs.SubTimer = 0.0f;
-                    cs.AimPos = cast_aim;
+                if (slot.SkillId > 0 && slot.CooldownTimer <= 0.0f) {
+                    const auto &mm_def = get_skill_def(slot.SkillId);
+                    float mm = std::max(
+                        GameConfig::SkillManaReductionMin,
+                        1.0f - (lv.Value - 1) * mm_def.ManaReductionPerLevel
+                    );
+                    if (mana.Cur >= mm_def.ManaCost * mm) {
+                        cs.State = CastState::Phase::Aiming;
+                        cs.ActiveSlot = cast_slot;
+                        cs.EnteredSlot = cast_slot;
+                        cs.RejectTimer = 0.15f;
+                        cs.SkillId = slot.SkillId;
+                        cs.Timer = 0.0f;
+                        cs.SubTimer = 0.0f;
+                        cs.AimPos = cast_aim;
+                    }
                 }
             }
             break;
@@ -95,9 +103,20 @@ inline void skill_cast_system(
             if (cast_confirm) {
                 auto &slot = skills.Slots[cs.ActiveSlot];
                 const auto &def = get_skill_def(cs.SkillId);
-                mana.Cur -= slot.ManaCost;
+                float cdr_mult = std::max(
+                    GameConfig::SkillCDRMin,
+                    1.0f - (lv.Value - 1) * GameConfig::SkillCDRPerLevel
+                );
+                float mana_mult = std::max(
+                    GameConfig::SkillManaReductionMin,
+                    1.0f - (lv.Value - 1) * def.ManaReductionPerLevel
+                );
+                float effective_cd = def.Cooldown * cdr_mult;
+                float effective_mana = def.ManaCost * mana_mult;
+                slot.MaxCooldown = effective_cd;
+                mana.Cur -= effective_mana;
                 mana.RegenTimer = GameConfig::ManaRegenDelay;
-                slot.CooldownTimer = slot.MaxCooldown;
+                slot.CooldownTimer = effective_cd;
                 cs.AimPos = cast_aim;
                 cs.Timer = def.CastTime;
                 cs.State = CastState::Phase::Casting;
@@ -111,11 +130,17 @@ inline void skill_cast_system(
             }
             if (cast_slot >= 0 && cast_slot != cs.ActiveSlot) {
                 auto &slot = skills.Slots[cast_slot];
-                if (slot.SkillId > 0 && slot.CooldownTimer <= 0.0f &&
-                    mana.Cur >= slot.ManaCost) {
-                    cs.ActiveSlot = cast_slot;
-                    cs.SkillId = slot.SkillId;
-                    cs.AimPos = cast_aim;
+                if (slot.SkillId > 0 && slot.CooldownTimer <= 0.0f) {
+                    const auto &switch_def = get_skill_def(slot.SkillId);
+                    float mm = std::max(
+                        GameConfig::SkillManaReductionMin,
+                        1.0f - (lv.Value - 1) * switch_def.ManaReductionPerLevel
+                    );
+                    if (mana.Cur >= switch_def.ManaCost * mm) {
+                        cs.ActiveSlot = cast_slot;
+                        cs.SkillId = slot.SkillId;
+                        cs.AimPos = cast_aim;
+                    }
                 }
             }
             break;
@@ -123,6 +148,17 @@ inline void skill_cast_system(
 
         case CastState::Phase::Casting: {
             if (cast_cancel || cast_interrupt) {
+                auto &slot = skills.Slots[cs.ActiveSlot];
+                {
+                    const auto &refund_def = get_skill_def(cs.SkillId);
+                    float refund_mult = std::max(
+                        GameConfig::SkillManaReductionMin,
+                        1.0f - (lv.Value - 1) * refund_def.ManaReductionPerLevel
+                    );
+                    mana.Cur += refund_def.ManaCost * refund_mult;
+                }
+                if (mana.Cur > mana.Max) mana.Cur = mana.Max;
+                slot.CooldownTimer = 0.0f;
                 cs.State = CastState::Phase::None;
                 cs.ActiveSlot = -1;
                 cs.SkillId = 0;
@@ -191,7 +227,7 @@ inline void skill_cast_system(
                     def.ChannelTick > 0.0f ? def.ChannelTick : 0.5f;
                 cs.SubTimer = interval;
                 int count = def.BulletCount > 0 ? def.BulletCount : 16;
-                float dmg = stats.Atk;
+                float dmg = def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
 
                 for (int i = 0; i < count; ++i) {
                     float angle =
@@ -264,7 +300,8 @@ inline void _trigger_effect(
         }
         if (best_target != entt::null) {
             auto &hp = target_view.get<Health>(best_target);
-            hp.Cur -= static_cast<int>(def.Damage);
+            float skill_dmg = def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
+            hp.Cur -= static_cast<int>(skill_dmg);
             if (hp.Cur <= 0) {
                 hp.Cur = 0;
                 if (reg.all_of<Dead>(best_target))
@@ -299,7 +336,8 @@ inline void _trigger_effect(
                 continue;
 
             auto &hp = target_view.get<Health>(t);
-            hp.Cur -= static_cast<int>(def.Damage);
+            float skill_dmg = def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
+            hp.Cur -= static_cast<int>(skill_dmg);
             if (hp.Cur <= 0) {
                 hp.Cur = 0;
                 if (reg.all_of<Dead>(t))

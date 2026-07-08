@@ -19,7 +19,7 @@ roll_bot_level_for_role(entt::registry &reg, BotRole role, std::mt19937 &rng) {
         );
     case BotRole::Brute:
         return std::uniform_int_distribution<
-            int>(GameConfig::BruteMinLv, GameConfig::MaxBotLevel)(rng);
+            int>(GameConfig::BruteMinLv, GameConfig::MaxHeroLevel)(rng);
     case BotRole::Stalker: {
         int plv = 1;
         auto pv = reg.view<PlayerTag, Level>();
@@ -31,7 +31,7 @@ roll_bot_level_for_role(entt::registry &reg, BotRole role, std::mt19937 &rng) {
         }
         int off = std::uniform_int_distribution<
             int>(-GameConfig::StalkerOffset, GameConfig::StalkerOffset)(rng);
-        return std::clamp(plv + off, 1, GameConfig::MaxBotLevel);
+        return std::clamp(plv + off, 1, GameConfig::MaxHeroLevel);
     }
     }
     return 1;

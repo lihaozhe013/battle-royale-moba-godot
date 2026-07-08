@@ -27,6 +27,9 @@ void SimServer::_bind_methods() {
     godot::ClassDB::bind_method(
         godot::D_METHOD("pop_snapshot"),
         &SimServer::pop_snapshot);
+    godot::ClassDB::bind_method(
+        godot::D_METHOD("is_game_over"),
+        &SimServer::is_game_over);
 }
 
 void SimServer::initialize(const godot::String &p_map_json) {
@@ -56,6 +59,10 @@ void SimServer::set_stop(bool stop) {
 
 void SimServer::tick(double delta) {
     _world.tick(delta);
+}
+
+bool SimServer::is_game_over() {
+    return _world.is_game_over();
 }
 
 godot::Ref<godot::RefCounted> SimServer::pop_snapshot() {

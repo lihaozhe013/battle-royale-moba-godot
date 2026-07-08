@@ -9,6 +9,7 @@ struct SkillDef {
     SkillKind Kind;
     float CastTime = 0.0f;
     float ManaCost = 0.0f;
+    float ManaReductionPerLevel = 0.05f;
     float Cooldown = 0.0f;
     float Damage = 0.0f;
     float Range = 0.0f;       // C=melee radius; E=aoe radius; R=dash distance
@@ -24,6 +25,7 @@ inline const SkillDef &get_skill_def(int id) {
          SkillKind::MeleeSingle,
          0.0f,
          0.0f,
+         0.05f,
          0.0f,
          0.0f,
          0.0f,
@@ -35,6 +37,7 @@ inline const SkillDef &get_skill_def(int id) {
          SkillKind::MeleeSingle,
          0.2f,
          20.0f,
+         0.05f,
          5.0f,
          40.0f,
          3.0f,
@@ -46,6 +49,7 @@ inline const SkillDef &get_skill_def(int id) {
          SkillKind::AoEField,
          0.5f,
          100.0f,
+         0.10f,
          20.0f,
          35.0f,
          4.0f,
@@ -57,6 +61,7 @@ inline const SkillDef &get_skill_def(int id) {
          SkillKind::Dash,
          0.2f,
          40.0f,
+         0.05f,
          10.0f,
          0.0f,
          8.0f,
@@ -68,6 +73,7 @@ inline const SkillDef &get_skill_def(int id) {
          SkillKind::ChannelBurst,
          1.0f,
          230.0f,
+         0.03f,
          60.0f,
          0.0f,
          0.0f,

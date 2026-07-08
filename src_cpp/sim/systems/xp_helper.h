@@ -21,7 +21,18 @@ inline void apply_xp(entt::registry &reg, entt::entity e, int xp_amount) {
         hp.Max += GameConfig::HpPerLevel;
         hp.Cur = hp.Max;
         ms.Value += GameConfig::SpeedPerLevel;
+        if (reg.all_of<CombatStats>(e)) {
+            auto &stats = reg.get<CombatStats>(e);
+            stats.Atk += GameConfig::AtkPerLevel;
+            stats.Asp = std::min(
+                stats.Asp + GameConfig::AspPerLevel, GameConfig::AspMax
+            );
+        }
         exp.Needed = lv.Value * GameConfig::XpPerLevelBase;
+        if (reg.all_of<Mana>(e)) {
+            auto &mana = reg.get<Mana>(e);
+            mana.Cur = mana.Max;
+        }
     }
 }
 

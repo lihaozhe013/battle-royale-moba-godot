@@ -26,21 +26,27 @@ godot::Ref<SimSnapshot> SnapshotBuilder::build(entt::registry &reg, int seq) {
 
 namespace {
 
-godot::Ref<SimSkillSlotSnap> _build_skill_slot(const SkillSlot &slot) {
+godot::Ref<SimSkillSlotSnap> _build_skill_slot(const SkillSlot &slot, int char_level) {
     auto s = godot::Ref<SimSkillSlotSnap>(memnew(SimSkillSlotSnap));
     s->skill_id = slot.SkillId;
-    s->level = slot.Level;
+    s->level = char_level;
     s->cooldown = slot.CooldownTimer;
     s->max_cooldown = slot.MaxCooldown;
-    s->mana_cost = slot.ManaCost;
+    const auto &def = get_skill_def(slot.SkillId);
+    float mana_mult = std::max(
+        GameConfig::SkillManaReductionMin,
+        1.0f - (char_level - 1) * def.ManaReductionPerLevel
+    );
+    s->mana_cost = def.ManaCost * mana_mult;
     return s;
 }
 
 void _build_skills(
-    godot::TypedArray<SimSkillSlotSnap> &arr, const SkillComponent &skills
+    godot::TypedArray<SimSkillSlotSnap> &arr, const SkillComponent &skills,
+    int char_level
 ) {
     for (int i = 0; i < 4; ++i) {
-        arr.push_back(_build_skill_slot(skills.Slots[i]));
+        arr.push_back(_build_skill_slot(skills.Slots[i], char_level));
     }
 }
 
@@ -80,7 +86,9 @@ void SnapshotBuilder::_build_players(
         s->xp_needed = view.get<Experience>(e).Needed;
         s->speed = view.get<MoveSpeed>(e).Value;
         if (reg.all_of<SkillComponent>(e)) {
-            _build_skills(s->skills, reg.get<SkillComponent>(e));
+            _build_skills(
+                s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
+            );
         }
 
         // StatusEffect
@@ -158,7 +166,9 @@ void SnapshotBuilder::_build_bots(
         s->speed = view.get<MoveSpeed>(e).Value;
         s->tier = static_cast<int>(reg.get<BotTier>(e));
         if (reg.all_of<SkillComponent>(e)) {
-            _build_skills(s->skills, reg.get<SkillComponent>(e));
+            _build_skills(
+                s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
+            );
         }
 
         // StatusEffect

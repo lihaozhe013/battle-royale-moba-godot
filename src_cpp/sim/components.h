@@ -235,7 +235,6 @@ struct MoveSpeed {
 
 struct SkillSlot {
     int SkillId = 0;
-    int Level = 0;
     float CooldownTimer = 0.0f;
     float MaxCooldown = 0.0f;
     float ManaCost = 0.0f;
@@ -243,10 +242,6 @@ struct SkillSlot {
 
 struct SkillComponent {
     SkillSlot Slots[4];
-};
-
-struct SkillPoints {
-    int Available = 0;
 };
 
 // ── MovePath.cs ──────────────────────────────────────────────────────────

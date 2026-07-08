@@ -108,6 +108,9 @@ void World::set_stop(bool stop) {
 }
 
 void World::tick(double dt) {
+    if (_game_over)
+        return;
+
     _time += dt;
     float fdt = static_cast<float>(dt);
 
@@ -128,6 +131,18 @@ void World::tick(double dt) {
     arrow_movement_system(_reg, fdt);
     wall_collision_system(_reg, _cb);
     combat_system(_reg, _cb);
+
+    // Check if local player died → stop game loop
+    {
+        auto pv = _reg.view<PlayerTag, Dead>();
+        for (auto p : pv) {
+            if (pv.get<PlayerTag>(p).IsLocal && pv.get<Dead>(p).enabled) {
+                _game_over = true;
+                return;
+            }
+        }
+    }
+
     pickup_system(_reg, fdt, _cb, ids);
     aoe_system(_reg, fdt, _cb);
     status_effect_system(_reg, fdt);
@@ -193,12 +208,10 @@ void World::_spawn_player(int player_id, bool is_local) {
         int sid = GameConfig::PlayerSkillIds[i];
         const auto &def = get_skill_def(sid);
         sc.Slots[i].SkillId = sid;
-        sc.Slots[i].Level = 1;
         sc.Slots[i].MaxCooldown = def.Cooldown;
         sc.Slots[i].ManaCost = def.ManaCost;
     }
     _reg.emplace<SkillComponent>(e, sc);
-    _reg.emplace<SkillPoints>(e, 0);
 }
 
 void World::_spawn_bot() {
@@ -212,29 +225,38 @@ void World::_spawn_bot() {
         role = BotRole::Stalker;
     else
         role = BotRole::Brute;
-    _spawn_bot_with_role(role);
+
+    int new_lv;
+    if (_count_high_level_bots() < 3) {
+        new_lv = std::uniform_int_distribution<int>(25, GameConfig::MaxHeroLevel)(
+            _rng
+        );
+    } else {
+        int plv = _get_player_level();
+        int offset = std::uniform_int_distribution<int>(-3, 3)(_rng);
+        new_lv = std::clamp(plv + offset, 1, GameConfig::MaxHeroLevel);
+    }
+    _spawn_bot_with_role(role, new_lv);
 }
 
-void World::_spawn_bot_with_role(BotRole role) {
+void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
     int bot_id = ids.NextBotId++;
-
-    int new_lv = detail::roll_bot_level_for_role(_reg, role, _rng);
     BotTier tier = detail::roll_bot_tier_for_role(role, _rng);
     auto mult = detail::tier_mult(tier);
 
-    int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::BotHpPerLevel;
+    int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
     float atk = (GameConfig::BotBaseAttack +
-                 (new_lv - 1) * GameConfig::BotAtkPerLevel) *
+                 (new_lv - 1) * GameConfig::AtkPerLevel) *
                 mult.AtkMul;
     float asp = std::min(
         (GameConfig::BotBaseAttackSpeed +
-         (new_lv - 1) * GameConfig::BotAspPerLevel) *
+         (new_lv - 1) * GameConfig::AspPerLevel) *
             mult.AspMul,
         GameConfig::AspMax
     );
     float spd =
-        (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::BotSpeedPerLevel) *
+        (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::SpeedPerLevel) *
         mult.SpeedMul;
     float vis = GameConfig::BotVisionRange * mult.VisionMul;
 
@@ -281,12 +303,10 @@ void World::_spawn_bot_with_role(BotRole role) {
         int sid = GameConfig::BotSkillIds[i];
         const auto &def = get_skill_def(sid);
         sc.Slots[i].SkillId = sid;
-        sc.Slots[i].Level = 1;
         sc.Slots[i].MaxCooldown = def.Cooldown;
         sc.Slots[i].ManaCost = def.ManaCost;
     }
     _reg.emplace<SkillComponent>(e, sc);
-    _reg.emplace<SkillPoints>(e, 0);
 }
 
 void World::_spawn_pickup_spawners() {
@@ -386,6 +406,25 @@ void World::_build_nav_grid() {
 
     float half = _reg.get<MapBounds>(_map_bounds_entity).Half;
     _nav_grid.build(half, walls, 0.5f, GameConfig::PlayerRadius);
+}
+
+int World::_get_player_level() {
+    auto pv = _reg.view<PlayerTag, Level>();
+    for (auto p : pv) {
+        if (pv.get<PlayerTag>(p).IsLocal)
+            return pv.get<Level>(p).Value;
+    }
+    return 1;
+}
+
+int World::_count_high_level_bots() {
+    int count = 0;
+    auto bv = _reg.view<BotTag, Level>();
+    for (auto b : bv) {
+        if (bv.get<Level>(b).Value >= 25)
+            count++;
+    }
+    return count;
 }
 
 } // namespace sim
