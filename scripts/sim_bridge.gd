@@ -122,7 +122,10 @@ func _process(_delta: float) -> void:
 		if last_snapshot.players.size() > 0:
 			var p := last_snapshot.players[0] as SimPlayerSnap
 			if p:
-				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
+			if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
+				# cooldown > 0 表示技能实际释放成功（打断退款会重置 CD）
+				var slot0 = p.skills[0] if p.skills.size() > 0 else null
+				if slot0 and slot0.cooldown > 0:
 					_trigger_c_slash(p)
 				_prev_player_cast_state = p.cast_state
 				_prev_player_cast_slot = p.cast_slot

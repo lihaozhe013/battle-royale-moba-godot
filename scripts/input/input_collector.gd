@@ -100,9 +100,9 @@ func _read_skill_input() -> void:
 	if cast_slot >= 0:
 		cast_aim = aim_world
 
-	# 2. 右键
+	# 2. 右键（边沿触发：按下帧才 cancel，持续压制会打断移动时的施法）
 	var right_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
-	cast_cancel = right_now  # 持续压制 Sim cast_cancel
+	cast_cancel = right_now and not _prev_right
 
 	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
 		# MOBA 模式：右键边沿 + 长按连点
