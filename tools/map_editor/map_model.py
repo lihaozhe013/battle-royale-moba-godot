@@ -65,3 +65,27 @@ def parse_map_json(text: str) -> MapData:
             )
         )
     return MapData(name=name, half=half, walls=walls)
+
+
+def _fmt(f: float) -> str:
+    f = round(f, 6)
+    if f == int(f):
+        return str(int(f))
+    return f"{f}"
+
+
+def serialize_map(map_data: MapData) -> str:
+    lines = ["{"]
+    lines.append(f'  "name": "{map_data.name}",')
+    lines.append(f'  "bounds": {{ "half": {_fmt(map_data.half)} }},')
+    lines.append('  "walls": [')
+    for i, w in enumerate(map_data.walls):
+        nw = w.normalized()
+        comma = "," if i < len(map_data.walls) - 1 else ""
+        lines.append(
+            f'    {{ "minX": {_fmt(nw.minX)}, "minY": {_fmt(nw.minY)}, '
+            f'"maxX": {_fmt(nw.maxX)}, "maxY": {_fmt(nw.maxY)} }}{comma}'
+        )
+    lines.append("  ]")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
