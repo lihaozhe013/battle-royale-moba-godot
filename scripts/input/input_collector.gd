@@ -25,6 +25,7 @@ var _prev_s := false
 
 # 右键节流
 const MIN_MOVE_INTERVAL := 0.08
+const MOVE_REPEAT_INTERVAL := 0.167  # 长按重复 ~6 次/秒
 var _last_move_time := 0.0
 
 # 模式相关键位表
@@ -104,14 +105,18 @@ func _read_skill_input() -> void:
 	cast_cancel = right_now  # 持续压制 Sim cast_cancel
 
 	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
-		# MOBA 模式：右键边沿 = 移动指令（带节流）
+		# MOBA 模式：右键边沿 + 长按连点
+		var now := Time.get_ticks_msec() / 1000.0
+		var should_issue := false
 		if right_now and not _prev_right:
-			var now := Time.get_ticks_msec() / 1000.0
-			if now - _last_move_time >= MIN_MOVE_INTERVAL:
-				_last_move_time = now
-				move_cmd_target = aim_world
-				move_cmd_issue = true
-				move_issued.emit(move_cmd_target)
+			should_issue = now - _last_move_time >= MIN_MOVE_INTERVAL
+		elif right_now and _prev_right:
+			should_issue = now - _last_move_time >= MOVE_REPEAT_INTERVAL
+		if should_issue:
+			_last_move_time = now
+			move_cmd_target = aim_world
+			move_cmd_issue = true
+			move_issued.emit(move_cmd_target)
 	_prev_right = right_now
 
 	# 3. 打断键（H 通用，MOBA 模式增加 S）
