@@ -92,12 +92,12 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                     path.CurrentIndex++;
                     if (path.CurrentIndex >= static_cast<int>(path.Waypoints.size())) {
                         path.Following = false;
-                    } else {
-                        Vec2 next_target = path.Waypoints[path.CurrentIndex];
-                        Vec2 next_dir = vec2_normalize(next_target - pos.Value);
-                        smooth_facing(next_dir);
+                        continue;
                     }
-                    continue;
+                    // 落入移动代码（不 continue），确保每 tick 都移动
+                    target = path.Waypoints[path.CurrentIndex];
+                    dir = target - pos.Value;
+                    dist = vec2_length(dir);
                 }
                 dir = vec2_normalize(dir);
                 smooth_facing(dir);
