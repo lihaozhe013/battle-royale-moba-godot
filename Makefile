@@ -27,11 +27,11 @@ package-all:
 	uv run package.py all
 
 # ---- Map Editor ----
-run:
+edit-map:
 	uv run python -m tools.map_editor
 
 help:
 	@echo "Usage:"
 	@echo "  make build/clean/rebuild    GDExtension"
 	@echo "  make package*               Export"
-	@echo "  make run                    Map editor (configure in tools/map_editor_config.yaml)"
+	@echo "  make edit-map               Map editor (configure in tools/map_editor_config.yaml)"
