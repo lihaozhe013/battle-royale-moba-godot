@@ -12,7 +12,7 @@ var _prev_ang := 0.0
 var _curr_ang := 0.0
 var _snap_time := 0.0
 var _first_snap := true
-const LERP_DURATION := 1.0 / 20.0
+const LERP_DURATION := 1.0 / 30.0
 
 var _anim_player: AnimationPlayer = null
 var _anim_idle := ""
