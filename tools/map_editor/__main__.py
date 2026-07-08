@@ -33,6 +33,7 @@ def main() -> None:
 
     viewer = MapViewer(
         map_path=map_path,
+        cfg=cfg,
         flip_y=cfg.get("flip_y", False),
         grid_unit=cfg.get("grid", 1.0),
         zoom=cfg.get("zoom", 0),

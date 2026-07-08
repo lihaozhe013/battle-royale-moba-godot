@@ -1,20 +1,33 @@
 === Controls ===
 
-Left click          Select wall
-Left drag           Move wall
-WASD / Arrows       Move 1 unit
-  +Shift            Move 5 units
-  +Alt              Move 0.1 units
+LEFT CLICK          Select single wall
+CTRL+CLICK          Toggle wall in selection
+SHIFT+CLICK         Add wall to selection
+DRAG EMPTY          Box select (drag to enclose)
+DBL CLICK           Edit wall values (minX/minY/maxX/maxY)
+LEFT DRAG (wall)    Move selected wall(s)
+RIGHT DRAG          Pan camera
+WHEEL               Zoom
+
+WASD / ARROWS       Move selected 1 unit
+  +SHIFT            Move 5 units
+  +ALT              Move 0.1 units
 ] / [               Scale X (lengthen / shorten)
 ' / ;               Scale Y (thicken / thin)
-  +Shift            Scale 5 units
-  +Alt              Scale 0.1 units
+  +SHIFT            Scale 5 units
+  +ALT              Scale 0.1 units
 R                   Rotate 90 deg
+
 N                   New 1x1 wall at center
-Ctrl+D              Duplicate (+1 offset)
-Del / Backspace     Delete selected
-Ctrl+S              Save to file
+CTRL+D              Duplicate selected (+1 offset)
+DEL / BACKSPACE     Delete selected
+CTRL+S              Save to file
+CTRL+SHIFT+S        Save as (enter path)
+CTRL+Z              Undo
+CTRL+Y / CTRL+SHIFT+Z  Redo
+CTRL+SPACE          Inspect wall coordinates
 F                   Fit map to view
 G                   Toggle grid
+Z                   Toggle zone circle
 H                   Toggle this help
-Esc                 Quit
+ESC                 Close panel / Quit
