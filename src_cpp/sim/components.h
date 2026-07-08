@@ -79,6 +79,9 @@ struct PlayerInputState {
     bool CastCancel = false;
     bool CastInterrupt = false;
     Vec2 CastAim{0.0f};
+    Vec2 MoveTarget{0.0f};
+    bool MoveIssue = false;
+    bool Stop = false;
 };
 
 struct CombatStats {
@@ -246,6 +249,15 @@ struct SkillPoints {
     int Available = 0;
 };
 
+// ── MovePath.cs ──────────────────────────────────────────────────────────
+
+struct MovePath {
+    std::vector<Vec2> Waypoints;
+    int CurrentIndex = 0;
+    bool Following = false;
+    Vec2 FinalTarget{0.0f};
+};
+
 // ── SingletonComponents.cs ───────────────────────────────────────────────
 
 struct LocalInputSingleton {
@@ -258,6 +270,9 @@ struct LocalInputSingleton {
     bool CastCancel = false;
     bool CastInterrupt = false;
     Vec2 CastAim{0.0f};
+    Vec2 MoveTarget{0.0f};
+    bool MoveIssue = false;
+    bool Stop = false;
 };
 
 struct MapBounds {
