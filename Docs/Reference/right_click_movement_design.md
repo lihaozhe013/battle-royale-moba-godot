@@ -583,3 +583,98 @@ void set_stop(bool stop);
 3. **WASD：** `if (length(input.Move) > 0.01)` → 移动（已有），新增 `path.Following = false;`
 4. **MovePath 跟随：** `if (path.Following)` → 朝 `waypoints[currentIndex]` 移动，索引前进，到达终点后 `Following = false`
 5. **Facing：** 分支 3/4 都设置 `angle.Radians = atan2(dir.y, dir.x)`
+
+---
+
+## 15. 高频右键抖动优化（v1.1）
+
+> 2026-07-08 追加：解决 MOBA 模式下快速连点右键导致角色朝向抽搐的问题。
+
+### 15.1 根因
+
+每次右键 → `player_pathfinding` 重算 A* → `CurrentIndex = 0`，第一航点落在玩家当前格
+→ 跳到第二航点 → `angle.Radians = atan2(...)` 瞬时赋值。
+玩家位置每次点击间微移，A* 从不同起始格出发，第二航点方向可能跟上一帧不同
+→ 朝向在两个方向间来回跳 → 抽搐。
+
+### 15.2 三层组合方案
+
+| 层 | 位置 | 治理场景 | 字段 |
+|----|------|---------|------|
+| A 时间死区 | `input_collector.gd` | 机器枪式连点（<80ms）过滤 | `MIN_MOVE_INTERVAL` |
+| B 目标死区 | `player_pathfinding.h` | 同区域连点跳过 A* 重算 | `RepathTargetDeadzone` |
+| C 转向速率 | `player_movement.h` | 任何残留方向突变平滑处理 | `PathTurnRate` |
+
+A 是减负，B + C 是核心治理。
+
+### 15.3 Fix A — 时间死区（View）
+
+`input_collector.gd` 右键边沿检测加节流：
+
+```gdscript
+const MIN_MOVE_INTERVAL := 0.08  # 秒
+var _last_move_time := 0.0
+
+if right_now and not _prev_right:
+    var now := Time.get_ticks_msec() / 1000.0
+    if now - _last_move_time < MIN_MOVE_INTERVAL:
+        pass  # 丢弃，不发脉冲
+    else:
+        _last_move_time = now
+        move_cmd_target = aim_world
+        move_cmd_issue = true
+        move_issued.emit(move_cmd_target)
+```
+
+### 15.4 Fix B — 目标死区（Sim）
+
+`player_pathfinding_system` 重算前比对新旧目标距离：
+
+```cpp
+if (input.MoveIssue) {
+    bool need_repath = true;
+    if (path.Following) {
+        Vec2 d = input.MoveTarget - path.FinalTarget;
+        if (vec2_length_sq(d) < GameConfig::RepathTargetDeadzoneSq) {
+            need_repath = false;
+        }
+    }
+    if (need_repath) {
+        auto waypoints = nav.find_path(pos.Value, input.MoveTarget);
+        ...
+    }
+}
+```
+
+### 15.5 Fix C — 转向速率（Sim）
+
+`player_movement_system` 中，**仅寻路跟随分支**用角速度限制替代瞬时赋值：
+
+```cpp
+inline float angle_diff(float target, float current) {
+    float d = target - current;
+    while (d > M_PI) d -= 2 * M_PI;
+    while (d < -M_PI) d += 2 * M_PI;
+    return d;
+}
+
+// 替换所有 angle.Radians = atan2(...)（仅 path-following 分支）
+auto apply_turn_rate = [&](Vec2 move_dir) {
+    float target = std::atan2(move_dir.y, move_dir.x);
+    float diff = angle_diff(target, angle.Radians);
+    float max_turn = GameConfig::PathTurnRate * dt;
+    if (std::abs(diff) > max_turn)
+        diff = (diff > 0 ? max_turn : -max_turn);
+    angle.Radians += diff;
+};
+```
+
+位置仍按真实 `dir` 立即移动（方向不变），只有朝向平滑追赶。WASD 分支保持瞬时朝向（双摇杆手感）。
+
+### 15.6 新增常量（game_config.h）
+
+```cpp
+static constexpr float RepathTargetDeadzone = 1.5f;
+static constexpr float RepathTargetDeadzoneSq = RepathTargetDeadzone * RepathTargetDeadzone;
+static constexpr float PathTurnRate = 12.0f;  // rad/s
+```

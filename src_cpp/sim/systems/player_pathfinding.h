@@ -27,6 +27,16 @@ inline void player_pathfinding_system(
         }
 
         if (input.MoveIssue) {
+            // 目标死区：新目标过近则保留现路径
+            bool need_repath = true;
+            if (path.Following) {
+                Vec2 d = input.MoveTarget - path.FinalTarget;
+                if (vec2_length_sq(d) < GameConfig::RepathTargetDeadzoneSq) {
+                    need_repath = false;
+                }
+            }
+            if (!need_repath)
+                continue;
             auto waypoints = nav.find_path(pos.Value, input.MoveTarget);
             if (!waypoints.empty()) {
                 path.Waypoints = std::move(waypoints);
