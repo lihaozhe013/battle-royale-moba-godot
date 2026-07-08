@@ -1,4 +1,4 @@
-.PHONY: build clean distclean rebuild package package-windows package-macos
+.PHONY: build clean distclean rebuild package package-windows package-macos run help
 
 # ---- GDExtension build ----
 build:
@@ -25,3 +25,13 @@ package-macos:
 
 package-all:
 	uv run package.py all
+
+# ---- Map Editor ----
+edit-map:
+	uv run python -m tools.map_editor
+
+help:
+	@echo "Usage:"
+	@echo "  make build/clean/rebuild    GDExtension"
+	@echo "  make package*               Export"
+	@echo "  make edit-map               Map editor (configure in tools/map_editor_config.yaml)"

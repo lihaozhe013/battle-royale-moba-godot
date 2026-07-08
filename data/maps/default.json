@@ -2,15 +2,21 @@
   "name": "default",
   "bounds": { "half": 50 },
   "walls": [
-    { "minX": -15, "minY": -1,  "maxX": -10, "maxY": 1 },
-    { "minX":  10, "minY": -1,  "maxX":  15, "maxY": 1 },
-
-    { "minX": -1,  "minY": -15, "maxX": 1,  "maxY": -10 },
-    { "minX": -1,  "minY":  10, "maxX": 1,  "maxY":  15 },
-
-    { "minX": -8,  "minY": -8,  "maxX": -6, "maxY":  -2 },
-    { "minX": -8,  "minY":  2,  "maxX": -6, "maxY":  8 },
-    { "minX":  6,  "minY": -8,  "maxX":  8, "maxY":  -2 },
-    { "minX":  6,  "minY":  2,  "maxX":  8, "maxY":  8 }
+    { "minX": -15.07, "minY": -41.51, "maxX": 5.93, "maxY": -30.51 },
+    { "minX": -32.51, "minY": -6.31, "maxX": -27.51, "maxY": 9.69 },
+    { "minX": -42.39, "minY": -21.95, "maxX": 28.61, "maxY": -19.95 },
+    { "minX": -44.36, "minY": 25.8, "maxX": -0.36, "maxY": 27.8 },
+    { "minX": -42.84, "minY": -49.85, "maxX": -40.84, "maxY": -10.85 },
+    { "minX": -30.93, "minY": -41.68, "maxX": -24.93, "maxY": -35.68 },
+    { "minX": -13.5, "minY": -21.72, "maxX": -11.5, "maxY": 26.28 },
+    { "minX": -12.9, "minY": 6.08, "maxX": 45.1, "maxY": 8.08 },
+    { "minX": 39.69, "minY": -47.41, "maxX": 41.69, "maxY": -6.41 },
+    { "minX": 33, "minY": -21.93, "maxX": 45, "maxY": -19.93 },
+    { "minX": 6.53, "minY": -11.39, "maxX": 14.53, "maxY": -2.39 },
+    { "minX": 19.24, "minY": 7.8, "maxX": 21.24, "maxY": 48.8 },
+    { "minX": -38.55, "minY": 40.62, "maxX": 19.45, "maxY": 42.62 },
+    { "minX": 4.22, "minY": 18.48, "maxX": 48.22, "maxY": 20.48 },
+    { "minX": 30.67, "minY": 31.21, "maxX": 38.67, "maxY": 40.21 },
+    { "minX": 28.42, "minY": -41.84, "maxX": 33.42, "maxY": -25.84 }
   ]
 }
