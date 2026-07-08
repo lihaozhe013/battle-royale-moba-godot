@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -145,11 +146,19 @@ def _target_to_cmake_config(target):
     }.get(target, "RelWithDebInfo")
 
 
+def _target_to_cmake_build_type(target):
+    return {
+        "template_debug": "RelWithDebInfo",
+        "template_release": "Release",
+        "editor": "Debug",
+    }.get(target, "Debug")
+
 def _configure(cfg, tc, cmake, python, target, generator):
     if not os.path.isfile(cmake):
         _panic(f"CMake executable not found: {cmake}")
 
-    print(f"Configuring CMake (generator: {generator}, target: {target})...")
+    build_type = _target_to_cmake_build_type(target)
+    print(f"Configuring CMake (generator: {generator}, target: {target}, build_type: {build_type})...")
     os.makedirs(BUILD_DIR, exist_ok=True)
 
     configure_cmd = [
@@ -158,6 +167,7 @@ def _configure(cfg, tc, cmake, python, target, generator):
         "-S", SRC_CPP_DIR,
         "-G", generator,
         f"-DGODOTCPP_TARGET={target}",
+        f"-DCMAKE_BUILD_TYPE={build_type}",
         f"-DGODOTCPP_API_VERSION=4.7",
         f"-DPython3_EXECUTABLE={python}",
     ]
@@ -227,13 +237,16 @@ def cmd_build(cfg, args):
     return _build(cfg, tc, cmake, target, jobs, verbose)
 
 
-def _output_libs():
-    """Return output library paths for all platforms."""
+def _output_artifacts():
+    """Return all output artifact paths (libs, pdbs, ilk, temp files) for cleanup."""
     addon_dir = os.path.join(PROJECT_DIR, "addons", "battle_royale_sim")
-    return [
-        os.path.join(addon_dir, name)
-        for name in ("battle_royale_sim.dll", "libbattle_royale_sim.dylib", "libbattle_royale_sim.so")
-    ]
+    patterns = ("battle_royale_sim.dll", "libbattle_royale_sim.dylib", "libbattle_royale_sim.so",
+                "battle_royale_sim.pdb", "battle_royale_sim.ilk",
+                "~battle_royale_sim.dll", "~battle_royale_sim_*.pdb")
+    result = []
+    for p in patterns:
+        result.extend(glob.glob(os.path.join(addon_dir, p)))
+    return result
 
 
 def cmd_clean(cfg, args):
@@ -252,21 +265,25 @@ def cmd_clean(cfg, args):
                     env = vs_env
         subprocess.call(clean_cmd, cwd=SRC_CPP_DIR, env=env)
 
-    for lib in _output_libs():
-        if os.path.isfile(lib):
-            os.remove(lib)
+    for path in _output_artifacts():
+        try:
+            os.remove(path)
+        except OSError:
+            pass
     print("Done")
     return 0
 
 
 def cmd_distclean(cfg, args):
-    """Hard clean: nuke the entire build directory and all output libraries."""
+    """Hard clean: nuke the entire build directory and all output artifacts."""
     if os.path.isdir(BUILD_DIR):
         print("Dist-cleaning: removing entire build directory...")
         shutil.rmtree(BUILD_DIR)
-    for lib in _output_libs():
-        if os.path.isfile(lib):
-            os.remove(lib)
+    for path in _output_artifacts():
+        try:
+            os.remove(path)
+        except OSError:
+            pass
     print("Done")
     return 0
 
