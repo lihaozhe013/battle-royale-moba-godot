@@ -785,7 +785,7 @@ ClassDB::register_class<sim::SimEventSnap>();
 | `BotHp` | 50 | 基础 HP |
 | `BotBaseAttack` | 5.0 | 基础攻击 |
 | `BotBaseAttackSpeed` | 0.8 | 基础攻速 |
-| `BotRespawnTime` | 3.0 | 重生时间 |
+| `BotRespawnTime` | 8.0 | 重生时间（死亡后停留秒数，用于 VFX 播放） |
 | `BotVisionRange` | 20.0 | 视野范围 |
 | `MaxBotLevel` | 30 | 随机等级上限 |
 | `BossRoll` | 0.05 | Boss 出现概率 |

@@ -60,7 +60,6 @@ mouse_filter = 2
 color = Color(0.2, 1, 0.2, 1)
 
 [node name="ManaBar" type="ColorRect" parent="." unique_id=167664337]
-custom_minimum_size = Vector2(100, 4)
 layout_mode = 1
 offset_left = 24.0
 offset_top = 10.0

@@ -597,6 +597,7 @@ func sync(snap: SimSnapshot, player_entity_view) -> void:
 - **R 路径**（Dashing）：`ImmediateMesh` 画 Line from `dash_start` to `player.pos`（动态缩短），蓝色 `Color(0.3,0.5,1.0,0.6)`。
 - **F 光环**（Channeling）：player 脚下圆柱环，半透明红 `Color(1.0,0.3,0.3,0.3)`，半径 1.5。
 - **C 命中闪**（可选）：释放时在 aim_pos 短暂灰圈 0.2s。
+- **C 命中刀光**：详见 §10.4。
 
 ### 10.2 `sim_bridge.gd` 集成
 
@@ -613,6 +614,45 @@ if last_snapshot.players.size() > 0:
 ### 10.3 `main.tscn` 改动
 
 仅加 `SkillVFX` (Node3D) 节点，挂 `skill_vfx.gd` 脚本。无其他编辑器操作。
+
+### 10.4 指向性技能命中 VFX 挂载节点
+
+**新增 `scripts/view/skill_vfx_attachment.gd`：**
+
+所有指向性技能命中效果（C 刀光、以及未来的 E/R/F 命中反馈）挂在此节点下，跟随目标英雄移动。
+
+```gdscript
+class_name SkillVfxAttachment
+extends Node3D
+
+func show_c_slash() -> void:
+    # 创建从地面延伸到天空的深蓝光柱：
+    #   - 核心 CylinderMesh (radius=0.15, height=8.0) 深蓝 alpha 0.85
+    #   - 外层 CylinderMesh (radius=0.4, height=8.0) 浅蓝光晕 alpha 0.25
+    #   - 无 billboard，始终垂直
+    #   - 0-0.1s 淡入 → 保持 1.0s → 0.2s 淡出 → 清理
+    var root := Node3D.new()
+    root.position = Vector3(0, 0.05, 0)
+    add_child(root)
+    var cyl := CylinderMesh.new()
+    cyl.top_radius = 0.15
+    cyl.bottom_radius = 0.15
+    cyl.height = 8.0
+    var mat := StandardMaterial3D.new()
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    mat.albedo_color = Color(0.0, 0.15, 0.5, 0.0)
+    mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    var beam := MeshInstance3D.new()
+    beam.mesh = cyl
+    beam.material_override = mat
+    beam.position = Vector3(0, 4.0, 0)
+    root.add_child(beam)
+    # ... glow + tween
+```
+
+**生命期：** 作为 EntityView 的子节点创建（`_ready()` 后在 `find_children` 收集 `_child_meshes` 之后创建），不参与模型 mesh 列表 → 英雄死亡隐藏模型时不隐藏此节点。
+
+**Bot 死亡停留：** `BotRespawnTime` 从 3.0s 改为 8.0s（`game_config.h`），死亡后 bot 位置冻结在死亡点，模型隐藏但 SkillVfxAttachment 保持可见，VFX 可完整播放 2s。
 
 ---
 
@@ -656,13 +696,15 @@ if last_snapshot.players.size() > 0:
 | 文件 | 内容 |
 |------|------|
 | `scripts/view/skill_vfx.gd` | 全部技能 VFX（绿线/灰圈/dash 路径/光环） |
+| `scripts/view/skill_vfx_attachment.gd` | 指向性技能命中 VFX 挂载节点（C 刀光等） |
 
 ### 11.5 GDScript 修改
 
 | 文件 | 改动 |
 |------|------|
 | `scripts/input/input_collector.gd` | 重写：施法状态机 + 边沿检测 + S 键双重语义 |
-| `scripts/sim_bridge.gd` | +skill_vfx @onready, _process 调 skill_vfx.sync, _physics_process 调 set_cast_input |
+| `scripts/sim_bridge.gd` | +skill_vfx @onready, _process 调 skill_vfx.sync, _physics_process 调 set_cast_input；修复 _trigger_c_slash 跳过死亡 bot 的 bug |
+| `scripts/view/entity_view.gd` | +SkillVfxAttachment 子节点，死亡改为仅隐藏模型 mesh（保留 VFX 可见），+_dead 标志处理重生 snap |
 
 ### 11.6 场景
 
