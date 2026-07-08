@@ -229,10 +229,10 @@ def cmd_build(cfg, args):
 
 def _output_libs():
     """Return output library paths for all platforms."""
-    addon_dir = os.path.join(PROJECT_DIR, "addons", "topdown_sim")
+    addon_dir = os.path.join(PROJECT_DIR, "addons", "battle_royale_sim")
     return [
         os.path.join(addon_dir, name)
-        for name in ("topdown_sim.dll", "libtopdown_sim.dylib", "libtopdown_sim.so")
+        for name in ("battle_royale_sim.dll", "libbattle_royale_sim.dylib", "libbattle_royale_sim.so")
     ]
 
 
