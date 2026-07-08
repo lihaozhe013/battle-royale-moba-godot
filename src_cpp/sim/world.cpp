@@ -165,8 +165,19 @@ void World::_spawn_player(int player_id, bool is_local) {
     );
     _reg.emplace<Kills>(e, 0);
     _reg.emplace<PlayerInputState>(
-        e, Vec2{0.0f}, Vec2{0.0f}, false, 0, -1, false, false, false,
-        Vec2{0.0f}, Vec2{0.0f}, false, false
+        e,
+        Vec2{0.0f},
+        Vec2{0.0f},
+        false,
+        0,
+        -1,
+        false,
+        false,
+        false,
+        Vec2{0.0f},
+        Vec2{0.0f},
+        false,
+        false
     );
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);

@@ -18,8 +18,8 @@ enum class SkillKind : uint8_t {
 
 enum class StatusType : uint8_t {
     None = 0,
-    Root = 1,   // 禁锢 — 不能移动，但可以攻击/放技能
-    Stun = 2,   // 眩晕 — 不能移动，不能攻击，不能放技能
+    Root = 1, // 禁锢 — 不能移动，但可以攻击/放技能
+    Stun = 2, // 眩晕 — 不能移动，不能攻击，不能放技能
 };
 
 // ── CommonComponents.cs ──────────────────────────────────────────────────

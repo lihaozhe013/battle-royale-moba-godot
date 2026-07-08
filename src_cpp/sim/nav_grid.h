@@ -27,8 +27,12 @@ struct NavGrid {
     mutable std::vector<int> Parent;
     mutable std::vector<bool> Closed;
 
-    void build(float map_half, const std::vector<WallBounds> &walls,
-               float cell_size, float agent_radius) {
+    void build(
+        float map_half,
+        const std::vector<WallBounds> &walls,
+        float cell_size,
+        float agent_radius
+    ) {
         CellSize = cell_size;
         float half = map_half;
         OriginX = -half;
@@ -55,8 +59,8 @@ struct NavGrid {
                 float cell_rx = cell_lx + CellSize;
                 float cell_ry = cell_ly + CellSize;
 
-                if (cell_lx < -half || cell_rx > half ||
-                    cell_ly < -half || cell_ry > half) {
+                if (cell_lx < -half || cell_rx > half || cell_ly < -half ||
+                    cell_ry > half) {
                     Blocked[idx] = 1;
                     continue;
                 }
@@ -84,8 +88,9 @@ struct NavGrid {
     }
 
     Vec2 cell_to_world(int cx, int cy) const {
-        return Vec2{OriginX + (cx + 0.5f) * CellSize,
-                    OriginY + (cy + 0.5f) * CellSize};
+        return Vec2{
+            OriginX + (cx + 0.5f) * CellSize, OriginY + (cy + 0.5f) * CellSize
+        };
     }
 
     bool is_blocked(int cx, int cy) const {
@@ -121,8 +126,7 @@ struct NavGrid {
 
     std::vector<Vec2> find_path(Vec2 start, Vec2 goal) const {
         int scx, scy, gcx, gcy;
-        if (!world_to_cell(start, scx, scy) ||
-            !world_to_cell(goal, gcx, gcy))
+        if (!world_to_cell(start, scx, scy) || !world_to_cell(goal, gcx, gcy))
             return {};
 
         if (is_blocked(scx, scy)) {
@@ -153,24 +157,32 @@ struct NavGrid {
             int cy = idx / Width;
             float dx = std::abs(static_cast<float>(cx - gcx));
             float dy = std::abs(static_cast<float>(cy - gcy));
-            float h = std::max(dx, dy) + (std::sqrt(2.0f) - 1.0f) * std::min(dx, dy);
+            float h =
+                std::max(dx, dy) + (std::sqrt(2.0f) - 1.0f) * std::min(dx, dy);
             return h * CellSize;
         };
 
         using PQItem = std::pair<float, int>;
-        std::priority_queue<PQItem, std::vector<PQItem>, std::greater<PQItem>> open;
+        std::priority_queue<PQItem, std::vector<PQItem>, std::greater<PQItem>>
+            open;
 
         G[start_idx] = 0.0f;
         F[start_idx] = heuristic(start_idx);
         open.push({F[start_idx], start_idx});
 
         const int dirs[8][2] = {
-            {1, 0}, {-1, 0}, {0, 1}, {0, -1},
-            {1, 1}, {-1, 1}, {1, -1}, {-1, -1}};
+            {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}
+        };
         const float move_cost[8] = {
-            1.0f, 1.0f, 1.0f, 1.0f,
-            std::sqrt(2.0f), std::sqrt(2.0f),
-            std::sqrt(2.0f), std::sqrt(2.0f)};
+            1.0f,
+            1.0f,
+            1.0f,
+            1.0f,
+            std::sqrt(2.0f),
+            std::sqrt(2.0f),
+            std::sqrt(2.0f),
+            std::sqrt(2.0f)
+        };
 
         while (!open.empty()) {
             auto [f, idx] = open.top();
@@ -235,7 +247,7 @@ struct NavGrid {
         return result;
     }
 
-private:
+  private:
     static float octile_dist(int x0, int y0, int x1, int y1) {
         float dx = std::abs(static_cast<float>(x0 - x1));
         float dy = std::abs(static_cast<float>(y0 - y1));

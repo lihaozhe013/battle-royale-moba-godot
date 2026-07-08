@@ -76,7 +76,8 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
         // Path-following movement (only when cast allows movement)
         if (!cast_block && reg.all_of<MovePath>(e)) {
             auto &path = reg.get<MovePath>(e);
-            if (path.Following && path.CurrentIndex < static_cast<int>(path.Waypoints.size())) {
+            if (path.Following &&
+                path.CurrentIndex < static_cast<int>(path.Waypoints.size())) {
                 auto smooth_facing = [&](Vec2 move_dir) {
                     float target = std::atan2(move_dir.y, move_dir.x);
                     float diff = pm_angle_diff(target, angle.Radians);
@@ -90,7 +91,8 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                 float dist = vec2_length(dir);
                 if (dist < 0.01f) {
                     path.CurrentIndex++;
-                    if (path.CurrentIndex >= static_cast<int>(path.Waypoints.size())) {
+                    if (path.CurrentIndex >=
+                        static_cast<int>(path.Waypoints.size())) {
                         path.Following = false;
                         continue;
                     }
@@ -107,7 +109,8 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                 if (step_len >= dist) {
                     pos.Value = target;
                     path.CurrentIndex++;
-                    if (path.CurrentIndex >= static_cast<int>(path.Waypoints.size())) {
+                    if (path.CurrentIndex >=
+                        static_cast<int>(path.Waypoints.size())) {
                         path.Following = false;
                     } else {
                         Vec2 next_target = path.Waypoints[path.CurrentIndex];
