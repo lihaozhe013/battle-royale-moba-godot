@@ -12,20 +12,7 @@ distclean:
 
 rebuild:
 	uv run build.py rebuild
-
-# ---- Packaging (build GDExtension + Godot export) ----
-package:
-	uv run package.py
-
-package-windows:
-	uv run package.py windows
-
-package-macos:
-	uv run package.py macos
-
-package-all:
-	uv run package.py all
-
+	
 # ---- Map Editor ----
 edit-map:
 	uv run python -m tools.map_editor
