@@ -4,6 +4,8 @@ var sim: SimServer
 var last_snapshot: SimSnapshot
 var elapsed: float = 0.0
 var _last_snap_seq := -1
+var _prev_player_cast_state := 0
+var _prev_player_cast_slot := -1
 
 @onready var input_collector = $InputCollector
 @onready var camera_controller = $CameraController
@@ -95,6 +97,13 @@ func _process(_delta: float) -> void:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
 		health_bar_manager.sync_bars(last_snapshot)
+		if last_snapshot.players.size() > 0:
+			var p := last_snapshot.players[0] as SimPlayerSnap
+			if p:
+				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
+					_trigger_c_slash(p)
+				_prev_player_cast_state = p.cast_state
+				_prev_player_cast_slot = p.cast_slot
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
 		if p:
@@ -104,3 +113,20 @@ func _process(_delta: float) -> void:
 			bottom_hud.sync_skills(p.skills)
 			var ev = entity_manager.get_entity(p.id)
 			_skill_vfx.sync(last_snapshot, ev)
+
+
+func _trigger_c_slash(p: SimPlayerSnap) -> void:
+	var aim_pos := Vector2(p.cast_aim_x, p.cast_aim_y)
+	var range_sq := 9.0
+	var target_id := -1
+
+	for b in last_snapshot.bots:
+		var d_sq := Vector2(b.x, b.y).distance_squared_to(aim_pos)
+		if d_sq < range_sq:
+			range_sq = d_sq
+			target_id = b.id
+
+	if target_id >= 0:
+		var view = entity_manager.get_entity(target_id)
+		if view and is_instance_valid(view) and view.skill_vfx_attachment:
+			view.skill_vfx_attachment.show_c_slash()

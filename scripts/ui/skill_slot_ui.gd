@@ -42,7 +42,7 @@ func set_cooldown(ratio: float) -> void:
 
 
 func set_cooldown_text(seconds: float) -> void:
-	_cd_label.text = str(ceil(seconds)) if seconds >= 1.0 else ""
+	_cd_label.text = str(ceil(seconds)) if ceil(seconds) >= 1 else ""
 
 
 func set_mana_state(enough: bool) -> void:

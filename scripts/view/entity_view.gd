@@ -24,6 +24,11 @@ var _prev_hp := -1
 var _flash_timer := 0.0
 var _red_mat: Material
 var _child_meshes: Array[MeshInstance3D]
+var _dead := false
+
+var skill_vfx_attachment: Node3D
+
+const SKILL_VFX_ATTACHMENT_SCRIPT := preload("res://scripts/view/skill_vfx_attachment.gd")
 
 # Sim uses 2D math angles: atan2(y, x) where 0=+x, π/2=+y.
 # Godot rotation.y rotates +X toward -Z (not +Z), so we negate to fix the Z flip.
@@ -47,12 +52,16 @@ func _ready() -> void:
 		_child_meshes.append(child as MeshInstance3D)
 
 	_anim_player = find_child("AnimationPlayer", true, false) as AnimationPlayer
-	if not _anim_player:
-		return
-	_anim_idle = _find_anim_path("idle")
-	_anim_run = _find_anim_path("run")
-	if _anim_idle != "":
-		_anim_player.play(_anim_idle)
+	if _anim_player:
+		_anim_idle = _find_anim_path("idle")
+		_anim_run = _find_anim_path("run")
+		if _anim_idle != "":
+			_anim_player.play(_anim_idle)
+
+	skill_vfx_attachment = Node3D.new()
+	skill_vfx_attachment.name = "SkillVfxAttachment"
+	skill_vfx_attachment.set_script(SKILL_VFX_ATTACHMENT_SCRIPT)
+	add_child(skill_vfx_attachment)
 
 func _find_anim_path(anim_name: String) -> String:
 	if not _anim_player:
@@ -65,17 +74,24 @@ func _find_anim_path(anim_name: String) -> String:
 
 func apply_snapshot(x: float, z: float, ang: float, hp: int, max_hp: int, dead: bool) -> void:
 	if dead:
-		visible = false
+		if not _dead:
+			_dead = true
+			for m in _child_meshes:
+				m.visible = false
 		return
+
+	if _dead:
+		_dead = false
+		_first_snap = true
+		_prev_hp = hp
+		for m in _child_meshes:
+			m.visible = true
 
 	# 受击红闪检测
 	if entity_type == 0 or entity_type == 1:
 		if hp < _prev_hp:
 			_flash_timer = 0.2
 		_prev_hp = hp
-
-	if not visible:
-		_first_snap = true
 
 	visible = true
 
@@ -123,6 +139,7 @@ func _process(delta: float) -> void:
 		var target := _anim_run if _moving else _anim_idle
 		if _anim_player.current_animation != target:
 			_anim_player.play(target)
+
 
 func _create_fallback_mesh(type: int, ptype: int) -> void:
 	var m = MeshInstance3D.new()

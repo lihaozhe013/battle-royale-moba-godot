@@ -45,7 +45,8 @@ scripts/view/
 ├── entity_manager.gd            ← 3D 实体管理（已有）
 ├── entity_view.gd               ← 3D 实体视图（已有）
 ├── camera_controller.gd         ← 相机控制（已有）
-└── skill_vfx.gd                 ← 技能 VFX（待创建：绿线/灰圈/dash 路径/光环）
+├── skill_vfx.gd                 ← 技能场景 VFX（绿线/灰圈/dash 路径/光环）
+└── skill_vfx_attachment.gd      ← 指向性技能命中 VFX 挂载节点（C 刀光等）
 
 scenes/ui/
 ├── health_bar_ui.tscn           ← 血条预制（已有，含 ManaBar）
@@ -90,6 +91,8 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | 占位图标生成 | 4 技能图标 + 3 鼠标指针 PNG |
 | 旧 skill_bar_hud 清理 | 已删除 |
 | **4 技能系统完整设计方案** | **`skill_system_design.md`**（C/E/R/F + 手动施法 + VFX） |
+| **C 技能刀光命中 VFX** | `skill_vfx_attachment.gd` + EntityView 死亡模型隐藏 + `_trigger_c_slash` 跳过死 bot 修复 |
+| **Bot 死亡停留时间 3s→8s** | `game_config.h` BotRespawnTime |
 
 ### ❌ 待做（C++ Sim 层 — 4 技能实施）
 
