@@ -619,7 +619,7 @@ if last_snapshot.players.size() > 0:
 
 **新增 `scripts/view/skill_vfx_attachment.gd`：**
 
-所有指向性技能命中效果（C 刀光、以及未来的 E/R/F 命中反馈）挂在此节点下，跟随目标英雄移动。
+所有指向性技能命中效果（C 光柱、以及未来的 E/R/F 命中反馈）挂在此节点下，跟随目标英雄移动。
 
 ```gdscript
 class_name SkillVfxAttachment
@@ -627,8 +627,8 @@ extends Node3D
 
 func show_c_slash() -> void:
     # 创建从地面延伸到天空的深蓝光柱：
-    #   - 核心 CylinderMesh (radius=0.15, height=8.0) 深蓝 alpha 0.85
-    #   - 外层 CylinderMesh (radius=0.4, height=8.0) 浅蓝光晕 alpha 0.25
+    #   - 核心 CylinderMesh (radius=0.15, height=80.0) 亮蓝 alpha 0.85
+    #   - 外层 CylinderMesh (radius=0.4, height=80.0) 浅蓝光晕 alpha 0.25
     #   - 无 billboard，始终垂直
     #   - 0-0.1s 淡入 → 保持 1.0s → 0.2s 淡出 → 清理
     var root := Node3D.new()
@@ -637,22 +637,22 @@ func show_c_slash() -> void:
     var cyl := CylinderMesh.new()
     cyl.top_radius = 0.15
     cyl.bottom_radius = 0.15
-    cyl.height = 8.0
+    cyl.height = 80.0
     var mat := StandardMaterial3D.new()
     mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    mat.albedo_color = Color(0.0, 0.15, 0.5, 0.0)
+    mat.albedo_color = Color(0.1, 0.4, 0.9, 0.0)
     mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
     var beam := MeshInstance3D.new()
     beam.mesh = cyl
     beam.material_override = mat
-    beam.position = Vector3(0, 4.0, 0)
+    beam.position = Vector3(0, 40.0, 0)
     root.add_child(beam)
     # ... glow + tween
 ```
 
 **生命期：** 作为 EntityView 的子节点创建（`_ready()` 后在 `find_children` 收集 `_child_meshes` 之后创建），不参与模型 mesh 列表 → 英雄死亡隐藏模型时不隐藏此节点。
 
-**Bot 死亡停留：** `BotRespawnTime` 从 3.0s 改为 8.0s（`game_config.h`），死亡后 bot 位置冻结在死亡点，模型隐藏但 SkillVfxAttachment 保持可见，VFX 可完整播放 2s。
+**Bot 死亡停留：** `BotRespawnTime` 从 3.0s 改为 8.0s（`game_config.h`），死亡后 bot 位置冻结在死亡点，模型隐藏但 SkillVfxAttachment 保持可见，VFX 可完整播放。当前 C 技能 VFX 总时长 1.3s（淡入 0.1s + 保持 1.0s + 淡出 0.2s）。
 
 ---
 
