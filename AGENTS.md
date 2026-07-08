@@ -102,7 +102,7 @@ src_cpp/sim/                     ← C++ Sim 层核心
 |------|------|---------|
 | A | C 技能全链路最小闭环 | `skill_defs.h` + `skill_cast.h`(C) + CastState + input 重写 + 绿线 VFX |
 | B | R 位移 | Dashing 分支 + dash 推进 + 路径 VFX |
-| C | E AoE+定身 | AoEField effect + StatusEffect + AoE 实体 + 灰圈 VFX |
+| C | E AoE+眩晕 | AoEField effect + StatusEffect(Stun) + AoE 实体 + 灰圈 VFX |
 | D | F 大招 | Channeling + 16 方向弹幕 + Lifesteal + 光环 VFX |
 | E | 数值 & 打磨 | Mana Max=300，调参 |
 

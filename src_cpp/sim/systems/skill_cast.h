@@ -51,6 +51,13 @@ inline void skill_cast_system(
         auto &stats = view.get<CombatStats>(e);
         auto &net = view.get<NetworkId>(e);
 
+        // Stun gate — 眩晕不能施法
+        if (reg.all_of<StatusEffect>(e)) {
+            auto &st = reg.get<StatusEffect>(e);
+            if (st.Type == StatusType::Stun && st.Timer > 0.0f)
+                continue;
+        }
+
         auto &cs = reg.get_or_emplace<CastState>(e);
 
         // Decay reject timer each tick
@@ -311,7 +318,7 @@ inline void _trigger_effect(
                     reg.get<Kills>(caster_entity).Value += 1;
             } else {
                 auto &st = reg.get_or_emplace<StatusEffect>(t);
-                st.Type = StatusType::Root;
+                st.Type = StatusType::Stun;
                 st.Timer = def.EffectValue;
             }
         }

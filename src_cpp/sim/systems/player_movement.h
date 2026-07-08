@@ -25,10 +25,11 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
         auto &input = view.get<PlayerInputState>(e);
         auto &speed = view.get<MoveSpeed>(e);
 
-        // Root gate
+        // Status gate (Root=禁锢=不移动, Stun=眩晕=不移动)
         if (reg.all_of<StatusEffect>(e)) {
             auto &st = reg.get<StatusEffect>(e);
-            if (st.Type == StatusType::Root && st.Timer > 0.0f)
+            if (st.Timer > 0.0f &&
+                (st.Type == StatusType::Root || st.Type == StatusType::Stun))
                 continue;
         }
 

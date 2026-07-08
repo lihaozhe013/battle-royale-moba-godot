@@ -83,6 +83,13 @@ void SnapshotBuilder::_build_players(
             _build_skills(s->skills, reg.get<SkillComponent>(e));
         }
 
+        // StatusEffect
+        s->status = 0;
+        if (reg.all_of<StatusEffect>(e)) {
+            auto &st = reg.get<StatusEffect>(e);
+            s->status = static_cast<int>(st.Type);
+        }
+
         // CastState fields
         if (reg.all_of<CastState>(e)) {
             auto &cs = reg.get<CastState>(e);
@@ -154,12 +161,11 @@ void SnapshotBuilder::_build_bots(
             _build_skills(s->skills, reg.get<SkillComponent>(e));
         }
 
-        // StatusEffect (root)
-        s->root_timer = 0.0f;
+        // StatusEffect
+        s->status = 0;
         if (reg.all_of<StatusEffect>(e)) {
             auto &st = reg.get<StatusEffect>(e);
-            if (st.Type == StatusType::Root)
-                s->root_timer = st.Timer;
+            s->status = static_cast<int>(st.Type);
         }
 
         snap->bots.push_back(s);

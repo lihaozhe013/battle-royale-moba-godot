@@ -407,12 +407,13 @@ inline void bot_ai_system(
         }
         }
 
-        // ── Root gate (skip movement, can still shoot) ──
-        bool rooted = reg.all_of<StatusEffect>(e) &&
-                      reg.get<StatusEffect>(e).Type == StatusType::Root &&
-                      reg.get<StatusEffect>(e).Timer > 0.0f;
+        // ── Status gate (Root=禁锢=不移动但可射击, Stun=眩晕=不移动) ──
+        bool blocked = reg.all_of<StatusEffect>(e) &&
+                       reg.get<StatusEffect>(e).Timer > 0.0f &&
+                       (reg.get<StatusEffect>(e).Type == StatusType::Root ||
+                        reg.get<StatusEffect>(e).Type == StatusType::Stun);
 
-        if (!rooted) {
+        if (!blocked) {
             // ── Execute movement ──
             Vec2 move_dir = target_pos - pos.Value;
             float move_dist = glm::length(move_dir);

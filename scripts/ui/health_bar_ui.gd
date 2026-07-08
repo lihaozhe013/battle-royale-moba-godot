@@ -13,6 +13,12 @@ const TIER_COLORS := {
 	2: Color(1.0, 0.8, 0.0),
 }
 
+const STATUS_NAMES := {
+	0: "",
+	1: "ROOT",
+	2: "STUN",
+}
+
 var _hp_ratio: float = 1.0
 var _damage_ratio: float = 1.0
 var _team: int = 0
@@ -23,6 +29,7 @@ var _team: int = 0
 @onready var _level_badge: ColorRect = $LevelBadge
 @onready var _level_label: Label = $LevelBadge/LevelLabel
 @onready var _mana_bar: ColorRect = $ManaBar
+@onready var _status_label: Label = $StatusLabel
 
 
 func update_hp(hp: int, max_hp: int) -> void:
@@ -43,6 +50,11 @@ func update_mana(mana: float, max_mana: float) -> void:
 	var ratio := mana / max_mana if max_mana > 0 else 0.0
 	ratio = clampf(ratio, 0.0, 1.0)
 	_mana_bar.size = Vector2(BAR_WIDTH * ratio, _mana_bar.size.y)
+
+
+func update_status(status: int) -> void:
+	_status_label.text = STATUS_NAMES.get(status, "")
+	_status_label.visible = status > 0
 
 
 func _update_color() -> void:
@@ -76,6 +88,8 @@ func reset() -> void:
 	_level_label.text = "1"
 	_level_badge.color = TIER_COLORS[0]
 	_mana_bar.size = Vector2(0, _mana_bar.size.y)
+	_status_label.text = ""
+	_status_label.visible = false
 	visible = false
 
 
