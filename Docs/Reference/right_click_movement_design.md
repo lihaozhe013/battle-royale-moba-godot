@@ -2,7 +2,7 @@
 
 > 最后更新：2026-07-08
 > 关联：`sim_system_reference.md`、`skill_system_design.md`、`prompt.md`
-> 状态：✅ 已批准，待实施
+> 状态：✅ 已实施（commit `5aa3b89`）
 
 ---
 
