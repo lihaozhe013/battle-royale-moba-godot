@@ -25,7 +25,10 @@ void World::initialize(const std::string &map_json) {
         false,
         false,
         false,
-        Vec2{0.0f}
+        Vec2{0.0f},
+        Vec2{0.0f},
+        false,
+        false
     );
 
     _id_state_entity = _reg.create();
@@ -50,6 +53,8 @@ void World::initialize(const std::string &map_json) {
         _reg.emplace<WallTag>(wall);
         _reg.emplace<WallBounds>(wall, Vec2{min_x, min_y}, Vec2{max_x, max_y});
     }
+
+    _build_nav_grid();
 
     for (int i = 0; i < GameConfig::BotCount; ++i)
         _spawn_bot();
@@ -87,11 +92,28 @@ void World::set_cast_input(
     }
 }
 
+void World::set_move_command(float target_x, float target_y, bool issue) {
+    if (_local_input_entity != entt::null) {
+        auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
+        li.MoveTarget = Vec2{target_x, target_y};
+        li.MoveIssue = issue;
+    }
+}
+
+void World::set_stop(bool stop) {
+    if (_local_input_entity != entt::null) {
+        auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
+        li.Stop = stop;
+    }
+}
+
 void World::tick(double dt) {
     _time += dt;
     float fdt = static_cast<float>(dt);
 
     local_input_injection_system(_reg, _local_input_entity);
+
+    player_pathfinding_system(_reg, _nav_grid);
 
     float map_half = _reg.get<MapBounds>(_map_bounds_entity).Half;
     player_movement_system(_reg, fdt, map_half);
@@ -143,7 +165,19 @@ void World::_spawn_player(int player_id, bool is_local) {
     );
     _reg.emplace<Kills>(e, 0);
     _reg.emplace<PlayerInputState>(
-        e, Vec2{0.0f}, Vec2{0.0f}, false, 0, -1, false, false, false, Vec2{0.0f}
+        e,
+        Vec2{0.0f},
+        Vec2{0.0f},
+        false,
+        0,
+        -1,
+        false,
+        false,
+        false,
+        Vec2{0.0f},
+        Vec2{0.0f},
+        false,
+        false
     );
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
@@ -152,6 +186,7 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<MoveSpeed>(e, GameConfig::PlayerSpeed);
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
+    _reg.emplace<MovePath>(e);
 
     SkillComponent sc;
     for (int i = 0; i < 4; ++i) {
@@ -341,6 +376,16 @@ float World::_random_wander_time() {
         GameConfig::BotWanderIntervalMin, GameConfig::BotWanderIntervalMax
     );
     return dist(_rng);
+}
+
+void World::_build_nav_grid() {
+    std::vector<WallBounds> walls;
+    auto wall_view = _reg.view<WallBounds>();
+    for (auto w : wall_view)
+        walls.push_back(_reg.get<WallBounds>(w));
+
+    float half = _reg.get<MapBounds>(_map_bounds_entity).Half;
+    _nav_grid.build(half, walls, 0.5f, GameConfig::PlayerRadius);
 }
 
 } // namespace sim

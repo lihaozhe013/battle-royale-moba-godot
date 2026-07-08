@@ -1,6 +1,16 @@
 # Battle Royale MOBA (Godot)
 
 类 MOBA 游戏原型。C++ GDExtension 模拟层 + GDScript 视图层，ECS 架构。
+支持 WASD 双摇杆和右键点地板两种操作模式。
+
+## 双操作模式
+
+| 模式 | 移动 | 技能键 | 设置 |
+|------|------|--------|------|
+| **WASD**（默认） | WASD / 方向键 | C / E / R / F | ESC → 操作模式 |
+| **MOBA** | 右键点地板（A* 寻路） | Q / W / E / R | 模式偏好持久化到 ConfigFile |
+
+MOBA 模式特性：右键连点节流、同区域重算跳过、转向速率平滑、S 键停止、右键长按连点（~6Hz）。
 
 ## 环境需求
 
@@ -18,12 +28,14 @@
 ## 架构
 
 ```
-C++ Sim (entt::registry + 12 systems, 21 components)
-    ↓ SimSnapshot (30Hz)
+C++ Sim (entt::registry + 18 systems, 30Hz)
+    ↓ SimSnapshot (RefCounted)
 sim_bridge.gd (系统调度器)
     ├─ EntityManager    → EntityView (3D: 位置插值 + 骨骼动画)
     ├─ HealthBarManager → HealthBarUI (2D: 屏幕空间血条)
     ├─ StatsPanel       (HUD: 等级 / HP / 击杀 / XP)
+    ├─ BottomHUD        (技能栏 + 物品栏 + 背包)
+    ├─ SettingsPanel    (ESC: 操作模式切换 + 退出)
     └─ CameraController (55° 俯视, 跟随玩家)
 ```
 
@@ -55,13 +67,17 @@ cd src_cpp && python build.py
 | 模拟层语言 | C++ GDExtension | ECS 性能，entt 生态 |
 | 视图层语言 | GDScript | 快速迭代，Godot 原生集成 |
 | Sim-View 通信 | Snapshot 数据契约 | 完全解耦，可独立测试 |
-| 客户端插值 | 50ms lerp + seq 去重 | 平滑运动，抗网络抖动 |
-| 血条方案 | 2D 屏幕空间 | MOBA 标准 (LoL/DOTA)，像素清晰，易扩展 |
-| 血条管理 | Manager + 对象池 | 独立视图系统，ECS 对齐 |
+| 客户端插值 | 33ms lerp (1/30) + seq 去重 | 匹配 Sim tick rate，消除角度 jitter |
+| 寻路算法 | Sim 层手写 A*（均匀网格 0.5u） | 零 Godot 依赖，墙体静态 AABB 天然适配 |
+| 操作模式 | 实时切换 WASD / MOBA | 双模式互不干扰，HUD 自动更新键位标签 |
+| 右键仲裁 | 施法中仅取消不下达移动 | 符合 MOBA 直觉 (LoL/Dota)，Sim 权威判断 |
 
 ## 文档
 
-- `Docs/Reference/prompt.md` — 完整设计文档（架构、API 契约、血条系统设计、扩展路线图）
+- `Docs/Reference/prompt.md` — 完整设计文档（架构、API 契约、扩展路线图）
+- `Docs/Reference/sim_system_reference.md` — C++ Sim 层完整参考手册
+- `Docs/Reference/right_click_movement_design.md` — 右键点地板移动 + 双模式设计方案
+- `Docs/Reference/skill_system_design.md` — 4 技能系统设计方案
 - `Docs/Reference/godot-editor-todo.md` — 编辑器操作步骤
 
 ## 项目结构
@@ -69,17 +85,33 @@ cd src_cpp && python build.py
 ```
 scripts/
 ├── sim_bridge.gd               # 系统调度器
+├── input/input_collector.gd    # 输入采集（双模式感知）
+├── autoload/game_settings.gd   # 操作模式 autoload + ConfigFile
 ├── view/
 │   ├── entity_manager.gd       # 3D 实体 spawn/despawn
 │   ├── entity_view.gd          # 3D 实体视图 (插值 + 动画)
-│   └── camera_controller.gd    # 相机控制
+│   ├── camera_controller.gd    # 相机控制
+│   ├── skill_vfx.gd            # 技能 VFX
+│   └── move_target_vfx.gd      # 右键 ping 标记
 ├── ui/
 │   ├── health_bar_manager.gd   # 血条视图系统
 │   ├── health_bar_ui.gd        # 血条视图组件
-│   └── stats_panel.gd          # HUD 面板
+│   ├── stats_panel.gd          # HUD 面板
+│   ├── bottom_hud.gd           # 底部 HUD（技能/物品/背包）
+│   ├── settings_panel.gd       # 设置面板（模式切换 + 退出）
+│   ├── skill_slot_ui.gd        # 技能槽 UI
+│   └── item_slot_ui.gd         # 物品槽 UI
 src_cpp/                        # C++ Sim 层 (entt ECS)
 scenes/
 ├── main.tscn                   # 主场景
 ├── entities/                   # 实体预制 (player, bot, arrow, pickups)
-└── ui/                         # UI 预制 (health_bar_ui)
+└── ui/                         # UI 预制
 ```
+
+## 寻路系统
+
+- **NavGrid**: 200×200 均匀网格（0.5u/格），墙体膨胀烘焙
+- **A***: 8 方向 + octile 启发 + 二叉堆
+- **平滑**: string-pulling（视线法），消除网格锯齿
+- **跟随**: 转角速率限制（12 rad/s），位置即时响应、朝向平滑追赶
+- **节流**: 右键时间死区 80ms + 目标死区 1.5u + 长按连点 6Hz

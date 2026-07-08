@@ -28,7 +28,7 @@ struct GameConfig {
     static constexpr int BotHp = 50;
     static constexpr float BotBaseAttack = 5.0f;
     static constexpr float BotBaseAttackSpeed = 0.8f;
-	static constexpr float BotRespawnTime = 8.0f;
+    static constexpr float BotRespawnTime = 8.0f;
     static constexpr float BotVisionRange = 20.0f;
     static constexpr float BotWanderIntervalMin = 2.0f;
     static constexpr float BotWanderIntervalMax = 5.0f;
@@ -110,6 +110,12 @@ struct GameConfig {
     static constexpr int XpPickupCount = 120;
     static constexpr int HealPickupCount = 2;
     static constexpr int SmallHealPickupCount = 2;
+
+    // ── Pathfinding ──
+    static constexpr float RepathTargetDeadzone = 1.5f;
+    static constexpr float RepathTargetDeadzoneSq =
+        RepathTargetDeadzone * RepathTargetDeadzone;
+    static constexpr float PathTurnRate = 12.0f; // rad/s
 
     // ── Mana ──
     static constexpr float PlayerBaseMana = 300.0f;

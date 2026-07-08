@@ -65,10 +65,14 @@ func _spawn_wall_visuals(json_text: String) -> void:
 		add_child(m)
 
 
+var _frame_tick_index := 0
+
 func _physics_process(delta: float) -> void:
 	var tick_rate = 1.0 / 30.0
+	_frame_tick_index = 0
 	elapsed += delta
 	while elapsed >= tick_rate:
+		_frame_tick_index += 1
 		sim.set_local_input(
 			input_collector.move_input,
 			input_collector.aim_world,
@@ -83,11 +87,25 @@ func _physics_process(delta: float) -> void:
 			input_collector.cast_aim.x,
 			input_collector.cast_aim.y
 		)
+		# 边沿脉冲只在帧首 tick 发送，catch-up 不发
+		var first_tick := _frame_tick_index == 1
+		sim.set_move_command(
+			input_collector.move_cmd_target.x,
+			input_collector.move_cmd_target.y,
+			input_collector.move_cmd_issue and first_tick
+		)
+		sim.set_stop(
+			input_collector.stop and first_tick
+		)
 		sim.tick(tick_rate)
 		elapsed -= tick_rate
 		var snap = sim.pop_snapshot()
 		if snap is SimSnapshot:
 			last_snapshot = snap
+
+	# 消费后清边沿脉冲（防 _physics 隔帧丢信号）
+	input_collector.move_cmd_issue = false
+	input_collector.stop = false
 
 
 func _process(_delta: float) -> void:
