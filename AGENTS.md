@@ -29,8 +29,9 @@ Docs/Reference/
 ├── sim_system_reference.md      ← C++ 层完整参考（组件/系统/快照/常量）
 ├── bottom_hud_design.md         ← 底部 HUD UI 设计
 ├── bot_ai_optimization.md       ← Bot AI 决策树设计
-├── skill_system_design.md       ← 4 技能系统完整设计方案（C/E/R/F）
-└── godot-editor-todo.md         ← 编辑器待办事项
+├── skill_system_design.md            ← 4 技能系统完整设计方案（C/E/R/F）
+├── godot-editor-todo.md              ← 编辑器待办事项
+└── python_map_editor_design.md       ← Python 地图编辑器设计+实现记录
 
 scripts/ui/
 ├── health_bar_ui.gd             ← 血条组件（已有）
@@ -52,6 +53,15 @@ scenes/ui/
 ├── item_slot_ui.tscn            ← 物品槽模板
 └── bottom_hud.tscn              ← 底部 HUD（含 4 技能槽 + 6 物品栏 + 6 背包）
 
+tools/map_editor/                ← Python 地图编辑器（pygame + watchdog）
+├── __main__.py                  ← 入口
+├── viewer.py                    ← 渲染 + 交互
+├── map_model.py                 ← JSON 读写
+├── watcher.py                   ← 文件热加载
+├── commands.py                  ← Undo/Redo 栈
+├── map_editor_config.yaml       ← 编辑器配置
+└── map_editor_help.txt          ← 帮助面板文本
+
 data/skills/icons/               ← 7 个占位图标 PNG（系统自动导入）
 src_cpp/sim/                     ← C++ Sim 层核心
 ├── components.h                 ← 全部 ECS 组件
@@ -68,6 +78,7 @@ src_cpp/sim/                     ← C++ Sim 层核心
 
 | 事项 | 关联文档 |
 |------|---------|
+| Python 地图编辑器 P1-P4 | `python_map_editor_design.md` |
 | MOBA 升级方案评估 | `prompt.md` §MOBA 大逃杀升级方案 |
 | C++ 层完整参考手册 | `sim_system_reference.md` |
 | 代码结构模板 + 待做清单 | `sim_system_reference.md` §11 |
