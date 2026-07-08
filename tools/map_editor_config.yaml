@@ -5,3 +5,7 @@ grid: 1.0
 zoom: 0
 width: 1280
 height: 800
+zone:
+  center_x: 0
+  center_y: 0
+  radius: 30
