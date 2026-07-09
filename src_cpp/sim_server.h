@@ -19,7 +19,7 @@ public:
 
     void initialize(const godot::String &map_json);
     void set_local_input(const godot::Vector2 &move, const godot::Vector2 &aim, bool fire, int seq);
-    void set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y);
+    void set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y, int target_id = -1);
     void set_move_command(float target_x, float target_y, bool issue);
     void set_stop(bool stop);
     void tick(double delta);
