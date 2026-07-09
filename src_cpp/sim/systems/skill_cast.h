@@ -53,14 +53,21 @@ inline void skill_cast_system(
         auto &net = view.get<NetworkId>(e);
         auto &lv = view.get<Level>(e);
 
+        auto &cs = reg.get_or_emplace<CastState>(e);
+
+        // Clear per-tick cast state fields
+        cs.CastError = 0;
+        cs.HitTargetId = -1;
+
         // Stun gate — 眩晕不能施法
         if (reg.all_of<StatusEffect>(e)) {
             auto &st = reg.get<StatusEffect>(e);
-            if (st.Type == StatusType::Stun && st.Timer > 0.0f)
+            if (st.Type == StatusType::Stun && st.Timer > 0.0f) {
+                if (input.CastSlot >= 0)
+                    cs.CastError = 3;
                 continue;
+            }
         }
-
-        auto &cs = reg.get_or_emplace<CastState>(e);
 
         // Decay reject timer each tick
         if (cs.RejectTimer > 0.0f)
@@ -73,27 +80,79 @@ inline void skill_cast_system(
         Vec2 cast_aim = input.CastAim;
         bool moving = glm::length(input.Move) > 0.01f;
 
+        // ── Helper: resolve target from NetworkId ──
+        auto resolve_target = [&](int net_id) -> entt::entity {
+            if (net_id < 0) return entt::null;
+            auto tv = reg.view<NetworkId, Damageable>();
+            for (auto t : tv) {
+                if (tv.get<NetworkId>(t).Value == net_id)
+                    return t;
+            }
+            return entt::null;
+        };
+
+        // ── Helper: validate target alive + in range ──
+        auto target_valid = [&](entt::entity t, const SkillDef &d) -> bool {
+            if (!reg.valid(t)) return false;
+            if (!reg.all_of<Damageable, Position2D, Health>(t)) return false;
+            if (reg.all_of<Dead>(t) && reg.get<Dead>(t).enabled) return false;
+            Vec2 delta = reg.get<Position2D>(t).Value - pos.Value;
+            return vec2_length_sq(delta) <= d.Range * d.Range;
+        };
+
+        // ── Helper: refund mana and cooldown ──
+        auto refund_cast = [&](int slot_idx, int skill_id) {
+            auto &s = skills.Slots[slot_idx];
+            const auto &rd = get_skill_def(skill_id);
+            float rm = std::max(
+                GameConfig::SkillManaReductionMin,
+                1.0f - (lv.Value - 1) * rd.ManaReductionPerLevel
+            );
+            mana.Cur += rd.ManaCost * rm;
+            if (mana.Cur > mana.Max) mana.Cur = mana.Max;
+            s.CooldownTimer = 0.0f;
+        };
+
         switch (cs.State) {
         case CastState::Phase::None: {
             if (cast_slot >= 0 && cast_slot < 4 && cs.RejectTimer <= 0.0f) {
                 auto &slot = skills.Slots[cast_slot];
-                if (slot.SkillId > 0 && slot.CooldownTimer <= 0.0f) {
-                    const auto &mm_def = get_skill_def(slot.SkillId);
-                    float mm = std::max(
-                        GameConfig::SkillManaReductionMin,
-                        1.0f - (lv.Value - 1) * mm_def.ManaReductionPerLevel
-                    );
-                    if (mana.Cur >= mm_def.ManaCost * mm) {
-                        cs.State = CastState::Phase::Aiming;
-                        cs.ActiveSlot = cast_slot;
-                        cs.EnteredSlot = cast_slot;
+                if (!(slot.SkillId > 0)) break;
+                const auto &mm_def = get_skill_def(slot.SkillId);
+                float cd = slot.CooldownTimer;
+                float mm_cost = mm_def.ManaCost * std::max(
+                    GameConfig::SkillManaReductionMin,
+                    1.0f - (lv.Value - 1) * mm_def.ManaReductionPerLevel
+                );
+
+                if (cd > 0.0f) {
+                    cs.CastError = 1;
+                    cs.RejectTimer = 0.15f;
+                    break;
+                }
+                if (mana.Cur < mm_cost) {
+                    cs.CastError = 2;
+                    cs.RejectTimer = 0.15f;
+                    break;
+                }
+                // For MeleeSingle, require a valid target
+                entt::entity tgt = resolve_target(input.CastTargetId);
+                if (mm_def.Kind == SkillKind::MeleeSingle) {
+                    if (tgt == entt::null || !target_valid(tgt, mm_def)) {
+                        cs.CastError = 4;
                         cs.RejectTimer = 0.15f;
-                        cs.SkillId = slot.SkillId;
-                        cs.Timer = 0.0f;
-                        cs.SubTimer = 0.0f;
-                        cs.AimPos = cast_aim;
+                        break;
                     }
                 }
+                cs.State = CastState::Phase::Aiming;
+                cs.ActiveSlot = cast_slot;
+                cs.EnteredSlot = cast_slot;
+                cs.RejectTimer = 0.15f;
+                cs.SkillId = slot.SkillId;
+                cs.TargetEntity = tgt;
+                cs.Timer = 0.0f;
+                cs.SubTimer = 0.0f;
+                cs.AimPos = cast_aim;
             }
             break;
         }
@@ -103,6 +162,19 @@ inline void skill_cast_system(
             if (cast_confirm) {
                 auto &slot = skills.Slots[cs.ActiveSlot];
                 const auto &def = get_skill_def(cs.SkillId);
+
+                // Re-validate target for targeted skills
+                if (def.Kind == SkillKind::MeleeSingle) {
+                    if (!reg.valid(cs.TargetEntity) || !target_valid(cs.TargetEntity, def)) {
+                        cs.State = CastState::Phase::None;
+                        cs.ActiveSlot = -1;
+                        cs.SkillId = 0;
+                        cs.CastError = 4;
+                        cs.RejectTimer = 0.3f;
+                        break;
+                    }
+                }
+
                 float cdr_mult = std::max(
                     GameConfig::SkillCDRMin,
                     1.0f - (lv.Value - 1) * GameConfig::SkillCDRPerLevel
@@ -148,17 +220,7 @@ inline void skill_cast_system(
 
         case CastState::Phase::Casting: {
             if (cast_cancel || cast_interrupt) {
-                auto &slot = skills.Slots[cs.ActiveSlot];
-                {
-                    const auto &refund_def = get_skill_def(cs.SkillId);
-                    float refund_mult = std::max(
-                        GameConfig::SkillManaReductionMin,
-                        1.0f - (lv.Value - 1) * refund_def.ManaReductionPerLevel
-                    );
-                    mana.Cur += refund_def.ManaCost * refund_mult;
-                }
-                if (mana.Cur > mana.Max) mana.Cur = mana.Max;
-                slot.CooldownTimer = 0.0f;
+                refund_cast(cs.ActiveSlot, cs.SkillId);
                 cs.State = CastState::Phase::None;
                 cs.ActiveSlot = -1;
                 cs.SkillId = 0;
@@ -167,6 +229,19 @@ inline void skill_cast_system(
             cs.Timer -= dt;
             if (cs.Timer <= 0.0f) {
                 const auto &def = get_skill_def(cs.SkillId);
+
+                // Validate target before triggering MeleeSingle effect
+                if (def.Kind == SkillKind::MeleeSingle) {
+                    if (!reg.valid(cs.TargetEntity) || !target_valid(cs.TargetEntity, def)) {
+                        refund_cast(cs.ActiveSlot, cs.SkillId);
+                        cs.State = CastState::Phase::None;
+                        cs.ActiveSlot = -1;
+                        cs.SkillId = 0;
+                        cs.CastError = 5;
+                        break;
+                    }
+                }
+
                 detail::_trigger_effect(
                     reg, cb, ids, now, e, cs, def, pos, stats, net
                 );
@@ -283,43 +358,30 @@ inline void _trigger_effect(
 ) {
     switch (def.Kind) {
     case SkillKind::MeleeSingle: {
-        auto target_view = reg.view<Damageable, Position2D, Health>();
-        entt::entity best_target = entt::null;
-        float best_dist_sq = def.Range * def.Range;
-        for (auto t : target_view) {
-            if (t == caster_entity)
-                continue;
-            if (reg.all_of<Dead>(t) && reg.get<Dead>(t).enabled)
-                continue;
-            Vec2 delta = target_view.get<Position2D>(t).Value - cs.AimPos;
-            float d_sq = vec2_length_sq(delta);
-            if (d_sq < best_dist_sq) {
-                best_dist_sq = d_sq;
-                best_target = t;
-            }
-        }
-        if (best_target != entt::null) {
-            auto &hp = target_view.get<Health>(best_target);
-            float skill_dmg = def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
-            hp.Cur -= static_cast<int>(skill_dmg);
-            if (hp.Cur <= 0) {
-                hp.Cur = 0;
-                if (reg.all_of<Dead>(best_target))
-                    reg.get<Dead>(best_target).enabled = true;
-                if (reg.all_of<BotAIState>(best_target))
-                    reg.get<BotAIState>(best_target).RespawnTimer =
-                        GameConfig::BotRespawnTime;
-                int victim_id = reg.all_of<NetworkId>(best_target)
-                                    ? reg.get<NetworkId>(best_target).Value
-                                    : 0;
-                auto kill_view = reg.view<KillEventBuffer>();
-                for (auto k : kill_view)
-                    kill_view.get<KillEventBuffer>(k).events.push_back(
-                        {net.Value, victim_id}
-                    );
-                if (reg.all_of<Kills>(caster_entity))
-                    reg.get<Kills>(caster_entity).Value += 1;
-            }
+        entt::entity tgt = cs.TargetEntity;
+        // Target is guaranteed valid by caller (Casting timer expiry check)
+        auto &hp = reg.get<Health>(tgt);
+        float skill_dmg = def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
+        hp.Cur -= static_cast<int>(skill_dmg);
+        if (reg.all_of<NetworkId>(tgt))
+            cs.HitTargetId = reg.get<NetworkId>(tgt).Value;
+        if (hp.Cur <= 0) {
+            hp.Cur = 0;
+            if (reg.all_of<Dead>(tgt))
+                reg.get<Dead>(tgt).enabled = true;
+            if (reg.all_of<BotAIState>(tgt))
+                reg.get<BotAIState>(tgt).RespawnTimer =
+                    GameConfig::BotRespawnTime;
+            int victim_id = reg.all_of<NetworkId>(tgt)
+                                ? reg.get<NetworkId>(tgt).Value
+                                : 0;
+            auto kill_view = reg.view<KillEventBuffer>();
+            for (auto k : kill_view)
+                kill_view.get<KillEventBuffer>(k).events.push_back(
+                    {net.Value, victim_id}
+                );
+            if (reg.all_of<Kills>(caster_entity))
+                reg.get<Kills>(caster_entity).Value += 1;
         }
         break;
     }

@@ -13,7 +13,10 @@ var _prev_player_cast_slot := -1
 @onready var health_bar_manager = $HealthBarManager
 @onready var stats_panel = $CanvasLayer/StatsPanel
 @onready var bottom_hud = $BottomHUD
+@onready var cast_bar_layer = $CastBarLayer
 var _skill_vfx: Node3D
+
+const HOVER_RADIUS := 2.0
 
 
 func _ready() -> void:
@@ -85,7 +88,8 @@ func _physics_process(delta: float) -> void:
 			input_collector.cast_cancel,
 			input_collector.cast_interrupt,
 			input_collector.cast_aim.x,
-			input_collector.cast_aim.y
+			input_collector.cast_aim.y,
+			input_collector.cast_target_id
 		)
 		# 边沿脉冲只在帧首 tick 发送，catch-up 不发
 		var first_tick := _frame_tick_index == 1
@@ -115,6 +119,21 @@ func _physics_process(delta: float) -> void:
 func _process(_delta: float) -> void:
 	if not last_snapshot:
 		return
+
+	# ── 悬停检测 ──
+	var hover_id := -1
+	var aim: Vector2 = input_collector.aim_world
+	var hover_sq := HOVER_RADIUS * HOVER_RADIUS
+	for b in last_snapshot.bots:
+		if b.dead:
+			continue
+		var d_sq := Vector2(b.x, b.y).distance_squared_to(aim)
+		if d_sq < hover_sq:
+			hover_sq = d_sq
+			hover_id = b.id
+	entity_manager.set_hover_id(hover_id)
+	input_collector.hovered_entity_id = hover_id
+
 	if last_snapshot.seq != _last_snap_seq:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
@@ -123,12 +142,11 @@ func _process(_delta: float) -> void:
 			var p := last_snapshot.players[0] as SimPlayerSnap
 			if p:
 				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
-					# cooldown > 0 表示技能实际释放成功（打断退款会重置 CD）
-					var slot0 = p.skills[0] if p.skills.size() > 0 else null
-					if slot0 and slot0.cooldown > 0:
-						_trigger_c_slash(p)
+					if p.hit_target_id >= 0:
+						_trigger_c_slash(p.hit_target_id)
 				_prev_player_cast_state = p.cast_state
 				_prev_player_cast_slot = p.cast_slot
+
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
 		if p:
@@ -136,22 +154,19 @@ func _process(_delta: float) -> void:
 			camera_controller.follow_target(p.x, p.y)
 			bottom_hud.sync_player(p)
 			bottom_hud.sync_skills(p.skills)
+			if p.cast_state >= 2:
+				cast_bar_layer.sync_cast(p.cast_progress)
+			else:
+				cast_bar_layer.hide_cast()
+			if p.cast_error > 0:
+				cast_bar_layer.show_error(p.cast_error)
 			var ev = entity_manager.get_entity(p.id)
 			_skill_vfx.sync(last_snapshot, ev)
 
 
-func _trigger_c_slash(p: SimPlayerSnap) -> void:
-	var aim_pos := Vector2(p.cast_aim_x, p.cast_aim_y)
-	var range_sq := 9.0
-	var target_id := -1
-
-	for b in last_snapshot.bots:
-		var d_sq := Vector2(b.x, b.y).distance_squared_to(aim_pos)
-		if d_sq < range_sq:
-			range_sq = d_sq
-			target_id = b.id
-
-	if target_id >= 0:
-		var view = entity_manager.get_entity(target_id)
-		if view and is_instance_valid(view) and view.skill_vfx_attachment:
-			view.skill_vfx_attachment.show_c_slash()
+func _trigger_c_slash(target_id: int) -> void:
+	if target_id < 0:
+		return
+	var view = entity_manager.get_entity(target_id)
+	if view and is_instance_valid(view) and view.skill_vfx_attachment:
+		view.skill_vfx_attachment.show_c_slash()

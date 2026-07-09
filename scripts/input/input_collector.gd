@@ -13,6 +13,8 @@ var cast_confirm := false  # 左键确认/普攻（每帧持续）
 var cast_cancel := false   # 右键取消（每帧持续）
 var cast_interrupt := false  # H/S 打断（每帧持续）
 var cast_aim := Vector2.ZERO
+var cast_target_id := -1   # 悬停目标的 NetworkId，-1=未选中
+var hovered_entity_id := -1  # 由 sim_bridge 每帧写入
 
 # 移动指令（MOBA 模式：右键点地板）
 var move_cmd_target := Vector2.ZERO
@@ -97,6 +99,7 @@ func _read_skill_input() -> void:
 			any_held = i
 		_prev_skill[i] = pressed
 	cast_slot = any_held
+	cast_target_id = hovered_entity_id if any_held >= 0 else -1
 	if cast_slot >= 0:
 		cast_aim = aim_world
 

@@ -1,0 +1,61 @@
+[gd_scene format=3 uid="uid://d3kjdcr1iyerk"]
+
+[ext_resource type="Script" uid="uid://cq18lmhwauaug" path="res://scripts/ui/cast_bar.gd" id="1"]
+[ext_resource type="FontFile" uid="uid://cdyq3782v82ef" path="res://resources/ui/Cinzel-SemiBold.ttf" id="2_kh6fi"]
+
+[node name="CastBarLayer" type="CanvasLayer" unique_id=1077404532]
+layer = 101
+script = ExtResource("1")
+
+[node name="CastBarPanel" type="Control" parent="." unique_id=1412516122]
+custom_minimum_size = Vector2(300, 60)
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = 50.0
+offset_right = 150.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CastBarBg" type="ColorRect" parent="CastBarPanel" unique_id=266151876]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 40.0
+mouse_filter = 2
+color = Color(0.09803922, 0.09803922, 0.09803922, 0.8)
+
+[node name="CastBarFill" type="ColorRect" parent="CastBarPanel" unique_id=913533181]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 40.0
+mouse_filter = 2
+color = Color(0.05075293, 0.53800035, 0.9872518, 1)
+
+[node name="CastBarChannelingLabel" type="Label" parent="CastBarPanel" unique_id=1506139908]
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 40.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_kh6fi")
+theme_override_font_sizes/font_size = 16
+text = "Channeling..."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CastBarErrorLabel" type="Label" parent="CastBarPanel" unique_id=1506139907]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 0
+offset_top = 60.0
+offset_right = 300.0
+offset_bottom = 100.0
+theme_override_colors/font_color = Color(1, 0.3, 0.2, 0)
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+vertical_alignment = 1

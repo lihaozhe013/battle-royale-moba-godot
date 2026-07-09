@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/ui/settings_panel.gd" id="8_wwwnx"]
 [ext_resource type="PackedScene" path="res://scenes/ui/settings_panel.tscn" id="9_v5xly"]
 [ext_resource type="Script" path="res://scripts/view/move_target_vfx.gd" id="10_vfx"]
+[ext_resource type="PackedScene" path="res://scenes/ui/cast_bar.tscn" id="11_castbar"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v5gy4"]
 
@@ -85,3 +86,5 @@ environment = SubResource("Environment_gm6fy")
 
 [node name="MoveTargetVFX" type="Node3D" parent="."]
 script = ExtResource("10_vfx")
+
+[node name="CastBarLayer" parent="." instance=ExtResource("11_castbar")]

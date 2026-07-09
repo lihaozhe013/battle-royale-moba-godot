@@ -41,7 +41,8 @@ class World {
         bool cancel,
         bool interrupt,
         float aim_x,
-        float aim_y
+        float aim_y,
+        int target_id = -1
     );
     void set_move_command(float target_x, float target_y, bool issue);
     void set_stop(bool stop);

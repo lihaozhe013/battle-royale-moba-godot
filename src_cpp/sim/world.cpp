@@ -26,6 +26,7 @@ void World::initialize(const std::string &map_json) {
         false,
         false,
         Vec2{0.0f},
+        -1,
         Vec2{0.0f},
         false,
         false
@@ -80,7 +81,8 @@ void World::set_cast_input(
     bool cancel,
     bool interrupt,
     float aim_x,
-    float aim_y
+    float aim_y,
+    int target_id
 ) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
@@ -89,6 +91,7 @@ void World::set_cast_input(
         li.CastCancel = cancel;
         li.CastInterrupt = interrupt;
         li.CastAim = Vec2{aim_x, aim_y};
+        li.CastTargetId = target_id;
     }
 }
 
@@ -190,6 +193,7 @@ void World::_spawn_player(int player_id, bool is_local) {
         false,
         false,
         Vec2{0.0f},
+        -1,
         Vec2{0.0f},
         false,
         false

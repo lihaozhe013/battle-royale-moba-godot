@@ -109,6 +109,8 @@ void SnapshotBuilder::_build_players(
             s->dash_sy = cs.DashStart.y;
             s->dash_tx = cs.DashTarget.x;
             s->dash_ty = cs.DashTarget.y;
+            s->hit_target_id = cs.HitTargetId;
+            s->cast_error = cs.CastError;
 
             // Calculate progress
             const auto &def = get_skill_def(cs.SkillId);
