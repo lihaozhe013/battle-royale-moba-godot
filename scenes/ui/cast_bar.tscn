@@ -49,13 +49,4 @@ text = "Channeling..."
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CastBarErrorLabel" type="Label" parent="CastBarPanel" unique_id=1506139907]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 0
-offset_top = 60.0
-offset_right = 300.0
-offset_bottom = 100.0
-theme_override_colors/font_color = Color(1, 0.3, 0.2, 0)
-theme_override_font_sizes/font_size = 18
-horizontal_alignment = 1
-vertical_alignment = 1
+

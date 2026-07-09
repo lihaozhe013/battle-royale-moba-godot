@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://dxl3jci1dkw6l" path="res://scenes/ui/settings_panel.tscn" id="9_v5xly"]
 [ext_resource type="Script" uid="uid://cl5dvfwyjhq88" path="res://scripts/view/move_target_vfx.gd" id="10_vfx"]
 [ext_resource type="PackedScene" uid="uid://d3kjdcr1iyerk" path="res://scenes/ui/cast_bar.tscn" id="11_castbar"]
+[ext_resource type="PackedScene" path="res://scenes/ui/cast_error.tscn" id="12_cast_error"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v5gy4"]
 
@@ -66,3 +67,5 @@ environment = SubResource("Environment_gm6fy")
 script = ExtResource("10_vfx")
 
 [node name="CastBarLayer" parent="." unique_id=474895362 instance=ExtResource("11_castbar")]
+
+[node name="CastErrorLayer" parent="." instance=ExtResource("12_cast_error")]

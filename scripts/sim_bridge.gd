@@ -6,6 +6,7 @@ var elapsed: float = 0.0
 var _last_snap_seq := -1
 var _prev_player_cast_state := 0
 var _prev_player_cast_slot := -1
+var _prev_player_cast_error := 0
 
 @onready var input_collector = $InputCollector
 @onready var camera_controller = $CameraController
@@ -13,6 +14,7 @@ var _prev_player_cast_slot := -1
 @onready var health_bar_manager = $HealthBarManager
 @onready var bottom_hud = $BottomHUD
 @onready var cast_bar_layer = $CastBarLayer
+@onready var cast_error_layer = $CastErrorLayer
 var _skill_vfx: Node3D
 
 const HOVER_RADIUS := 2.0
@@ -79,6 +81,8 @@ func _physics_process(delta: float) -> void:
 	elapsed += delta
 	while elapsed >= tick_rate:
 		_frame_tick_index += 1
+		# 边沿脉冲只在帧首 tick 发送，catch-up 不发
+		var first_tick := _frame_tick_index == 1
 		sim.set_local_input(
 			input_collector.move_input,
 			input_collector.aim_world,
@@ -88,14 +92,12 @@ func _physics_process(delta: float) -> void:
 		sim.set_cast_input(
 			input_collector.cast_slot,
 			input_collector.cast_confirm,
-			input_collector.cast_cancel,
+			input_collector.cast_cancel and first_tick,
 			input_collector.cast_interrupt,
 			input_collector.cast_aim.x,
 			input_collector.cast_aim.y,
 			input_collector.cast_target_id
 		)
-		# 边沿脉冲只在帧首 tick 发送，catch-up 不发
-		var first_tick := _frame_tick_index == 1
 		sim.set_move_command(
 			input_collector.move_cmd_target.x,
 			input_collector.move_cmd_target.y,
@@ -117,6 +119,7 @@ func _physics_process(delta: float) -> void:
 	# 消费后清边沿脉冲（防 _physics 隔帧丢信号）
 	input_collector.move_cmd_issue = false
 	input_collector.stop = false
+	input_collector.cast_cancel = false
 
 
 func _process(_delta: float) -> void:
@@ -147,8 +150,14 @@ func _process(_delta: float) -> void:
 				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
 					if p.hit_target_id >= 0:
 						_trigger_c_slash(p.hit_target_id)
+				# 错误显示：仅当从 Aiming/Casting 回到 None 时（左键确认失败/施法结束目标死亡）
+				var prev_state := _prev_player_cast_state
 				_prev_player_cast_state = p.cast_state
 				_prev_player_cast_slot = p.cast_slot
+				if prev_state >= 1 and p.cast_state == 0:
+					if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
+						cast_error_layer.show_error(p.cast_error)
+				_prev_player_cast_error = p.cast_error
 
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
@@ -160,8 +169,6 @@ func _process(_delta: float) -> void:
 				cast_bar_layer.sync_cast(p.cast_progress)
 			else:
 				cast_bar_layer.hide_cast()
-			if p.cast_error > 0:
-				cast_bar_layer.show_error(p.cast_error)
 			var ev = entity_manager.get_entity(p.id)
 			_skill_vfx.sync(last_snapshot, ev)
 
