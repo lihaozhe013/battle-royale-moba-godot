@@ -33,8 +33,7 @@ inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
         auto e = reg.create();
         Vec2 vel{
             std::cos(ctx.angle) * GameConfig::ArrowSpeed,
-            std::sin(ctx.angle) * GameConfig::ArrowSpeed
-        };
+            std::sin(ctx.angle) * GameConfig::ArrowSpeed};
         reg.emplace<Position2D>(e, ctx.spawn_pos);
         reg.emplace<Velocity2D>(e, vel);
         reg.emplace<FacingAngle>(e, ctx.angle);

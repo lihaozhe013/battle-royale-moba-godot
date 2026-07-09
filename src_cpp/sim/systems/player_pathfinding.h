@@ -7,12 +7,9 @@
 namespace sim {
 
 inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
-    auto view = reg.view<
-        PlayerTag,
-        Position2D,
-        PlayerInputState,
-        CastState,
-        MovePath>();
+    auto view =
+        reg.view<PlayerTag, Position2D, PlayerInputState, CastState, MovePath>(
+        );
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
         if (!tag.IsLocal)

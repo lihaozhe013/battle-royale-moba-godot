@@ -55,7 +55,8 @@ inline void skill_cast_system(
 
         auto &cs = reg.get_or_emplace<CastState>(e);
 
-        // Clear per-tick hit target (CastError persists until consumed by success or new error)
+        // Clear per-tick hit target (CastError persists until consumed by
+        // success or new error)
         cs.HitTargetId = -1;
 
         // Stun gate — 眩晕不能施法
@@ -81,7 +82,8 @@ inline void skill_cast_system(
 
         // ── Helper: resolve target from NetworkId ──
         auto resolve_target = [&](int net_id) -> entt::entity {
-            if (net_id < 0) return entt::null;
+            if (net_id < 0)
+                return entt::null;
             auto tv = reg.view<NetworkId, Damageable>();
             for (auto t : tv) {
                 if (tv.get<NetworkId>(t).Value == net_id)
@@ -92,9 +94,12 @@ inline void skill_cast_system(
 
         // ── Helper: check target alive ──
         auto target_alive = [&](entt::entity t) -> bool {
-            if (!reg.valid(t)) return false;
-            if (!reg.all_of<Damageable, Position2D, Health>(t)) return false;
-            if (reg.all_of<Dead>(t) && reg.get<Dead>(t).enabled) return false;
+            if (!reg.valid(t))
+                return false;
+            if (!reg.all_of<Damageable, Position2D, Health>(t))
+                return false;
+            if (reg.all_of<Dead>(t) && reg.get<Dead>(t).enabled)
+                return false;
             return true;
         };
 
@@ -113,7 +118,8 @@ inline void skill_cast_system(
                 1.0f - (lv.Value - 1) * rd.ManaReductionPerLevel
             );
             mana.Cur += rd.ManaCost * rm;
-            if (mana.Cur > mana.Max) mana.Cur = mana.Max;
+            if (mana.Cur > mana.Max)
+                mana.Cur = mana.Max;
             s.CooldownTimer = 0.0f;
         };
 
@@ -121,7 +127,8 @@ inline void skill_cast_system(
         case CastState::Phase::None: {
             if (cast_slot >= 0 && cast_slot < 4 && cs.RejectTimer <= 0.0f) {
                 auto &slot = skills.Slots[cast_slot];
-                if (!(slot.SkillId > 0)) break;
+                if (!(slot.SkillId > 0))
+                    break;
                 // Resolve target snapshot for Aiming (validated on confirm)
                 entt::entity tgt = resolve_target(input.CastTargetId);
                 cs.State = CastState::Phase::Aiming;
@@ -169,7 +176,8 @@ inline void skill_cast_system(
                 }
                 // Re-validate target for targeted skills (alive + in range)
                 if (def.Kind == SkillKind::MeleeSingle) {
-                    if (!target_alive(cs.TargetEntity) || !target_in_range(cs.TargetEntity, def)) {
+                    if (!target_alive(cs.TargetEntity) ||
+                        !target_in_range(cs.TargetEntity, def)) {
                         cs.State = CastState::Phase::None;
                         cs.ActiveSlot = -1;
                         cs.SkillId = 0;
@@ -228,7 +236,8 @@ inline void skill_cast_system(
             if (cs.Timer <= 0.0f) {
                 const auto &def = get_skill_def(cs.SkillId);
 
-                // Cast complete: target may have moved, but still deal damage if alive
+                // Cast complete: target may have moved, but still deal damage
+                // if alive
                 if (def.Kind == SkillKind::MeleeSingle) {
                     if (!target_alive(cs.TargetEntity)) {
                         refund_cast(cs.ActiveSlot, cs.SkillId);
@@ -304,7 +313,8 @@ inline void skill_cast_system(
                     def.ChannelTick > 0.0f ? def.ChannelTick : 0.5f;
                 cs.SubTimer = interval;
                 int count = def.BulletCount > 0 ? def.BulletCount : 16;
-                float dmg = def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
+                float dmg =
+                    def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
 
                 for (int i = 0; i < count; ++i) {
                     float angle =
@@ -364,7 +374,8 @@ inline void _trigger_effect(
         entt::entity tgt = cs.TargetEntity;
         // Target is guaranteed valid by caller (Casting timer expiry check)
         auto &hp = reg.get<Health>(tgt);
-        float skill_dmg = def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
+        float skill_dmg =
+            def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
         hp.Cur -= static_cast<int>(skill_dmg);
         if (reg.all_of<NetworkId>(tgt))
             cs.HitTargetId = reg.get<NetworkId>(tgt).Value;
@@ -375,9 +386,8 @@ inline void _trigger_effect(
             if (reg.all_of<BotAIState>(tgt))
                 reg.get<BotAIState>(tgt).RespawnTimer =
                     GameConfig::BotRespawnTime;
-            int victim_id = reg.all_of<NetworkId>(tgt)
-                                ? reg.get<NetworkId>(tgt).Value
-                                : 0;
+            int victim_id =
+                reg.all_of<NetworkId>(tgt) ? reg.get<NetworkId>(tgt).Value : 0;
             auto kill_view = reg.view<KillEventBuffer>();
             for (auto k : kill_view)
                 kill_view.get<KillEventBuffer>(k).events.push_back(
@@ -401,7 +411,8 @@ inline void _trigger_effect(
                 continue;
 
             auto &hp = target_view.get<Health>(t);
-            float skill_dmg = def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
+            float skill_dmg =
+                def.Damage + stats.Atk * GameConfig::SkillDamageAtkRatio;
             hp.Cur -= static_cast<int>(skill_dmg);
             if (hp.Cur <= 0) {
                 hp.Cur = 0;

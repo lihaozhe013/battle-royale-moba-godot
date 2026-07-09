@@ -26,7 +26,8 @@ godot::Ref<SimSnapshot> SnapshotBuilder::build(entt::registry &reg, int seq) {
 
 namespace {
 
-godot::Ref<SimSkillSlotSnap> _build_skill_slot(const SkillSlot &slot, int char_level) {
+godot::Ref<SimSkillSlotSnap>
+_build_skill_slot(const SkillSlot &slot, int char_level) {
     auto s = godot::Ref<SimSkillSlotSnap>(memnew(SimSkillSlotSnap));
     s->skill_id = slot.SkillId;
     s->level = char_level;
@@ -42,7 +43,8 @@ godot::Ref<SimSkillSlotSnap> _build_skill_slot(const SkillSlot &slot, int char_l
 }
 
 void _build_skills(
-    godot::TypedArray<SimSkillSlotSnap> &arr, const SkillComponent &skills,
+    godot::TypedArray<SimSkillSlotSnap> &arr,
+    const SkillComponent &skills,
     int char_level
 ) {
     for (int i = 0; i < 4; ++i) {
