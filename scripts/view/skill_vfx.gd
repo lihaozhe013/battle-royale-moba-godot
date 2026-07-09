@@ -15,7 +15,9 @@ var _dash_material: Material
 func _ready() -> void:
 	_cast_material = StandardMaterial3D.new()
 	_cast_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_cast_material.albedo_color = Color(0.2, 1.0, 0.2, 0.6)
+	_cast_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_cast_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_cast_material.albedo_color = Color(0.13, 1, 0.35)
 
 	_dash_material = StandardMaterial3D.new()
 	_dash_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -50,25 +52,32 @@ func sync(snap: SimSnapshot, _player_view = null) -> void:
 
 
 func _draw_cast_line(from_x: float, from_y: float, to_x: float, to_y: float) -> void:
+	var dx := to_x - from_x
+	var dz := to_y - from_y
+	var len := sqrt(dx * dx + dz * dz)
+	if len < 0.001:
+		_clear_cast_line()
+		return
+
 	if not _cast_mesh:
-		var mi := ImmediateMesh.new()
 		_cast_mesh = MeshInstance3D.new()
-		_cast_mesh.mesh = mi
+		var quad := QuadMesh.new()
+		quad.size = Vector2(1.0, 1.0)
+		_cast_mesh.mesh = quad
 		_cast_mesh.material_override = _cast_material
 		add_child(_cast_mesh)
 
-	var im := _cast_mesh.mesh as ImmediateMesh
-	im.clear_surfaces()
-	im.surface_begin(Mesh.PRIMITIVE_LINES, _cast_material)
-	im.surface_add_vertex(Vector3(from_x, 0.05, from_y))
-	im.surface_add_vertex(Vector3(to_x, 0.05, to_y))
-	im.surface_end()
+	var thickness := 0.3
+	var quad := _cast_mesh.mesh as QuadMesh
+	quad.size = Vector2(thickness, len)
+	_cast_mesh.position = Vector3((from_x + to_x) * 0.5, 0.1, (from_y + to_y) * 0.5)
+	_cast_mesh.rotation = Vector3(-PI * 0.5, atan2(dx, dz), 0.0)
+	_cast_mesh.visible = true
 
 
 func _clear_cast_line() -> void:
 	if _cast_mesh:
-		var im := _cast_mesh.mesh as ImmediateMesh
-		im.clear_surfaces()
+		_cast_mesh.visible = false
 
 
 func _draw_dash_path(sx: float, sy: float, cx: float, cy: float) -> void:
