@@ -91,11 +91,16 @@ inline void skill_cast_system(
             return entt::null;
         };
 
-        // ── Helper: validate target alive + in range ──
-        auto target_valid = [&](entt::entity t, const SkillDef &d) -> bool {
+        // ── Helper: check target alive ──
+        auto target_alive = [&](entt::entity t) -> bool {
             if (!reg.valid(t)) return false;
             if (!reg.all_of<Damageable, Position2D, Health>(t)) return false;
             if (reg.all_of<Dead>(t) && reg.get<Dead>(t).enabled) return false;
+            return true;
+        };
+
+        // ── Helper: check target in range ──
+        auto target_in_range = [&](entt::entity t, const SkillDef &d) -> bool {
             Vec2 delta = reg.get<Position2D>(t).Value - pos.Value;
             return vec2_length_sq(delta) <= d.Range * d.Range;
         };
@@ -135,10 +140,10 @@ inline void skill_cast_system(
                     cs.RejectTimer = 0.15f;
                     break;
                 }
-                // For MeleeSingle, require a valid target
+                // For MeleeSingle, require a valid alive target (no range check yet)
                 entt::entity tgt = resolve_target(input.CastTargetId);
                 if (mm_def.Kind == SkillKind::MeleeSingle) {
-                    if (tgt == entt::null || !target_valid(tgt, mm_def)) {
+                    if (tgt == entt::null || !target_alive(tgt)) {
                         cs.CastError = 4;
                         cs.RejectTimer = 0.15f;
                         break;
@@ -163,9 +168,9 @@ inline void skill_cast_system(
                 auto &slot = skills.Slots[cs.ActiveSlot];
                 const auto &def = get_skill_def(cs.SkillId);
 
-                // Re-validate target for targeted skills
+                // Re-validate target for targeted skills (alive + in range)
                 if (def.Kind == SkillKind::MeleeSingle) {
-                    if (!reg.valid(cs.TargetEntity) || !target_valid(cs.TargetEntity, def)) {
+                    if (!target_alive(cs.TargetEntity) || !target_in_range(cs.TargetEntity, def)) {
                         cs.State = CastState::Phase::None;
                         cs.ActiveSlot = -1;
                         cs.SkillId = 0;
@@ -230,9 +235,9 @@ inline void skill_cast_system(
             if (cs.Timer <= 0.0f) {
                 const auto &def = get_skill_def(cs.SkillId);
 
-                // Validate target before triggering MeleeSingle effect
+                // Cast complete: target may have moved, but still deal damage if alive
                 if (def.Kind == SkillKind::MeleeSingle) {
-                    if (!reg.valid(cs.TargetEntity) || !target_valid(cs.TargetEntity, def)) {
+                    if (!target_alive(cs.TargetEntity)) {
                         refund_cast(cs.ActiveSlot, cs.SkillId);
                         cs.State = CastState::Phase::None;
                         cs.ActiveSlot = -1;
