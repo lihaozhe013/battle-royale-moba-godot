@@ -4,4 +4,5 @@ compatibility_minimum = 4.7
 
 [libraries]
 windows.x86_64 = "res://addons/battle_royale_sim/battle_royale_sim.dll"
+linux.x86_64 = "res://addons/battle_royale_sim/libbattle_royale_sim.so"
 macos.arm64 = "res://addons/battle_royale_sim/libbattle_royale_sim.dylib"
