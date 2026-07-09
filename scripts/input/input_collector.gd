@@ -103,9 +103,10 @@ func _read_skill_input() -> void:
 	if cast_slot >= 0:
 		cast_aim = aim_world
 
-	# 2. 右键（边沿触发：按下帧才 cancel，持续压制会打断移动时的施法）
+	# 2. 右键（边沿触发：按下帧设 cast_cancel=true，由 _physics_process 消费后清零）
 	var right_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
-	cast_cancel = right_now and not _prev_right
+	if right_now and not _prev_right:
+		cast_cancel = true
 
 	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
 		# MOBA 模式：右键边沿 + 长按连点
