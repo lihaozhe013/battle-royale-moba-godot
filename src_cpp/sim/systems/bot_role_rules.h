@@ -18,8 +18,9 @@ roll_bot_level_for_role(entt::registry &reg, BotRole role, std::mt19937 &rng) {
             rng
         );
     case BotRole::Brute:
-        return std::uniform_int_distribution<
-            int>(GameConfig::BruteMinLv, GameConfig::MaxHeroLevel)(rng);
+        return std::uniform_int_distribution<int>(
+            GameConfig::BruteMinLv, GameConfig::MaxHeroLevel
+        )(rng);
     case BotRole::Stalker: {
         int plv = 1;
         auto pv = reg.view<PlayerTag, Level>();
@@ -29,8 +30,9 @@ roll_bot_level_for_role(entt::registry &reg, BotRole role, std::mt19937 &rng) {
                 break;
             }
         }
-        int off = std::uniform_int_distribution<
-            int>(-GameConfig::StalkerOffset, GameConfig::StalkerOffset)(rng);
+        int off = std::uniform_int_distribution<int>(
+            -GameConfig::StalkerOffset, GameConfig::StalkerOffset
+        )(rng);
         return std::clamp(plv + off, 1, GameConfig::MaxHeroLevel);
     }
     }
@@ -68,16 +70,14 @@ inline BotTierMult tier_mult(BotTier t) {
             GameConfig::EliteAtkMul,
             GameConfig::EliteAspMul,
             GameConfig::EliteSpeedMul,
-            GameConfig::EliteVisionMul
-        };
+            GameConfig::EliteVisionMul};
     case BotTier::Boss:
         return {
             GameConfig::BossHpMul,
             GameConfig::BossAtkMul,
             GameConfig::BossAspMul,
             GameConfig::BossSpeedMul,
-            GameConfig::BossVisionMul
-        };
+            GameConfig::BossVisionMul};
     case BotTier::Normal:
     default:
         return {
@@ -85,8 +85,7 @@ inline BotTierMult tier_mult(BotTier t) {
             GameConfig::NormalAtkMul,
             GameConfig::NormalAspMul,
             GameConfig::NormalSpeedMul,
-            GameConfig::NormalVisionMul
-        };
+            GameConfig::NormalVisionMul};
     }
 }
 

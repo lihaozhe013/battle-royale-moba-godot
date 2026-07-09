@@ -232,9 +232,9 @@ void World::_spawn_bot() {
 
     int new_lv;
     if (_count_high_level_bots() < 3) {
-        new_lv = std::uniform_int_distribution<int>(25, GameConfig::MaxHeroLevel)(
-            _rng
-        );
+        new_lv = std::uniform_int_distribution<int>(
+            25, GameConfig::MaxHeroLevel
+        )(_rng);
     } else {
         int plv = _get_player_level();
         int offset = std::uniform_int_distribution<int>(-3, 3)(_rng);
@@ -250,13 +250,12 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     auto mult = detail::tier_mult(tier);
 
     int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
-    float atk = (GameConfig::BotBaseAttack +
-                 (new_lv - 1) * GameConfig::AtkPerLevel) *
-                mult.AtkMul;
+    float atk =
+        (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::AtkPerLevel) *
+        mult.AtkMul;
     float asp = std::min(
-        (GameConfig::BotBaseAttackSpeed +
-         (new_lv - 1) * GameConfig::AspPerLevel) *
-            mult.AspMul,
+        (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::AspPerLevel
+        ) * mult.AspMul,
         GameConfig::AspMax
     );
     float spd =

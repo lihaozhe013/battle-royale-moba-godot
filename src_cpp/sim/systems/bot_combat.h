@@ -46,8 +46,14 @@ inline void bot_combat_system(
         float target_angle = std::atan2(to_target.y, to_target.x);
 
         ArrowSpawnContext ctx{
-            cb, id_state, now, pos.Value, target_angle, net.Value, e, stats.Atk
-        };
+            cb,
+            id_state,
+            now,
+            pos.Value,
+            target_angle,
+            net.Value,
+            e,
+            stats.Atk};
         try_fire(stats, ctx);
     }
 }

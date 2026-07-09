@@ -47,8 +47,7 @@ inline void player_fire_system(
         float aim_angle = std::atan2(aim_dir.y, aim_dir.x);
 
         ArrowSpawnContext ctx{
-            cb, id_state, now, pos.Value, aim_angle, net.Value, e, stats.Atk
-        };
+            cb, id_state, now, pos.Value, aim_angle, net.Value, e, stats.Atk};
         try_fire(stats, ctx);
     }
 }

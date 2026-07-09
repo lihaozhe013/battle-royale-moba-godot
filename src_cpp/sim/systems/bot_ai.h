@@ -113,7 +113,8 @@ inline void bot_ai_system(
 
                 reg.get_or_emplace<BotRole>(e) = role;
 
-                // step 3: determine level — ensure 3 bots >= 25, rest at player ±3
+                // step 3: determine level — ensure 3 bots >= 25, rest at player
+                // ±3
                 int plv = 1;
                 auto pv = reg.view<PlayerTag, Level>();
                 for (auto p : pv) {
@@ -134,11 +135,9 @@ inline void bot_ai_system(
                         25, GameConfig::MaxHeroLevel
                     )(rng);
                 } else {
-                    int offset =
-                        std::uniform_int_distribution<int>(-3, 3)(rng);
-                    new_lv = std::clamp(
-                        plv + offset, 1, GameConfig::MaxHeroLevel
-                    );
+                    int offset = std::uniform_int_distribution<int>(-3, 3)(rng);
+                    new_lv =
+                        std::clamp(plv + offset, 1, GameConfig::MaxHeroLevel);
                 }
 
                 // step 4: roll tier by role
@@ -148,8 +147,8 @@ inline void bot_ai_system(
                 // step 5: apply stats
                 reg.get_or_emplace<BotTier>(e) = tier;
                 lv.Value = new_lv;
-                int base_hp = GameConfig::BotHp +
-                              (new_lv - 1) * GameConfig::HpPerLevel;
+                int base_hp =
+                    GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
                 hp.Max = static_cast<int>(base_hp * mult.HpMul);
                 hp.Cur = hp.Max;
                 stats.Atk = (GameConfig::BotBaseAttack +
@@ -172,12 +171,10 @@ inline void bot_ai_system(
                 float half = map_half - GameConfig::BotRadius;
                 pos.Value = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)
-                };
+                    std::uniform_real_distribution<float>(-half, half)(rng)};
                 ai.MoveTarget = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)
-                };
+                    std::uniform_real_distribution<float>(-half, half)(rng)};
                 ai.RespawnTimer = 0.0f;
                 ai.TargetEntity = entt::null;
                 ai.WanderTimer =
@@ -272,9 +269,7 @@ inline void bot_ai_system(
                     new_goal = BotBehaviorState::Goal::SeekHeal;
                     new_pickup = detail::_pick_top3_random(heal_pickups, rng);
                     goal_changed = true;
-                } else if (
-                    (!has_target || !enemy_in_vision) && !xp_pickups.empty()
-                ) {
+                } else if ((!has_target || !enemy_in_vision) && !xp_pickups.empty()) {
                     new_goal = BotBehaviorState::Goal::SeekXp;
                     new_pickup = detail::_pick_top3_random(xp_pickups, rng);
                     goal_changed = true;
@@ -419,8 +414,7 @@ inline void bot_ai_system(
                 float half = map_half - GameConfig::BotRadius;
                 ai.MoveTarget = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)
-                };
+                    std::uniform_real_distribution<float>(-half, half)(rng)};
                 ai.WanderTimer =
                     GameConfig::BotWanderIntervalMin +
                     std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
@@ -459,8 +453,7 @@ inline void bot_ai_system(
                 float half = map_half - GameConfig::BotRadius;
                 ai.MoveTarget = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)
-                };
+                    std::uniform_real_distribution<float>(-half, half)(rng)};
                 ai.WanderTimer =
                     GameConfig::BotWanderIntervalMin +
                     std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
