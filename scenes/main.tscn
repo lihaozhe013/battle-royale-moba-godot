@@ -1,16 +1,14 @@
 [gd_scene format=3 uid="uid://cry0jayrxwnon"]
 
-[ext_resource type="Script" uid="uid://df80gsa7bpecq" path="res://scripts/sim_bridge.gd" id="1"]
-[ext_resource type="Script" uid="uid://c4syamod1yhm8" path="res://scripts/input/input_collector.gd" id="2"]
-[ext_resource type="Script" uid="uid://brnrujh7vsgny" path="res://scripts/view/camera_controller.gd" id="3"]
-[ext_resource type="Script" uid="uid://dt2wkai6x8lsc" path="res://scripts/view/entity_manager.gd" id="4"]
-[ext_resource type="Script" uid="uid://b8gmdysmppq68" path="res://scripts/ui/stats_panel.gd" id="5"]
+[ext_resource type="Script" uid="uid://bwlalitrgnqls" path="res://scripts/sim_bridge.gd" id="1"]
+[ext_resource type="Script" uid="uid://bdppam86y7vha" path="res://scripts/input/input_collector.gd" id="2"]
+[ext_resource type="Script" uid="uid://b3thijxvorrs1" path="res://scripts/view/camera_controller.gd" id="3"]
+[ext_resource type="Script" uid="uid://bxqepavj2fq3s" path="res://scripts/view/entity_manager.gd" id="4"]
 [ext_resource type="Script" uid="uid://drplmxv7r2mk7" path="res://scripts/ui/health_bar_manager.gd" id="5_tefeu"]
 [ext_resource type="PackedScene" uid="uid://bottomhud0001" path="res://scenes/ui/bottom_hud.tscn" id="7_o6xl0"]
-[ext_resource type="Script" path="res://scripts/ui/settings_panel.gd" id="8_wwwnx"]
-[ext_resource type="PackedScene" path="res://scenes/ui/settings_panel.tscn" id="9_v5xly"]
-[ext_resource type="Script" path="res://scripts/view/move_target_vfx.gd" id="10_vfx"]
-[ext_resource type="PackedScene" path="res://scenes/ui/cast_bar.tscn" id="11_castbar"]
+[ext_resource type="PackedScene" uid="uid://dxl3jci1dkw6l" path="res://scenes/ui/settings_panel.tscn" id="9_v5xly"]
+[ext_resource type="Script" uid="uid://cl5dvfwyjhq88" path="res://scripts/view/move_target_vfx.gd" id="10_vfx"]
+[ext_resource type="PackedScene" uid="uid://d3kjdcr1iyerk" path="res://scenes/ui/cast_bar.tscn" id="11_castbar"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v5gy4"]
 
@@ -47,26 +45,6 @@ script = ExtResource("5_tefeu")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1670273018]
 
-[node name="StatsPanel" type="Control" parent="CanvasLayer" unique_id=1516278782]
-layout_mode = 3
-anchors_preset = 0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = 600.0
-offset_bottom = 40.0
-grow_horizontal = 0
-script = ExtResource("5")
-
-[node name="Label" type="Label" parent="CanvasLayer/StatsPanel" unique_id=628890548]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 18
-
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=982478743]
 transform = Transform3D(0.70710677, 0.49999997, -0.49999997, 0, 0.70710677, 0.70710677, 0.70710677, -0.49999997, 0.49999997, 98.29472, 109.10042, -117.59868)
 shadow_enabled = true
@@ -82,9 +60,9 @@ environment = SubResource("Environment_gm6fy")
 
 [node name="SkillVFX" type="Node3D" parent="." unique_id=1251323724]
 
-[node name="SettingsPanel" parent="." instance=ExtResource("9_v5xly")]
+[node name="SettingsPanel" parent="." unique_id=1397257629 instance=ExtResource("9_v5xly")]
 
-[node name="MoveTargetVFX" type="Node3D" parent="."]
+[node name="MoveTargetVFX" type="Node3D" parent="." unique_id=1972650434]
 script = ExtResource("10_vfx")
 
-[node name="CastBarLayer" parent="." instance=ExtResource("11_castbar")]
+[node name="CastBarLayer" parent="." unique_id=474895362 instance=ExtResource("11_castbar")]

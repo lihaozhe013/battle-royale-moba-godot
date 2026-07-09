@@ -11,7 +11,6 @@ var _prev_player_cast_slot := -1
 @onready var camera_controller = $CameraController
 @onready var entity_manager = $EntityManager
 @onready var health_bar_manager = $HealthBarManager
-@onready var stats_panel = $CanvasLayer/StatsPanel
 @onready var bottom_hud = $BottomHUD
 @onready var cast_bar_layer = $CastBarLayer
 var _skill_vfx: Node3D
@@ -154,7 +153,6 @@ func _process(_delta: float) -> void:
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
 		if p:
-			stats_panel.update(p)
 			camera_controller.follow_target(p.x, p.y)
 			bottom_hud.sync_player(p)
 			bottom_hud.sync_skills(p.skills)
