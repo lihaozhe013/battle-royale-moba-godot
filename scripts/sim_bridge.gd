@@ -70,6 +70,10 @@ func _spawn_wall_visuals(json_text: String) -> void:
 
 var _frame_tick_index := 0
 
+# ── 施法日志（方便调试点追踪 C 技能流程） ──
+var _log_prev_cast_slot := -1
+var _log_prev_cast_state := 0
+
 func _physics_process(delta: float) -> void:
 	var tick_rate = 1.0 / 30.0
 	_frame_tick_index = 0
@@ -162,6 +166,18 @@ func _process(_delta: float) -> void:
 				cast_bar_layer.show_error(p.cast_error)
 			var ev = entity_manager.get_entity(p.id)
 			_skill_vfx.sync(last_snapshot, ev)
+
+			# ── 施法流程日志 ──
+			if p.cast_slot != _log_prev_cast_slot:
+				print("[CAST] slot=%d state=%d err=%d hover=%d hov_ent=%d" % [p.cast_slot, p.cast_state, p.cast_error, input_collector.hovered_entity_id, input_collector.cast_target_id])
+				_log_prev_cast_slot = p.cast_slot
+			if p.cast_state != _log_prev_cast_state:
+				print("[CAST] state %d→%d slot=%d err=%d prog=%.2f" % [_log_prev_cast_state, p.cast_state, p.cast_slot, p.cast_error, p.cast_progress])
+				_log_prev_cast_state = p.cast_state
+			if p.cast_error > 0:
+				print("[CAST] ERROR=%d" % p.cast_error)
+			if p.hit_target_id >= 0:
+				print("[CAST] HIT target=%d" % p.hit_target_id)
 
 
 func _trigger_c_slash(target_id: int) -> void:
