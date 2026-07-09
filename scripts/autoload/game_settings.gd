@@ -11,7 +11,7 @@ signal edge_pan_speed_changed(v: float)
 signal smooth_pan_changed(on: bool)
 signal fullscreen_changed(m: FullscreenMode)
 
-var move_mode: MoveMode = MoveMode.WASD:
+var move_mode: MoveMode = MoveMode.MOBA:
 	set(value):
 		if move_mode == value:
 			return
@@ -19,7 +19,7 @@ var move_mode: MoveMode = MoveMode.WASD:
 		mode_changed.emit(move_mode)
 		_save()
 
-var camera_mode: CamMode = CamMode.LOCKED:
+var camera_mode: CamMode = CamMode.FREE:
 	set(value):
 		if camera_mode == value:
 			return
@@ -27,7 +27,7 @@ var camera_mode: CamMode = CamMode.LOCKED:
 		camera_mode_changed.emit(camera_mode)
 		_save()
 
-var edge_pan: bool = false:
+var edge_pan: bool = true:
 	set(value):
 		if edge_pan == value:
 			return
@@ -35,7 +35,7 @@ var edge_pan: bool = false:
 		edge_pan_changed.emit(edge_pan)
 		_save()
 
-var edge_pan_speed: float = 14.0:
+var edge_pan_speed: float = 25.0:
 	set(value):
 		if edge_pan_speed == value:
 			return
@@ -43,7 +43,7 @@ var edge_pan_speed: float = 14.0:
 		edge_pan_speed_changed.emit(edge_pan_speed)
 		_save()
 
-var smooth_pan: bool = true:
+var smooth_pan: bool = false:
 	set(value):
 		if smooth_pan == value:
 			return
@@ -51,7 +51,7 @@ var smooth_pan: bool = true:
 		smooth_pan_changed.emit(smooth_pan)
 		_save()
 
-var fullscreen: FullscreenMode = FullscreenMode.WINDOWED:
+var fullscreen: FullscreenMode = FullscreenMode.EXCLUSIVE:
 	set(value):
 		if fullscreen == value:
 			return
