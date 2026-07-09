@@ -1,7 +1,7 @@
 # AGENTS.md — 项目上下文快照
 
-> 最后更新：2026-07-08
-> 当前阶段：视角操控方案（锁/自由 + 像素精准拖屏 + 边缘推屏 + Smooth Pan + 全屏/按住居中）已实施
+> 最后更新：2026-07-09
+> 当前阶段：MOBA 技能系统（指向性技能 + 悬停高亮 + 施法条 + 报错 + 真单位选取）已实施
 > 引擎：Godot 4.7
 > 架构：C++ GDExtension ECS (Sim) + GDScript (View)
 
@@ -9,8 +9,7 @@
 
 ## 项目概况
 
-大逃杀 MOBA 游戏。当前为俯视角射击原型，左键普攻（箭矢），5 个 Bot，有等级/XP/血包/成长系统。
-已新增**右键点地板寻路移动**、双控制模式（WASD / MOBA 点地板）、设置面板、右键长按连点、视角操控方案（锁/自由 + 像素精准拖屏 + 边缘推屏 + Smooth Pan 开关 + 全屏设置 + F1/Space 按住居中）。
+MOBA 游戏，俯视角。左键普攻 + Q/W/E/R 4 技能，支持 WASD / MOBA 双控制模式。有 Bot、等级/XP/血包/成长系统。
 
 ## 架构
 
@@ -36,7 +35,7 @@ Docs/Reference/
 ├── prompt.md                    ← 主设计文档 + MOBA 升级方案
 ├── sim_system_reference.md      ← C++ 层完整参考（组件/系统/快照/常量）
 ├── bot_ai_optimization.md       ← Bot AI 决策树设计
-├── skill_system_design.md       ← 4 技能系统完整设计方案（C/E/R/F）
+├── skill_system_design.md       ← 4 技能系统完整设计方案（Q/W/E/R）
 └── godot-editor-todo.md         ← 编辑器待办事项
 
 scripts/autoload/
@@ -47,7 +46,7 @@ scripts/ui/
 ├── health_bar_manager.gd        ← 血条池管理器（已有）
 ├── skill_slot_ui.gd             ← 技能槽（已有，已挂载）
 ├── item_slot_ui.gd              ← 物品槽（已有，已挂载）
-├── bottom_hud.gd                ← 底部 HUD（已有，动态 QWER/CERF label）
+├── bottom_hud.gd                ← 底部 HUD（已有，动态 QWER label）
 ├── stats_panel.gd               ← 旧 HUD 文字面板（已有）
 └── settings_panel.gd            ← 设置面板（ESC 开关，双列 HBox 布局，模式/相机/边缘推屏/速度/平滑/全屏 6 项设置）
 
@@ -107,8 +106,8 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | UI 脚本创建 | `skill_slot_ui.gd`, `item_slot_ui.gd`, `bottom_hud.gd` |
 | 占位图标生成 | 4 技能图标 + 3 鼠标指针 PNG |
 | 旧 skill_bar_hud 清理 | 已删除 |
-| **4 技能系统完整设计方案** | **`skill_system_design.md`**（C/E/R/F + 手动施法 + VFX） |
-| **C 技能刀光命中 VFX** | `skill_vfx_attachment.gd`, `entity_view.gd` |
+| **4 技能系统完整设计方案** | **`skill_system_design.md`**（Q/W/E/R + 手动施法 + VFX） |
+| **Q 技能刀光命中 VFX** | `skill_vfx_attachment.gd`, `entity_view.gd` |
 | **Bot 死亡停留时间 3s→8s** | `game_config.h` BotRespawnTime |
 | **右键点地板移动 + A* 寻路（C++ Sim）** | `right_click_movement_design.md` |
 | **双控制模式（WASD / MOBA QWER）** | `game_settings.gd`, `input_collector.gd` |
@@ -118,6 +117,11 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | **右键长按连点（~6Hz）** | `input_collector.gd` |
 | **ConfigFile 持久化模式偏好** | `game_settings.gd` |
 | **视角操控方案（锁/自由 + 像素精准拖屏 + 边缘推屏 + Smooth Pan + 全屏/按住居中）** | `camera_control_design.md` → `game_settings.gd`, `camera_controller.gd`, `settings_panel.gd/tscn` |
+| **Q 指向性技能（真单位选取）+ 返还** | `skill_cast.h` → `TargetEntity` / `target_alive` / `target_in_range` |
+| **悬停高亮** | `entity_view.gd`, `entity_manager.gd`, `sim_bridge.gd` |
+| **施法条 + Channeling 字样** | `cast_bar.tscn`, `cast_bar.gd` |
+| **施法错误报错 label** | `cast_bar.gd` + `cast_error` 快照字段 |
+| **瞄准绿线（Aiming VFX）** | `skill_vfx.gd`（已有） |
 
 ### ❌ 待做（C++ Sim 层 — 4 技能实施剩余）
 
@@ -125,10 +129,10 @@ src_cpp/sim/                     ← C++ Sim 层核心
 
 | 阶段 | 模块 | 关键产出 |
 |------|------|---------|
-| A | C 技能全链路最小闭环 | `skill_defs.h` + `skill_cast.h`(C) + CastState + input 重写 + 绿线 VFX |
-| B | R 位移 | Dashing 分支 + dash 推进 + 路径 VFX |
-| C | E AoE+眩晕 | AoEField effect + StatusEffect(Stun) + AoE 实体 + 灰圈 VFX |
-| D | F 大招 | Channeling + 16 方向弹幕 + Lifesteal + 光环 VFX |
+| A | Q 技能全链路最小闭环 | `skill_defs.h` + `skill_cast.h`(Q) + CastState + input 重写 + 绿线 VFX |
+| B | E 位移 | Dashing 分支 + dash 推进 + 路径 VFX |
+| C | W AoE+眩晕 | AoEField effect + StatusEffect(Stun) + AoE 实体 + 灰圈 VFX |
+| D | R 大招 | Channeling + 16 方向弹幕 + Lifesteal + 光环 VFX |
 | E | 数值 & 打磨 | 调参 |
 
 ### ❌ 待做（后续 MOBA 模块，非本次范围）
@@ -152,7 +156,7 @@ src_cpp/sim/                     ← C++ Sim 层核心
 
 ```
 SimSnapshot.seq / t / players[] / bots[] / arrows[] / pickups[] / events[]
-SimPlayerSnap: id, x, y, ang, hp, max_hp, mana, max_mana, atk, asp, speed, kills, level, xp, xp_needed, skills[], cast_state, cast_slot, cast_aim_x/y, dash_sx/sy, dash_tx/ty
+SimPlayerSnap: id, x, y, ang, hp, max_hp, mana, max_mana, atk, asp, speed, kills, level, xp, xp_needed, skills[], cast_state, cast_slot, cast_progress, cast_aim_x/y, dash_sx/sy, dash_tx/ty, hit_target_id, cast_error
 SimBotSnap:    id, x, y, ang, hp, max_hp, dead, mana, max_mana, atk, asp, kills, level, xp, xp_needed, speed, tier, skills[]
 SimArrowSnap:  id, x, y, ang
 SimPickupSnap: id, x, y, type(0/1/2), value
@@ -191,11 +195,11 @@ skill_cooldown → progression → snapshot_export
 | `SkillSlot` | `SkillId, Level, CooldownTimer, MaxCooldown, ManaCost` |
 | `SkillComponent` | `Slots[4]` |
 | `SkillPoints` | `Available` |
-| `CastState` | `State(Phase 枚举), ActiveSlot, SkillId, Timer, SubTimer, AimPos, DashStart, DashTarget` |
+| `CastState` | `State(Phase 枚举), ActiveSlot, SkillId, Timer, SubTimer, AimPos, DashStart, DashTarget, HitTargetId, CastError, TargetEntity` |
 | `StatusEffect` | `Type(StatusType 枚举), Timer` |
 | `AoETag` | `OwnerId, SkillId, Radius, Duration, Timer` |
 | `MovePath` | `Waypoints[], CurrentIndex, Following, FinalTarget` |
-| `LocalInputSingleton`/`PlayerInputState`（扩展） | `MoveTarget, MoveIssue, Stop` |
+| `LocalInputSingleton`/`PlayerInputState`（扩展） | `MoveTarget, MoveIssue, Stop, CastTargetId` |
 | `ArrowTag`（扩展） | `+LifestealRatio` |
 
 ## 新增 System（src_cpp/sim/systems/）
