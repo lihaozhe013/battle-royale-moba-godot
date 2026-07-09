@@ -55,8 +55,7 @@ inline void skill_cast_system(
 
         auto &cs = reg.get_or_emplace<CastState>(e);
 
-        // Clear per-tick cast state fields
-        cs.CastError = 0;
+        // Clear per-tick hit target (CastError persists until consumed by success or new error)
         cs.HitTargetId = -1;
 
         // Stun gate — 眩晕不能施法
@@ -123,32 +122,8 @@ inline void skill_cast_system(
             if (cast_slot >= 0 && cast_slot < 4 && cs.RejectTimer <= 0.0f) {
                 auto &slot = skills.Slots[cast_slot];
                 if (!(slot.SkillId > 0)) break;
-                const auto &mm_def = get_skill_def(slot.SkillId);
-                float cd = slot.CooldownTimer;
-                float mm_cost = mm_def.ManaCost * std::max(
-                    GameConfig::SkillManaReductionMin,
-                    1.0f - (lv.Value - 1) * mm_def.ManaReductionPerLevel
-                );
-
-                if (cd > 0.0f) {
-                    cs.CastError = 1;
-                    cs.RejectTimer = 0.15f;
-                    break;
-                }
-                if (mana.Cur < mm_cost) {
-                    cs.CastError = 2;
-                    cs.RejectTimer = 0.15f;
-                    break;
-                }
-                // For MeleeSingle, require a valid alive target (no range check yet)
+                // Resolve target snapshot for Aiming (validated on confirm)
                 entt::entity tgt = resolve_target(input.CastTargetId);
-                if (mm_def.Kind == SkillKind::MeleeSingle) {
-                    if (tgt == entt::null || !target_alive(tgt)) {
-                        cs.CastError = 4;
-                        cs.RejectTimer = 0.15f;
-                        break;
-                    }
-                }
                 cs.State = CastState::Phase::Aiming;
                 cs.ActiveSlot = cast_slot;
                 cs.EnteredSlot = cast_slot;
@@ -158,6 +133,7 @@ inline void skill_cast_system(
                 cs.Timer = 0.0f;
                 cs.SubTimer = 0.0f;
                 cs.AimPos = cast_aim;
+                cs.CastError = 0;
             }
             break;
         }
@@ -168,6 +144,29 @@ inline void skill_cast_system(
                 auto &slot = skills.Slots[cs.ActiveSlot];
                 const auto &def = get_skill_def(cs.SkillId);
 
+                // Validate cooldown
+                if (slot.CooldownTimer > 0.0f) {
+                    cs.State = CastState::Phase::None;
+                    cs.ActiveSlot = -1;
+                    cs.SkillId = 0;
+                    cs.CastError = 1;
+                    cs.RejectTimer = 0.3f;
+                    break;
+                }
+                // Validate mana cost
+                float mana_mult = std::max(
+                    GameConfig::SkillManaReductionMin,
+                    1.0f - (lv.Value - 1) * def.ManaReductionPerLevel
+                );
+                float effective_mana = def.ManaCost * mana_mult;
+                if (mana.Cur < effective_mana) {
+                    cs.State = CastState::Phase::None;
+                    cs.ActiveSlot = -1;
+                    cs.SkillId = 0;
+                    cs.CastError = 2;
+                    cs.RejectTimer = 0.3f;
+                    break;
+                }
                 // Re-validate target for targeted skills (alive + in range)
                 if (def.Kind == SkillKind::MeleeSingle) {
                     if (!target_alive(cs.TargetEntity) || !target_in_range(cs.TargetEntity, def)) {
@@ -184,12 +183,7 @@ inline void skill_cast_system(
                     GameConfig::SkillCDRMin,
                     1.0f - (lv.Value - 1) * GameConfig::SkillCDRPerLevel
                 );
-                float mana_mult = std::max(
-                    GameConfig::SkillManaReductionMin,
-                    1.0f - (lv.Value - 1) * def.ManaReductionPerLevel
-                );
                 float effective_cd = def.Cooldown * cdr_mult;
-                float effective_mana = def.ManaCost * mana_mult;
                 slot.MaxCooldown = effective_cd;
                 mana.Cur -= effective_mana;
                 mana.RegenTimer = GameConfig::ManaRegenDelay;
@@ -197,27 +191,24 @@ inline void skill_cast_system(
                 cs.AimPos = cast_aim;
                 cs.Timer = def.CastTime;
                 cs.State = CastState::Phase::Casting;
+                cs.CastError = 0;
                 break;
             }
             if (cast_cancel) {
                 cs.State = CastState::Phase::None;
                 cs.ActiveSlot = -1;
                 cs.SkillId = 0;
+                cs.CastError = 0;
+                cs.RejectTimer = 0.3f;
                 break;
             }
             if (cast_slot >= 0 && cast_slot != cs.ActiveSlot) {
                 auto &slot = skills.Slots[cast_slot];
-                if (slot.SkillId > 0 && slot.CooldownTimer <= 0.0f) {
-                    const auto &switch_def = get_skill_def(slot.SkillId);
-                    float mm = std::max(
-                        GameConfig::SkillManaReductionMin,
-                        1.0f - (lv.Value - 1) * switch_def.ManaReductionPerLevel
-                    );
-                    if (mana.Cur >= switch_def.ManaCost * mm) {
-                        cs.ActiveSlot = cast_slot;
-                        cs.SkillId = slot.SkillId;
-                        cs.AimPos = cast_aim;
-                    }
+                if (slot.SkillId > 0) {
+                    cs.ActiveSlot = cast_slot;
+                    cs.SkillId = slot.SkillId;
+                    cs.TargetEntity = resolve_target(input.CastTargetId);
+                    cs.AimPos = cast_aim;
                 }
             }
             break;
@@ -229,6 +220,8 @@ inline void skill_cast_system(
                 cs.State = CastState::Phase::None;
                 cs.ActiveSlot = -1;
                 cs.SkillId = 0;
+                cs.CastError = 0;
+                cs.RejectTimer = 0.3f;
                 break;
             }
             cs.Timer -= dt;
@@ -256,6 +249,7 @@ inline void skill_cast_system(
                     cs.State = CastState::Phase::None;
                     cs.ActiveSlot = -1;
                     cs.SkillId = 0;
+                    cs.CastError = 0;
                     break;
                 case SkillKind::Dash: {
                     Vec2 dir{1.0f, 0.0f};
@@ -267,12 +261,14 @@ inline void skill_cast_system(
                     float dash_speed = 20.0f;
                     cs.Timer = def.Range / dash_speed;
                     cs.State = CastState::Phase::Dashing;
+                    cs.CastError = 0;
                     break;
                 }
                 case SkillKind::ChannelBurst:
                     cs.Timer = def.EffectValue;
                     cs.SubTimer = 0.0f;
                     cs.State = CastState::Phase::Channeling;
+                    cs.CastError = 0;
                     break;
                 }
             }
@@ -287,6 +283,7 @@ inline void skill_cast_system(
                 cs.State = CastState::Phase::None;
                 cs.ActiveSlot = -1;
                 cs.SkillId = 0;
+                cs.CastError = 0;
             } else {
                 Vec2 dir = delta / dist;
                 float speed = 20.0f;
@@ -339,6 +336,7 @@ inline void skill_cast_system(
                 cs.State = CastState::Phase::None;
                 cs.ActiveSlot = -1;
                 cs.SkillId = 0;
+                cs.CastError = 0;
             }
             break;
         }
