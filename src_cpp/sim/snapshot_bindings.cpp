@@ -61,6 +61,8 @@ void SimPlayerSnap::_bind_methods() {
     BIND(SimPlayerSnap, dash_tx);
     BIND(SimPlayerSnap, dash_ty);
     BIND(SimPlayerSnap, status);
+    BIND(SimPlayerSnap, hit_target_id);
+    BIND(SimPlayerSnap, cast_error);
     ClassDB::bind_method(D_METHOD("get_skills"), &SimPlayerSnap::get_skills);
     ClassDB::bind_method(
         D_METHOD("set_skills", "v"), &SimPlayerSnap::set_skills
@@ -90,6 +92,8 @@ void SimPlayerSnap::_bind_methods() {
     PROP(SimPlayerSnap, Variant::FLOAT, dash_tx);
     PROP(SimPlayerSnap, Variant::FLOAT, dash_ty);
     PROP(SimPlayerSnap, Variant::INT, status);
+    PROP(SimPlayerSnap, Variant::INT, hit_target_id);
+    PROP(SimPlayerSnap, Variant::INT, cast_error);
     ADD_PROPERTY(
         PropertyInfo(
             Variant::ARRAY,

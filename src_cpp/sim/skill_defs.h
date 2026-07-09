@@ -40,7 +40,7 @@ inline const SkillDef &get_skill_def(int id) {
          0.05f,
          5.0f,
          40.0f,
-         3.0f,
+         8.0f,
          0.0f,
          0.0f,
          0.0f,

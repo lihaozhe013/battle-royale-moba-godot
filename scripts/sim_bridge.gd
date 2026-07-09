@@ -6,14 +6,18 @@ var elapsed: float = 0.0
 var _last_snap_seq := -1
 var _prev_player_cast_state := 0
 var _prev_player_cast_slot := -1
+var _prev_player_cast_error := 0
 
 @onready var input_collector = $InputCollector
 @onready var camera_controller = $CameraController
 @onready var entity_manager = $EntityManager
 @onready var health_bar_manager = $HealthBarManager
-@onready var stats_panel = $CanvasLayer/StatsPanel
 @onready var bottom_hud = $BottomHUD
+@onready var cast_bar_layer = $CastBarLayer
+@onready var cast_error_layer = $CastErrorLayer
 var _skill_vfx: Node3D
+
+const HOVER_RADIUS := 2.0
 
 
 func _ready() -> void:
@@ -67,12 +71,18 @@ func _spawn_wall_visuals(json_text: String) -> void:
 
 var _frame_tick_index := 0
 
+# ── 施法日志（方便调试点追踪 C 技能流程） ──
+var _log_prev_cast_slot := -1
+var _log_prev_cast_state := 0
+
 func _physics_process(delta: float) -> void:
 	var tick_rate = 1.0 / 30.0
 	_frame_tick_index = 0
 	elapsed += delta
 	while elapsed >= tick_rate:
 		_frame_tick_index += 1
+		# 边沿脉冲只在帧首 tick 发送，catch-up 不发
+		var first_tick := _frame_tick_index == 1
 		sim.set_local_input(
 			input_collector.move_input,
 			input_collector.aim_world,
@@ -82,13 +92,12 @@ func _physics_process(delta: float) -> void:
 		sim.set_cast_input(
 			input_collector.cast_slot,
 			input_collector.cast_confirm,
-			input_collector.cast_cancel,
+			input_collector.cast_cancel and first_tick,
 			input_collector.cast_interrupt,
 			input_collector.cast_aim.x,
-			input_collector.cast_aim.y
+			input_collector.cast_aim.y,
+			input_collector.cast_target_id
 		)
-		# 边沿脉冲只在帧首 tick 发送，catch-up 不发
-		var first_tick := _frame_tick_index == 1
 		sim.set_move_command(
 			input_collector.move_cmd_target.x,
 			input_collector.move_cmd_target.y,
@@ -110,11 +119,27 @@ func _physics_process(delta: float) -> void:
 	# 消费后清边沿脉冲（防 _physics 隔帧丢信号）
 	input_collector.move_cmd_issue = false
 	input_collector.stop = false
+	input_collector.cast_cancel = false
 
 
 func _process(_delta: float) -> void:
 	if not last_snapshot:
 		return
+
+	# ── 悬停检测 ──
+	var hover_id := -1
+	var aim: Vector2 = input_collector.aim_world
+	var hover_sq := HOVER_RADIUS * HOVER_RADIUS
+	for b in last_snapshot.bots:
+		if b.dead:
+			continue
+		var d_sq := Vector2(b.x, b.y).distance_squared_to(aim)
+		if d_sq < hover_sq:
+			hover_sq = d_sq
+			hover_id = b.id
+	entity_manager.set_hover_id(hover_id)
+	input_collector.hovered_entity_id = hover_id
+
 	if last_snapshot.seq != _last_snap_seq:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
@@ -123,35 +148,46 @@ func _process(_delta: float) -> void:
 			var p := last_snapshot.players[0] as SimPlayerSnap
 			if p:
 				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
-					# cooldown > 0 表示技能实际释放成功（打断退款会重置 CD）
-					var slot0 = p.skills[0] if p.skills.size() > 0 else null
-					if slot0 and slot0.cooldown > 0:
-						_trigger_c_slash(p)
+					if p.hit_target_id >= 0:
+						_trigger_c_slash(p.hit_target_id)
+				# 错误显示：仅当从 Aiming/Casting 回到 None 时（左键确认失败/施法结束目标死亡）
+				var prev_state := _prev_player_cast_state
 				_prev_player_cast_state = p.cast_state
 				_prev_player_cast_slot = p.cast_slot
+				if prev_state >= 1 and p.cast_state == 0:
+					if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
+						cast_error_layer.show_error(p.cast_error)
+				_prev_player_cast_error = p.cast_error
+
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
 		if p:
-			stats_panel.update(p)
 			camera_controller.follow_target(p.x, p.y)
 			bottom_hud.sync_player(p)
 			bottom_hud.sync_skills(p.skills)
+			if p.cast_state >= 2:
+				cast_bar_layer.sync_cast(p.cast_progress)
+			else:
+				cast_bar_layer.hide_cast()
 			var ev = entity_manager.get_entity(p.id)
 			_skill_vfx.sync(last_snapshot, ev)
 
+			# ── 施法流程日志 ──
+			if p.cast_slot != _log_prev_cast_slot:
+				print("[CAST] slot=%d state=%d err=%d hover=%d hov_ent=%d" % [p.cast_slot, p.cast_state, p.cast_error, input_collector.hovered_entity_id, input_collector.cast_target_id])
+				_log_prev_cast_slot = p.cast_slot
+			if p.cast_state != _log_prev_cast_state:
+				print("[CAST] state %d→%d slot=%d err=%d prog=%.2f" % [_log_prev_cast_state, p.cast_state, p.cast_slot, p.cast_error, p.cast_progress])
+				_log_prev_cast_state = p.cast_state
+			if p.cast_error > 0:
+				print("[CAST] ERROR=%d" % p.cast_error)
+			if p.hit_target_id >= 0:
+				print("[CAST] HIT target=%d" % p.hit_target_id)
 
-func _trigger_c_slash(p: SimPlayerSnap) -> void:
-	var aim_pos := Vector2(p.cast_aim_x, p.cast_aim_y)
-	var range_sq := 9.0
-	var target_id := -1
 
-	for b in last_snapshot.bots:
-		var d_sq := Vector2(b.x, b.y).distance_squared_to(aim_pos)
-		if d_sq < range_sq:
-			range_sq = d_sq
-			target_id = b.id
-
-	if target_id >= 0:
-		var view = entity_manager.get_entity(target_id)
-		if view and is_instance_valid(view) and view.skill_vfx_attachment:
-			view.skill_vfx_attachment.show_c_slash()
+func _trigger_c_slash(target_id: int) -> void:
+	if target_id < 0:
+		return
+	var view = entity_manager.get_entity(target_id)
+	if view and is_instance_valid(view) and view.skill_vfx_attachment:
+		view.skill_vfx_attachment.show_c_slash()

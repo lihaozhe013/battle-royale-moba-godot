@@ -79,6 +79,7 @@ struct PlayerInputState {
     bool CastCancel = false;
     bool CastInterrupt = false;
     Vec2 CastAim{0.0f};
+    int CastTargetId = -1;
     Vec2 MoveTarget{0.0f};
     bool MoveIssue = false;
     bool Stop = false;
@@ -165,6 +166,9 @@ struct CastState {
     Vec2 AimPos{0.0f};
     Vec2 DashStart{0.0f};
     Vec2 DashTarget{0.0f};
+    int HitTargetId = -1;
+    int CastError = 0;
+    entt::entity TargetEntity = entt::null;
 };
 
 // ── AoE components ──
@@ -265,6 +269,7 @@ struct LocalInputSingleton {
     bool CastCancel = false;
     bool CastInterrupt = false;
     Vec2 CastAim{0.0f};
+    int CastTargetId = -1;
     Vec2 MoveTarget{0.0f};
     bool MoveIssue = false;
     bool Stop = false;

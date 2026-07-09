@@ -26,6 +26,10 @@ var _red_mat: Material
 var _child_meshes: Array[MeshInstance3D]
 var _dead := false
 
+# 悬停高亮
+var _hovered := false
+var _highlight_mat: Material
+
 var skill_vfx_attachment: Node3D
 
 const SKILL_VFX_ATTACHMENT_SCRIPT := preload("res://scripts/view/skill_vfx_attachment.gd")
@@ -48,6 +52,12 @@ func _ready() -> void:
 	_red_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_red_mat.albedo_color = Color(1.0, 0.0, 0.0, 0.6)
 	_red_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
+	_highlight_mat = StandardMaterial3D.new()
+	_highlight_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_highlight_mat.albedo_color = Color(1.0, 0.9, 0.4, 0.35)
+	_highlight_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
 	for child in find_children("*", "MeshInstance3D", true, false):
 		_child_meshes.append(child as MeshInstance3D)
 
@@ -133,12 +143,19 @@ func _process(delta: float) -> void:
 			m.material_override = _red_mat
 		if _flash_timer <= 0.0:
 			for m in _child_meshes:
-				m.material_override = null
+				m.material_override = _highlight_mat if _hovered else null
+	else:
+		for m in _child_meshes:
+			m.material_override = _highlight_mat if _hovered else null
 
 	if _anim_player and _anim_run != "" and _anim_idle != "":
 		var target := _anim_run if _moving else _anim_idle
 		if _anim_player.current_animation != target:
 			_anim_player.play(target)
+
+
+func set_hovered(v: bool) -> void:
+	_hovered = v
 
 
 func _create_fallback_mesh(type: int, ptype: int) -> void:
