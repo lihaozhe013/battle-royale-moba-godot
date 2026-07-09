@@ -432,7 +432,7 @@ fullscreen=0         # 新增  0=WINDOWED 1=BORDERLESS 2=EXCLUSIVE
 
 - **不动 `move_mode` 与 MOBA/WASD 双模式**：本方案放在 GameSettings 同一 singleton，互不冲突。
 - **不动 `move_target_vfx`**：视角切换不影响右键 ping VFX（VFX 由 input_collector `move_issued` 信号触发，与相机模式无关）。
-- **不动 `bottom_hud`**：HUD 按模式显示 QWER/CERF，与相机模式正交。
+- **不动 `bottom_hud`**：HUD 按模式显示 QWER，与相机模式正交。
 - **不动 `skill_vfx`**：技能 VFX 同样依赖 viewport 当前相机，切视角时 ray origin 仍正确。
 
 ---
