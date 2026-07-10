@@ -29,6 +29,12 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
             if (reg.all_of<Dead>(target) && reg.get<Dead>(target).enabled)
                 continue;
 
+            // Homing 箭矢只检测锁定目标
+            if (reg.all_of<Homing>(arrow)) {
+                auto &hom = reg.get<Homing>(arrow);
+                if (target != hom.Target) continue;
+            }
+
             float target_radius = reg.all_of<BotTag>(target)
                                       ? GameConfig::BotRadius
                                       : GameConfig::PlayerRadius;

@@ -22,6 +22,10 @@ void SimServer::_bind_methods() {
         godot::D_METHOD("set_stop", "stop"),
         &SimServer::set_stop);
     godot::ClassDB::bind_method(
+        godot::D_METHOD("set_attack_command", "target_id", "attack_ground",
+                        "ground_x", "ground_y", "attack_clear"),
+        &SimServer::set_attack_command);
+    godot::ClassDB::bind_method(
         godot::D_METHOD("tick", "delta"),
         &SimServer::tick);
     godot::ClassDB::bind_method(
@@ -55,6 +59,11 @@ void SimServer::set_move_command(float target_x, float target_y, bool issue) {
 
 void SimServer::set_stop(bool stop) {
     _world.set_stop(stop);
+}
+
+void SimServer::set_attack_command(int target_id, bool attack_ground,
+                                    float ground_x, float ground_y, bool attack_clear) {
+    _world.set_attack_command(target_id, attack_ground, ground_x, ground_y, attack_clear);
 }
 
 void SimServer::tick(double delta) {

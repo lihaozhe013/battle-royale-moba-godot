@@ -62,6 +62,7 @@ class SimPlayerSnap : public godot::RefCounted {
     int status = 0; // StatusType: 0=None, 1=Root(禁锢), 2=Stun(眩晕)
     int hit_target_id = -1;
     int cast_error = 0;
+    int attack_target_id = -1;
     godot::TypedArray<SimSkillSlotSnap> skills;
 
     int get_id() const { return id; }
@@ -118,6 +119,8 @@ class SimPlayerSnap : public godot::RefCounted {
     void set_hit_target_id(int v) { hit_target_id = v; }
     int get_cast_error() const { return cast_error; }
     void set_cast_error(int v) { cast_error = v; }
+    int get_attack_target_id() const { return attack_target_id; }
+    void set_attack_target_id(int v) { attack_target_id = v; }
     godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
     void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) {
         skills = v;

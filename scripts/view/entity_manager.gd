@@ -15,6 +15,7 @@ const PICKUP_PATHS := {
 
 var _entities = {}  # id -> EntityView
 var _hovered_id := -1
+var _attack_target_id := -1
 
 func sync_entities(snap: SimSnapshot) -> void:
 	var seen = {}
@@ -68,6 +69,15 @@ func set_hover_id(id: int) -> void:
 	_hovered_id = id
 	if id >= 0 and _entities.has(id):
 		_entities[id].set_hovered(true)
+
+func set_attack_target_id(id: int) -> void:
+	if _attack_target_id == id:
+		return
+	if _attack_target_id >= 0 and _entities.has(_attack_target_id):
+		_entities[_attack_target_id].set_attack_targeted(false)
+	_attack_target_id = id
+	if id >= 0 and _entities.has(id):
+		_entities[id].set_attack_targeted(true)
 
 
 func _instantiate_prefab(type: int, ptype: int) -> EntityView:

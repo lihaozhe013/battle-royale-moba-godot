@@ -79,9 +79,10 @@ func _physics_process(delta: float) -> void:
 	var tick_rate = 1.0 / 30.0
 	_frame_tick_index = 0
 	elapsed += delta
+	var ran_tick := false
 	while elapsed >= tick_rate:
 		_frame_tick_index += 1
-		# 边沿脉冲只在帧首 tick 发送，catch-up 不发
+		ran_tick = true
 		var first_tick := _frame_tick_index == 1
 		sim.set_local_input(
 			input_collector.move_input,
@@ -106,7 +107,21 @@ func _physics_process(delta: float) -> void:
 		sim.set_stop(
 			input_collector.stop and first_tick
 		)
+		if input_collector.attack_target_id >= 0 or input_collector.attack_ground:
+			print("[ATK] set_attack_command target=", input_collector.attack_target_id, " ground=", input_collector.attack_ground)
+		sim.set_attack_command(
+			input_collector.attack_target_id,
+			input_collector.attack_ground,
+			input_collector.attack_ground_pos.x,
+			input_collector.attack_ground_pos.y,
+			input_collector.attack_clear
+		)
 		sim.tick(tick_rate)
+		if first_tick:
+			input_collector.stop = false
+			input_collector.move_cmd_issue = false
+			input_collector.cast_cancel = false
+			input_collector.attack_clear = false
 		elapsed -= tick_rate
 		if sim.is_game_over():
 			print("=== GAME OVER ===")
@@ -116,10 +131,14 @@ func _physics_process(delta: float) -> void:
 		if snap is SimSnapshot:
 			last_snapshot = snap
 
-	# 消费后清边沿脉冲（防 _physics 隔帧丢信号）
-	input_collector.move_cmd_issue = false
-	input_collector.stop = false
-	input_collector.cast_cancel = false
+	if ran_tick:
+		input_collector.attack_target_id = -1
+		input_collector.attack_ground = false
+		input_collector.attack_ground_pos = Vector2.ZERO
+		input_collector.cast_cancel = false
+	input_collector.attack_target_id = -1
+	input_collector.attack_ground = false
+	input_collector.attack_clear = false
 
 
 func _process(_delta: float) -> void:
@@ -144,6 +163,10 @@ func _process(_delta: float) -> void:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
 		health_bar_manager.sync_bars(last_snapshot)
+		if last_snapshot.players.size() > 0:
+			var p2 := last_snapshot.players[0] as SimPlayerSnap
+			if p2:
+				entity_manager.set_attack_target_id(p2.attack_target_id)
 		if last_snapshot.players.size() > 0:
 			var p := last_snapshot.players[0] as SimPlayerSnap
 			if p:

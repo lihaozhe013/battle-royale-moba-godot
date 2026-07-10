@@ -83,6 +83,10 @@ struct PlayerInputState {
     Vec2 MoveTarget{0.0f};
     bool MoveIssue = false;
     bool Stop = false;
+    int AttackTargetId = -1;
+    bool AttackGround = false;
+    Vec2 AttackGroundPos{0.0f};
+    bool AttackClear = false;
 };
 
 struct CombatStats {
@@ -190,6 +194,20 @@ struct ArrowTag {
     float LifestealRatio = 0.0f;
 };
 
+struct AttackTarget {
+    entt::entity Target = entt::null;
+    int TargetNetworkId = -1;
+    int  PendingTargetId = -1;
+    bool PendingGround    = false;
+    Vec2 PendingGroundPos{0.0f};
+    bool Chasing = false;
+};
+
+struct Homing {
+    entt::entity Target = entt::null;
+    int TargetNetId = -1;
+};
+
 // ── WallComponents.cs ────────────────────────────────────────────────────
 
 struct WallTag {};
@@ -273,6 +291,10 @@ struct LocalInputSingleton {
     Vec2 MoveTarget{0.0f};
     bool MoveIssue = false;
     bool Stop = false;
+    int AttackTargetId = -1;
+    bool AttackGround = false;
+    Vec2 AttackGroundPos{0.0f};
+    bool AttackClear = false;
 };
 
 struct MapBounds {
