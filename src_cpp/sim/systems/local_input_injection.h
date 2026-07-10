@@ -28,6 +28,10 @@ inline void local_input_injection_system(
         state.MoveTarget = input.MoveTarget;
         state.MoveIssue = input.MoveIssue;
         state.Stop = input.Stop;
+        state.AttackTargetId = input.AttackTargetId;
+        state.AttackGround = input.AttackGround;
+        state.AttackGroundPos = input.AttackGroundPos;
+        state.AttackClear = input.AttackClear;
     }
 }
 

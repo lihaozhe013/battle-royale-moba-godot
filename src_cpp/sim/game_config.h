@@ -122,6 +122,11 @@ struct GameConfig {
     static constexpr float BotManaRegen = 3.0f;
     static constexpr float ManaRegenDelay = 3.0f;
 
+    // ── 指向性普攻 ──
+    static constexpr float PlayerAttackRange = 8.0f;
+    static constexpr float PlayerAttackRangeSq = PlayerAttackRange * PlayerAttackRange;
+    static constexpr float AttackAcquisitionRange = 15.0f;
+
     // ── Serialised ── Skill Definitions ──
     static constexpr int SkillCount = 4;
     // Player test skills: slot 0-3

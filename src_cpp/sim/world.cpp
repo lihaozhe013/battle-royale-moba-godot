@@ -29,6 +29,10 @@ void World::initialize(const std::string &map_json) {
         -1,
         Vec2{0.0f},
         false,
+        false,
+        -1,
+        false,
+        Vec2{0.0f},
         false
     );
 
@@ -110,6 +114,19 @@ void World::set_stop(bool stop) {
     }
 }
 
+void World::set_attack_command(
+    int target_id, bool attack_ground,
+    float ground_x, float ground_y, bool attack_clear
+) {
+    if (_local_input_entity != entt::null) {
+        auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
+        li.AttackTargetId  = target_id;
+        li.AttackGround     = attack_ground;
+        li.AttackGroundPos  = Vec2{ground_x, ground_y};
+        li.AttackClear      = attack_clear;
+    }
+}
+
 void World::tick(double dt) {
     if (_game_over)
         return;
@@ -119,13 +136,15 @@ void World::tick(double dt) {
 
     local_input_injection_system(_reg, _local_input_entity);
 
+    player_attack_command_system(_reg, fdt);
+
     player_pathfinding_system(_reg, _nav_grid);
 
     float map_half = _reg.get<MapBounds>(_map_bounds_entity).Half;
     player_movement_system(_reg, fdt, map_half);
 
     auto &ids = _reg.get<IdState>(_id_state_entity);
-    player_fire_system(_reg, _time, _cb, ids);
+    player_attack_fire_system(_reg, _time, _cb, ids);
 
     skill_cast_system(_reg, fdt, _cb, ids, _time);
     bot_targeting_system(_reg, _rng, fdt);
@@ -179,7 +198,7 @@ void World::_spawn_player(int player_id, bool is_local) {
         0.0f
     );
     _reg.emplace<CombatStats>(
-        e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, 0.0
+        e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, -999.0
     );
     _reg.emplace<Kills>(e, 0);
     _reg.emplace<PlayerInputState>(
@@ -196,6 +215,10 @@ void World::_spawn_player(int player_id, bool is_local) {
         -1,
         Vec2{0.0f},
         false,
+        false,
+        -1,
+        false,
+        Vec2{0.0f},
         false
     );
     _reg.emplace<Damageable>(e);
@@ -206,6 +229,7 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
     _reg.emplace<MovePath>(e);
+    _reg.emplace<AttackTarget>(e);
 
     SkillComponent sc;
     for (int i = 0; i < 4; ++i) {
@@ -292,7 +316,7 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<BotTier>(e, tier);
     _reg.emplace<BotRole>(e, role);
     _reg.emplace<BotVisionRange>(e, vis);
-    _reg.emplace<CombatStats>(e, atk, asp, 0.0);
+    _reg.emplace<CombatStats>(e, atk, asp, -999.0);
     _reg.emplace<Kills>(e, 0);
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);

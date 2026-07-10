@@ -63,6 +63,7 @@ void SimPlayerSnap::_bind_methods() {
     BIND(SimPlayerSnap, status);
     BIND(SimPlayerSnap, hit_target_id);
     BIND(SimPlayerSnap, cast_error);
+    BIND(SimPlayerSnap, attack_target_id);
     ClassDB::bind_method(D_METHOD("get_skills"), &SimPlayerSnap::get_skills);
     ClassDB::bind_method(
         D_METHOD("set_skills", "v"), &SimPlayerSnap::set_skills
@@ -94,6 +95,7 @@ void SimPlayerSnap::_bind_methods() {
     PROP(SimPlayerSnap, Variant::INT, status);
     PROP(SimPlayerSnap, Variant::INT, hit_target_id);
     PROP(SimPlayerSnap, Variant::INT, cast_error);
+    PROP(SimPlayerSnap, Variant::INT, attack_target_id);
     ADD_PROPERTY(
         PropertyInfo(
             Variant::ARRAY,

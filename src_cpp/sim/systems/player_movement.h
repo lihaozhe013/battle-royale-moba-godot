@@ -31,6 +31,11 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
         auto &input = view.get<PlayerInputState>(e);
         auto &speed = view.get<MoveSpeed>(e);
 
+        // 每帧重置 Chasing 标志
+        if (reg.all_of<AttackTarget>(e)) {
+            reg.get<AttackTarget>(e).Chasing = false;
+        }
+
         // Status gate (Root=禁锢=不移动, Stun=眩晕=不移动)
         if (reg.all_of<StatusEffect>(e)) {
             auto &st = reg.get<StatusEffect>(e);
@@ -71,6 +76,32 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                 path.Following = false;
             }
             continue;
+        }
+
+        // ── 追击分支 ──
+        if (!cast_block && reg.all_of<AttackTarget>(e)) {
+            auto &at = reg.get<AttackTarget>(e);
+            if (at.Target != entt::null && reg.valid(at.Target) &&
+                !(reg.all_of<Dead>(at.Target) && reg.get<Dead>(at.Target).enabled)) {
+                auto &target_pos = reg.get<Position2D>(at.Target).Value;
+                Vec2 delta = target_pos - pos.Value;
+                float dist = glm::length(delta);
+                if (dist > GameConfig::PlayerAttackRange) {
+                    Vec2 dir = delta / dist;
+                    float target_ang = std::atan2(dir.y, dir.x);
+                    float diff = pm_angle_diff(target_ang, angle.Radians);
+                    float max_turn = GameConfig::PathTurnRate * dt;
+                    if (std::abs(diff) > max_turn)
+                        diff = (diff > 0 ? max_turn : -max_turn);
+                    angle.Radians += diff;
+                    Vec2 step = dir * speed.Value * dt;
+                    pos.Value = vec2_clamp_to_map(pos.Value + step, map_half);
+                    at.Chasing = true;
+                    if (reg.all_of<MovePath>(e))
+                        reg.get<MovePath>(e).Following = false;
+                    continue;
+                }
+            }
         }
 
         // Path-following movement (only when cast allows movement)

@@ -129,6 +129,11 @@ void SnapshotBuilder::_build_players(
                 (max_timer > 0.0f) ? (1.0f - cs.Timer / max_timer) : 0.0f;
         }
 
+        s->attack_target_id = -1;
+        if (reg.all_of<AttackTarget>(e)) {
+            s->attack_target_id = reg.get<AttackTarget>(e).TargetNetworkId;
+        }
+
         snap->players.push_back(s);
     }
 }

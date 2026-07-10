@@ -30,6 +30,10 @@ var _dead := false
 var _hovered := false
 var _highlight_mat: Material
 
+# 攻击锁定指示器
+var _attack_targeted := false
+var _attack_target_mat: Material
+
 var skill_vfx_attachment: Node3D
 
 const SKILL_VFX_ATTACHMENT_SCRIPT := preload("res://scripts/view/skill_vfx_attachment.gd")
@@ -57,6 +61,11 @@ func _ready() -> void:
 	_highlight_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_highlight_mat.albedo_color = Color(1.0, 0.9, 0.4, 0.35)
 	_highlight_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
+	_attack_target_mat = StandardMaterial3D.new()
+	_attack_target_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_attack_target_mat.albedo_color = Color(1.0, 0.25, 0.25, 0.45)
+	_attack_target_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 
 	for child in find_children("*", "MeshInstance3D", true, false):
 		_child_meshes.append(child as MeshInstance3D)
@@ -136,17 +145,19 @@ func _process(delta: float) -> void:
 	position = _prev_pos.lerp(_curr_pos, t)
 	rotation = Vector3(0, sim_to_godot_yaw(lerp_angle(_prev_ang, _curr_ang, t)), 0)
 
-	# 受击红闪
+	# 材质优先级：受击红闪 > 攻击锁定(红) > 悬停高亮(黄) > 无
 	if _flash_timer > 0.0:
 		_flash_timer -= delta
 		for m in _child_meshes:
 			m.material_override = _red_mat
 		if _flash_timer <= 0.0:
+			var mat = _attack_target_mat if _attack_targeted else (_highlight_mat if _hovered else null)
 			for m in _child_meshes:
-				m.material_override = _highlight_mat if _hovered else null
+				m.material_override = mat
 	else:
+		var mat = _attack_target_mat if _attack_targeted else (_highlight_mat if _hovered else null)
 		for m in _child_meshes:
-			m.material_override = _highlight_mat if _hovered else null
+			m.material_override = mat
 
 	if _anim_player and _anim_run != "" and _anim_idle != "":
 		var target := _anim_run if _moving else _anim_idle
@@ -156,6 +167,9 @@ func _process(delta: float) -> void:
 
 func set_hovered(v: bool) -> void:
 	_hovered = v
+
+func set_attack_targeted(v: bool) -> void:
+	_attack_targeted = v
 
 
 func _create_fallback_mesh(type: int, ptype: int) -> void:
@@ -182,7 +196,7 @@ func _create_fallback_mesh(type: int, ptype: int) -> void:
 			cyl.height = 0.6
 			m.mesh = cyl
 			var mat = StandardMaterial3D.new()
-			mat.albedo_color = Color(1.0, 0.8, 0.0)
+			mat.albedo_color = Color(0.2, 0.6, 1.0)
 			m.mesh.surface_set_material(0, mat)
 			m.rotation = Vector3(0, 0, -PI / 2)
 			m.position.y = 0.8

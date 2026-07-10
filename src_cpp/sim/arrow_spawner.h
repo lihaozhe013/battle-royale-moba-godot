@@ -18,6 +18,8 @@ struct ArrowSpawnContext {
     entt::entity owner_entity;
     float dmg;
     float lifesteal_ratio = 0.0f;
+    entt::entity homing_target       = entt::null;
+    int            homing_target_net_id = -1;
 };
 
 inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
@@ -42,6 +44,9 @@ inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
         );
         reg.emplace<Lifetime>(e, GameConfig::ArrowLifetime);
         reg.emplace<NetworkId>(e, arrow_id);
+        if (ctx.homing_target != entt::null) {
+            reg.emplace<Homing>(e, ctx.homing_target, ctx.homing_target_net_id);
+        }
     });
 
     return true;

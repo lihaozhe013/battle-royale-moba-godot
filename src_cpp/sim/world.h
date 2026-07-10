@@ -13,7 +13,8 @@
 #include "systems/local_input_injection.h"
 #include "systems/mana_regen.h"
 #include "systems/pickup.h"
-#include "systems/player_fire.h"
+#include "systems/player_attack_command.h"
+#include "systems/player_attack_fire.h"
 #include "systems/player_movement.h"
 #include "systems/player_pathfinding.h"
 #include "systems/progression.h"
@@ -46,6 +47,8 @@ class World {
     );
     void set_move_command(float target_x, float target_y, bool issue);
     void set_stop(bool stop);
+    void set_attack_command(int target_id, bool attack_ground,
+                            float ground_x, float ground_y, bool attack_clear);
     void tick(double dt);
     bool is_game_over() const { return _game_over; }
 

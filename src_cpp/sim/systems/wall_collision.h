@@ -31,6 +31,12 @@ inline void wall_collision_system(entt::registry &reg, CommandBuffer &cb) {
             reg.get<CastState>(e).State == CastState::Phase::Dashing)
             continue;
 
+        // Skip wall collision for chasing players (穿墙追击)
+        if (reg.all_of<AttackTarget>(e)) {
+            auto &at = reg.get<AttackTarget>(e);
+            if (at.Chasing) continue;
+        }
+
         float radius = reg.all_of<BotTag>(e) ? GameConfig::BotRadius
                                              : GameConfig::PlayerRadius;
         auto &pos = mover_view.get<Position2D>(e);
@@ -45,6 +51,9 @@ inline void wall_collision_system(entt::registry &reg, CommandBuffer &cb) {
     // Arrows: destroy if inside any wall
     auto arrow_view = reg.view<ArrowTag, Position2D>();
     for (auto e : arrow_view) {
+        // Skip Homing arrows (穿墙飞行)
+        if (reg.all_of<Homing>(e)) continue;
+
         auto &pos = arrow_view.get<Position2D>(e);
         for (auto &w : walls) {
             if (point_inside_aabb(pos.Value, w.Min, w.Max)) {
