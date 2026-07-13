@@ -93,7 +93,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_Y:
 		GameSettings.camera_mode = (_mode + 1) % 2
 
-	if event is InputEventKey and (event.keycode == KEY_F1 or event.keycode == KEY_SPACE) and GameSettings.move_mode == GameSettings.MoveMode.MOBA and not event.echo:
+	if event is InputEventKey and (event.keycode == KEY_F1 or event.keycode == KEY_SPACE) and not event.echo:
 		if event.pressed:
 			if _mode != CAM_LOCKED:
 				GameSettings.camera_mode = CAM_LOCKED

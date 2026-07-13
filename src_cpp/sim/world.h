@@ -47,8 +47,7 @@ class World {
     );
     void set_move_command(float target_x, float target_y, bool issue);
     void set_stop(bool stop);
-    void set_attack_command(int target_id, bool attack_ground,
-                            float ground_x, float ground_y, bool attack_clear);
+    void set_attack_command(int target_id);
     void tick(double dt);
     bool is_game_over() const { return _game_over; }
 

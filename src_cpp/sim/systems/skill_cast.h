@@ -6,6 +6,8 @@
 #include "../game_config.h"
 #include "../skill_defs.h"
 #include "../vec2.h"
+#include "player_attack_command.h"
+#include <cstdio>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
@@ -125,7 +127,7 @@ inline void skill_cast_system(
 
         switch (cs.State) {
         case CastState::Phase::None: {
-            if (cast_slot >= 0 && cast_slot < 4 && cs.RejectTimer <= 0.0f) {
+            if (cast_slot >= 0 && cast_slot < 5 && cs.RejectTimer <= 0.0f) {
                 auto &slot = skills.Slots[cast_slot];
                 if (!(slot.SkillId > 0))
                     break;
@@ -150,6 +152,34 @@ inline void skill_cast_system(
             if (cast_confirm) {
                 auto &slot = skills.Slots[cs.ActiveSlot];
                 const auto &def = get_skill_def(cs.SkillId);
+
+                // Attack：直接写 AttackTarget，跳过 CD/蓝耗/Casting
+                if (def.Kind == SkillKind::Attack) {
+                    entt::entity tgt = resolve_target(input.CastTargetId);
+                    if (tgt != entt::null && target_alive(tgt)) {
+                        auto &at = reg.get_or_emplace<AttackTarget>(e);
+                        at.Target = tgt;
+                        at.TargetNetworkId = input.CastTargetId;
+                        stats.LastFireTime = -999.0;
+                        printf("[ATK] A+confirm target=%d\n", input.CastTargetId);
+                    } else {
+                        // 无悬停目标：从 AimPos 找最近敌人
+                        tgt = find_nearest_enemy(reg, cs.AimPos, GameConfig::AttackAcquisitionRange, e);
+                        if (tgt != entt::null) {
+                            int net_id = reg.all_of<NetworkId>(tgt) ? reg.get<NetworkId>(tgt).Value : -1;
+                            auto &at = reg.get_or_emplace<AttackTarget>(e);
+                            at.Target = tgt;
+                            at.TargetNetworkId = net_id;
+                            stats.LastFireTime = -999.0;
+                            printf("[ATK] A+ground found target=%d\n", net_id);
+                        }
+                    }
+                    cs.State = CastState::Phase::None;
+                    cs.ActiveSlot = -1;
+                    cs.SkillId = 0;
+                    cs.CastError = 0;
+                    break;
+                }
 
                 // Validate cooldown
                 if (slot.CooldownTimer > 0.0f) {

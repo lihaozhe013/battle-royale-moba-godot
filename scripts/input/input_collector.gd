@@ -19,39 +19,19 @@ var move_cmd_target := Vector2.ZERO
 var move_cmd_issue := false
 var stop := false
 
-var attack_command_mode := false
 var attack_target_id := -1
-var attack_ground := false
-var attack_ground_pos := Vector2.ZERO
-var attack_clear := false
 
-var _prev_skill := [false, false, false, false]
+var _prev_skill := [false, false, false, false, false]  # Q,W,E,R,A
 var _prev_right := false
 var _prev_s := false
-var _prev_attack := false
 
 const MIN_MOVE_INTERVAL := 0.08
 const MOVE_REPEAT_INTERVAL := 0.167
 var _last_move_time := 0.0
 
-var _skill_keys := [KEY_C, KEY_E, KEY_R, KEY_F]
-var _attack_key := ATTACK_KEY_WASD
-const SKILL_KEYS_WASD := [KEY_C, KEY_E, KEY_R, KEY_F]
-const SKILL_KEYS_MOBA := [KEY_Q, KEY_W, KEY_E, KEY_R]
-const ATTACK_KEY_WASD := KEY_Q
-const ATTACK_KEY_MOBA := KEY_A
-
-
-func _ready() -> void:
-	GameSettings.mode_changed.connect(_on_mode_changed)
-	_on_mode_changed(GameSettings.move_mode)
-
-
-func _on_mode_changed(m: int) -> void:
-	if m == GameSettings.MoveMode.MOBA:
-		_skill_keys = SKILL_KEYS_MOBA
-	else:
-		_skill_keys = SKILL_KEYS_WASD
+const SKILL_KEYS := [KEY_Q, KEY_W, KEY_E, KEY_R]
+const ATTACK_KEY := KEY_A
+const ALL_KEYS := [KEY_Q, KEY_W, KEY_E, KEY_R, KEY_A]
 
 
 func _process(_delta: float) -> void:
@@ -62,19 +42,7 @@ func _process(_delta: float) -> void:
 
 
 func _read_move() -> void:
-	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
-		move_input = Vector2.ZERO
-		return
-
-	var h := 0.0
-	var v := 0.0
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):   v += 1
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): v -= 1
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): h += 1
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):h -= 1
-
-	var raw := Vector2(h, v)
-	move_input = raw.normalized() if raw.length_squared() > 1.0 else raw
+	move_input = Vector2.ZERO
 
 
 func _read_aim() -> void:
@@ -94,90 +62,65 @@ func _read_skill_input() -> void:
 	cast_confirm = false
 	cast_interrupt = false
 
-	# 1. 技能键 held → cast_slot
+	# 1. 检测技能键（Q/W/E/R）和攻击键（A）的 held
 	var any_held := -1
-	for i in 4:
-		var pressed = Input.is_key_pressed(_skill_keys[i])
+	for i in 5:
+		var pressed = Input.is_key_pressed(ALL_KEYS[i])
 		if pressed:
 			any_held = i
 		_prev_skill[i] = pressed
-	cast_slot = any_held
-	cast_target_id = hovered_entity_id if any_held >= 0 else -1
-	if cast_slot >= 0:
+
+	if any_held >= 0:
+		cast_slot = any_held
+		cast_target_id = hovered_entity_id if any_held < 4 else -1
 		cast_aim = aim_world
-		attack_command_mode = false
+	else:
+		cast_slot = -1
 
-	# 2. 攻击键边沿 → attack_command_mode
-	var attack_now := Input.is_key_pressed(_attack_key)
-	if attack_now and not _prev_attack:
-		print("[ATK] attack_command_mode=true key=", _attack_key)
-		attack_command_mode = true
-	_prev_attack = attack_now
-
-	# 3. 取消 attack_command_mode
-	if attack_command_mode:
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) \
-		   or Input.is_key_pressed(KEY_ESCAPE) \
-		   or Input.is_key_pressed(KEY_S) \
-		   or Input.is_key_pressed(KEY_H):
-			attack_command_mode = false
-
-	# 4. 左键 = 确认
+	# 2. 左键 = 技能确认（Aiming 中）或普攻（非 Aiming 中）
 	var left_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	if attack_command_mode and left_now:
-		if hovered_entity_id >= 0:
-			attack_target_id = hovered_entity_id
-			print("[ATK] A+左键点 target=", hovered_entity_id)
-		else:
-			attack_ground = true
-			attack_ground_pos = aim_world
-			print("[ATK] A+左键点地板 pos=", aim_world)
-		attack_command_mode = false
-		cast_confirm = false
-		fire = false
-	elif cast_slot >= 0 and left_now:
+	if cast_slot >= 0 and left_now:
 		cast_confirm = true
 		fire = false
+	elif left_now:
+		fire = true
 	else:
 		cast_confirm = false
 		fire = false
 
-	# 5. 右键处理
+	# 3. 右键处理（先检测边沿，再更新 _prev_right）
 	var right_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 	var right_edge := right_now and not _prev_right
 
 	if right_edge:
-		cast_cancel = true
-
-	if cast_slot < 0:
-		if hovered_entity_id >= 0 and right_edge:
+		cast_cancel = true  # Sim 仅在 Aiming/Casting 时消费
+		if hovered_entity_id >= 0:
+			# 右键点敌人 → 直接攻击
 			attack_target_id = hovered_entity_id
-			print("[ATK] 右键点 target=", hovered_entity_id)
-		elif hovered_entity_id < 0 and GameSettings.move_mode == GameSettings.MoveMode.MOBA:
+		else:
+			# 右键点空地 → 移动
 			var now := Time.get_ticks_msec() / 1000.0
-			var should_issue := false
-			if right_edge:
-				should_issue = now - _last_move_time >= MIN_MOVE_INTERVAL
-			elif right_now:
-				should_issue = now - _last_move_time >= MOVE_REPEAT_INTERVAL
-			if should_issue:
+			if now - _last_move_time >= MIN_MOVE_INTERVAL:
 				_last_move_time = now
 				move_cmd_target = aim_world
 				move_cmd_issue = true
 				move_issued.emit(move_cmd_target)
-				attack_clear = true
+	elif right_now and hovered_entity_id < 0:
+		# 右键长按连点（空地）
+		var now := Time.get_ticks_msec() / 1000.0
+		if now - _last_move_time >= MOVE_REPEAT_INTERVAL:
+			_last_move_time = now
+			move_cmd_target = aim_world
+			move_cmd_issue = true
+			move_issued.emit(move_cmd_target)
+
 	_prev_right = right_now
 
-	# 6. 打断键
-	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
-		cast_interrupt = Input.is_key_pressed(KEY_H) or Input.is_key_pressed(KEY_S)
-	else:
-		cast_interrupt = Input.is_key_pressed(KEY_H)
+	# 4. 打断键
+	cast_interrupt = Input.is_key_pressed(KEY_H) or Input.is_key_pressed(KEY_S)
 
-	# 7. S 键 stop + 清锁
-	if GameSettings.move_mode == GameSettings.MoveMode.MOBA:
-		var s_now := Input.is_key_pressed(KEY_S)
-		if s_now and not _prev_s:
-			stop = true
-			attack_clear = true
-		_prev_s = s_now
+	# 5. S 键 stop 脉冲
+	var s_now := Input.is_key_pressed(KEY_S)
+	if s_now and not _prev_s:
+		stop = true
+	_prev_s = s_now

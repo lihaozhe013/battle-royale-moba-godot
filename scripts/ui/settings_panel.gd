@@ -1,6 +1,5 @@
 extends CanvasLayer
 
-@onready var _mode_option: OptionButton = $PanelBg/ConfigName/Mode/ModeOption
 @onready var _camera_mode_option: OptionButton = $PanelBg/ConfigName/HBoxContainer2/CameraModeOption
 @onready var _edge_pan_option: OptionButton = $PanelBg/ConfigName/HBoxContainer3/EdgePanOption
 @onready var _edge_speed_spinbox: SpinBox = $PanelBg/ConfigName/HBoxContainer4/EdgeSpeedSpinBox
@@ -10,10 +9,6 @@ extends CanvasLayer
 
 func _ready() -> void:
 	visible = false
-
-	_mode_option.add_item("WASD", 0)
-	_mode_option.add_item("MOBA", 1)
-	_mode_option.select(GameSettings.move_mode)
 
 	_camera_mode_option.add_item("Locked", 0)
 	_camera_mode_option.add_item("Free", 1)
@@ -39,10 +34,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		visible = not visible
 		get_viewport().set_input_as_handled()
-
-
-func _on_mode_selected(index: int) -> void:
-	GameSettings.move_mode = index as GameSettings.MoveMode
 
 
 func _on_camera_mode_selected(index: int) -> void:

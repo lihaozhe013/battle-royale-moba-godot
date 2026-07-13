@@ -1,23 +1,13 @@
 extends Node
 
-enum MoveMode { WASD, MOBA }
 enum CamMode { LOCKED, FREE }
 enum FullscreenMode { WINDOWED, BORDERLESS, EXCLUSIVE }
 
-signal mode_changed(m: MoveMode)
 signal camera_mode_changed(m: CamMode)
 signal edge_pan_changed(on: bool)
 signal edge_pan_speed_changed(v: float)
 signal smooth_pan_changed(on: bool)
 signal fullscreen_changed(m: FullscreenMode)
-
-var move_mode: MoveMode = MoveMode.MOBA:
-	set(value):
-		if move_mode == value:
-			return
-		move_mode = value
-		mode_changed.emit(move_mode)
-		_save()
 
 var camera_mode: CamMode = CamMode.FREE:
 	set(value):
@@ -73,7 +63,6 @@ func _ready() -> void:
 func _load() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(CFG_PATH) == OK:
-		move_mode     = cfg.get_value(CFG_SECTION_CTRL, "move_mode", int(MoveMode.WASD)) as MoveMode
 		camera_mode   = cfg.get_value(CFG_SECTION_CTRL, "camera_mode", int(CamMode.LOCKED)) as CamMode
 		edge_pan      = bool(cfg.get_value(CFG_SECTION_CTRL, "edge_pan", false))
 		edge_pan_speed = float(cfg.get_value(CFG_SECTION_CTRL, "edge_pan_speed", 14.0))
@@ -83,7 +72,6 @@ func _load() -> void:
 
 func _save() -> void:
 	var cfg := ConfigFile.new()
-	cfg.set_value(CFG_SECTION_CTRL, "move_mode", int(move_mode))
 	cfg.set_value(CFG_SECTION_CTRL, "camera_mode", int(camera_mode))
 	cfg.set_value(CFG_SECTION_CTRL, "edge_pan", edge_pan)
 	cfg.set_value(CFG_SECTION_CTRL, "edge_pan_speed", edge_pan_speed)

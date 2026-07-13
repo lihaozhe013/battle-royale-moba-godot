@@ -71,7 +71,6 @@ func _spawn_wall_visuals(json_text: String) -> void:
 
 var _frame_tick_index := 0
 
-# ── 施法日志（方便调试点追踪 C 技能流程） ──
 var _log_prev_cast_slot := -1
 var _log_prev_cast_state := 0
 
@@ -107,21 +106,14 @@ func _physics_process(delta: float) -> void:
 		sim.set_stop(
 			input_collector.stop and first_tick
 		)
-		if input_collector.attack_target_id >= 0 or input_collector.attack_ground:
-			print("[ATK] set_attack_command target=", input_collector.attack_target_id, " ground=", input_collector.attack_ground)
 		sim.set_attack_command(
-			input_collector.attack_target_id,
-			input_collector.attack_ground,
-			input_collector.attack_ground_pos.x,
-			input_collector.attack_ground_pos.y,
-			input_collector.attack_clear
+			input_collector.attack_target_id
 		)
 		sim.tick(tick_rate)
 		if first_tick:
 			input_collector.stop = false
 			input_collector.move_cmd_issue = false
 			input_collector.cast_cancel = false
-			input_collector.attack_clear = false
 		elapsed -= tick_rate
 		if sim.is_game_over():
 			print("=== GAME OVER ===")
@@ -133,12 +125,8 @@ func _physics_process(delta: float) -> void:
 
 	if ran_tick:
 		input_collector.attack_target_id = -1
-		input_collector.attack_ground = false
-		input_collector.attack_ground_pos = Vector2.ZERO
 		input_collector.cast_cancel = false
 	input_collector.attack_target_id = -1
-	input_collector.attack_ground = false
-	input_collector.attack_clear = false
 
 
 func _process(_delta: float) -> void:
@@ -173,7 +161,6 @@ func _process(_delta: float) -> void:
 				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
 					if p.hit_target_id >= 0:
 						_trigger_c_slash(p.hit_target_id)
-				# 错误显示：仅当从 Aiming/Casting 回到 None 时（左键确认失败/施法结束目标死亡）
 				var prev_state := _prev_player_cast_state
 				_prev_player_cast_state = p.cast_state
 				_prev_player_cast_slot = p.cast_slot
@@ -200,7 +187,7 @@ func _process(_delta: float) -> void:
 				print("[CAST] slot=%d state=%d err=%d hover=%d hov_ent=%d" % [p.cast_slot, p.cast_state, p.cast_error, input_collector.hovered_entity_id, input_collector.cast_target_id])
 				_log_prev_cast_slot = p.cast_slot
 			if p.cast_state != _log_prev_cast_state:
-				print("[CAST] state %d→%d slot=%d err=%d prog=%.2f" % [_log_prev_cast_state, p.cast_state, p.cast_slot, p.cast_error, p.cast_progress])
+				print("[CAST] state %d->%d slot=%d err=%d prog=%.2f" % [_log_prev_cast_state, p.cast_state, p.cast_slot, p.cast_error, p.cast_progress])
 				_log_prev_cast_state = p.cast_state
 			if p.cast_error > 0:
 				print("[CAST] ERROR=%d" % p.cast_error)

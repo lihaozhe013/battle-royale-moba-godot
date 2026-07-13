@@ -28,6 +28,7 @@ inline const SkillDef &get_skill_def(int id) {
         {2, SkillKind::AoEField,     0.5f, 100.0f, 0.10f, 20.0f, 35.0f, 4.0f, 2.0f,  0.0f, 0.0f,  0},  // E
         {3, SkillKind::Dash,         0.2f,  40.0f, 0.05f, 10.0f,  0.0f, 8.0f, 0.0f,  0.0f, 0.0f,  0},  // R
         {4, SkillKind::ChannelBurst, 1.0f, 230.0f, 0.03f, 60.0f,  0.0f, 0.0f, 5.0f, 20.0f, 0.5f, 16},  // F
+        {5, SkillKind::Attack,       0.0f,   0.0f, 0.05f,  0.0f,  0.0f, 0.0f, 0.0f,  0.0f, 0.0f,  0},  // Attack (虚拟槽, 无蓝耗/CD)
     };
     // clang-format on
     return table[id];
