@@ -56,28 +56,6 @@ offset_bottom = 83.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Mode" type="HBoxContainer" parent="PanelBg/ConfigName" unique_id=1496375663]
-layout_mode = 2
-
-[node name="ModeLabel" type="Label" parent="PanelBg/ConfigName/Mode" unique_id=1562585981]
-custom_maximum_size = Vector2(-1, 21.04)
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_qm286")
-theme_override_font_sizes/font_size = 15
-text = "Mode"
-
-[node name="BlankSpace" type="PanelContainer" parent="PanelBg/ConfigName/Mode" unique_id=656424001]
-custom_minimum_size = Vector2(15, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/panel = SubResource("StyleBoxFlat_1vivr")
-
-[node name="ModeOption" type="OptionButton" parent="PanelBg/ConfigName/Mode" unique_id=573673923]
-custom_minimum_size = Vector2(80, 0)
-layout_mode = 2
-size_flags_vertical = 4
-theme_override_fonts/font = ExtResource("2_qm286")
-
 [node name="HBoxContainer2" type="HBoxContainer" parent="PanelBg/ConfigName" unique_id=1655693625]
 layout_mode = 2
 
@@ -217,7 +195,6 @@ offset_bottom = 31.0
 grow_horizontal = 0
 text = "×"
 
-[connection signal="item_selected" from="PanelBg/ConfigName/Mode/ModeOption" to="." method="_on_mode_selected"]
 [connection signal="item_selected" from="PanelBg/ConfigName/HBoxContainer2/CameraModeOption" to="." method="_on_camera_mode_selected"]
 [connection signal="item_selected" from="PanelBg/ConfigName/HBoxContainer3/EdgePanOption" to="." method="_on_edge_pan_selected"]
 [connection signal="value_changed" from="PanelBg/ConfigName/HBoxContainer4/EdgeSpeedSpinBox" to="." method="_on_edge_speed_changed"]

@@ -22,8 +22,7 @@ public:
     void set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y, int target_id = -1);
     void set_move_command(float target_x, float target_y, bool issue);
     void set_stop(bool stop);
-    void set_attack_command(int target_id, bool attack_ground,
-                            float ground_x, float ground_y, bool attack_clear);
+    void set_attack_command(int target_id);
     void tick(double delta);
     bool is_game_over();
     godot::Ref<godot::RefCounted> pop_snapshot();

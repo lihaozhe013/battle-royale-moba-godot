@@ -14,6 +14,7 @@ enum class SkillKind : uint8_t {
     AoEField = 1,     // E
     Dash = 2,         // R
     ChannelBurst = 3, // F
+    Attack = 4,       // 普攻（虚拟技能）
 };
 
 enum class StatusType : uint8_t {
@@ -84,9 +85,6 @@ struct PlayerInputState {
     bool MoveIssue = false;
     bool Stop = false;
     int AttackTargetId = -1;
-    bool AttackGround = false;
-    Vec2 AttackGroundPos{0.0f};
-    bool AttackClear = false;
 };
 
 struct CombatStats {
@@ -197,10 +195,6 @@ struct ArrowTag {
 struct AttackTarget {
     entt::entity Target = entt::null;
     int TargetNetworkId = -1;
-    int  PendingTargetId = -1;
-    bool PendingGround    = false;
-    Vec2 PendingGroundPos{0.0f};
-    bool Chasing = false;
 };
 
 struct Homing {
@@ -263,7 +257,7 @@ struct SkillSlot {
 };
 
 struct SkillComponent {
-    SkillSlot Slots[4];
+    SkillSlot Slots[5]; // [0-3] QWER 技能, [4] 普攻（虚拟槽, SkillId=5）
 };
 
 // ── MovePath.cs ──────────────────────────────────────────────────────────
@@ -292,9 +286,6 @@ struct LocalInputSingleton {
     bool MoveIssue = false;
     bool Stop = false;
     int AttackTargetId = -1;
-    bool AttackGround = false;
-    Vec2 AttackGroundPos{0.0f};
-    bool AttackClear = false;
 };
 
 struct MapBounds {

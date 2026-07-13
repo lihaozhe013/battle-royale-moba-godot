@@ -30,10 +30,7 @@ void World::initialize(const std::string &map_json) {
         Vec2{0.0f},
         false,
         false,
-        -1,
-        false,
-        Vec2{0.0f},
-        false
+        -1
     );
 
     _id_state_entity = _reg.create();
@@ -114,16 +111,10 @@ void World::set_stop(bool stop) {
     }
 }
 
-void World::set_attack_command(
-    int target_id, bool attack_ground,
-    float ground_x, float ground_y, bool attack_clear
-) {
+void World::set_attack_command(int target_id) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
-        li.AttackTargetId  = target_id;
-        li.AttackGround     = attack_ground;
-        li.AttackGroundPos  = Vec2{ground_x, ground_y};
-        li.AttackClear      = attack_clear;
+        li.AttackTargetId = target_id;
     }
 }
 
@@ -216,10 +207,7 @@ void World::_spawn_player(int player_id, bool is_local) {
         Vec2{0.0f},
         false,
         false,
-        -1,
-        false,
-        Vec2{0.0f},
-        false
+        -1
     );
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
@@ -238,6 +226,13 @@ void World::_spawn_player(int player_id, bool is_local) {
         sc.Slots[i].SkillId = sid;
         sc.Slots[i].MaxCooldown = def.Cooldown;
         sc.Slots[i].ManaCost = def.ManaCost;
+    }
+    // Slot 4: 普攻虚拟槽
+    {
+        const auto &def = get_skill_def(5);
+        sc.Slots[4].SkillId = 5;
+        sc.Slots[4].MaxCooldown = def.Cooldown;
+        sc.Slots[4].ManaCost = def.ManaCost;
     }
     _reg.emplace<SkillComponent>(e, sc);
 }
