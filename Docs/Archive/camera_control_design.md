@@ -1,8 +1,9 @@
 # 视角操控方式 + 全屏设置 — 设计方案
 
 > 创建：2026-07-08
-> 关联：`Archive/right_click_movement_design.md`（设置面板与 GameSettings 由来）、`prompt.md`、`sim_system_reference.md`
+> 关联：`prompt.md`、`sim_system_reference.md`、`Docs/Reference/input_system_design.md`
 > 状态：📋 设计阶段，未实施
+> **历史说明**：本文档早期版本中关于 `move_mode` / `MoveMode` / `mode_changed` / "WASD / MOBA 双模式" 的所有内容均为过时描述——WASD 模式已废弃移除，`GameSettings` 中相关字段已不存在。仅视角操控（`camera_mode` / `edge_pan` / `smooth_pan` / `fullscreen`）部分仍然有效。输入相关唯一标准见 `Docs/Reference/input_system_design.md`。
 
 ---
 
