@@ -345,17 +345,39 @@ var skill_cast_mode: Array[int] = [NORMAL, NORMAL, NORMAL, NORMAL]  # per-slot
 |----|---------|------|------|
 | QWER 主动技能 | 0-3 | 玩家 4 技能槽（Q/W/E/R） | 当前实施 |
 | 装备主动技能 | 10-15 | 装备主动效果（P1-8 装备系统） | **预留** |
-| 普攻虚拟槽 | 4 / 不复用 | 见 §9，普攻走独立 `ATTACK` 命令，**不占用 skill_slot 命名空间** | — |
 
-**预留规则**：
-- `SkillComponent.Slots[]` 当前大小为 5（含普攻虚拟槽）；重构后应为 4（仅 QWER）+ 独立的 `EquipmentSkillComponent`（装备主动槽，6 槽）。
-- `get_skill_def(id)` 表按 SkillId 索引，SkillId 命名空间与 slot 解耦：QWER=1-4，装备主动=100+。
-- Layer 3 翻译装备主动键时生成 `SKILL{slot=10+i, ...}`，Sim 侧 `skill_cast` 通过 slot 反查 `EquipmentSkillComponent.Slots[i]` → SkillId。
-- **本方案不实现装备槽**，仅约定命名空间；实施 P1-8 时无需改 Layer 1-4 框架，只需扩展 `SkillComponent`/`skill_defs.h` 与新增键位绑定。
+**普攻虚拟槽移除（已定）**：
+- v1 在 `SkillComponent.Slots[5]` 中用 slot 4 作"普攻虚拟槽"（`SkillId=5, SkillKind::Attack`），由 `skill_cast` 处理。
+- v2 **移除此虚拟槽**：普攻走独立 `ATTACK` 命令（§9），不占用 `skill_slot` 命名空间。
+- `SkillComponent.Slots[5]` → `Slots[4]`（仅 QWER）。
+- `skill_defs.h` 删除 id=5 Attack 行；`SkillKind::Attack` 枚举可移除（普攻不再走 skill_cast）。
+- `skill_cast.h` 的 `cast_slot < 5` 判断改为 `< 4`，删除 Attack 分支（v1 的 157-182 行）。
+- `world.cpp _spawn_player` 删除 slot 4 初始化。
+- **未来 P1-8 装备槽**：`SkillComponent` 保持 `Slots[4]`，新增独立 `EquipmentSkillComponent`（6 槽，slot 10-15 映射）。`get_skill_def(id)` 的 SkillId 命名空间与 slot 解耦：QWER=1-4，装备主动=100+。Layer 3 翻译装备主动键时生成 `SKILL{slot=10+i, ...}`，Sim 侧 `skill_cast` 通过 slot 反查 `EquipmentSkillComponent.Slots[i]` → SkillId。
+- **本方案不实现装备槽**，仅约定命名空间；实施 P1-8 时无需改 Layer 1-4 框架。
 
 ### 5.5 技能升级命令（SKILL_UPGRADE）
 
-`SkillPoints` 组件已存在（`components.h`，`_spawn_player` emplace `Available=0`），但**当前无任何输入路径**消耗它——这是 v1 的真实遗漏。MOBA 核心玩法（升级加技能等级）依赖此功能。
+> **事实修正**：v1 代码中 `SkillPoints` 组件与 `SkillSlot::Level` 字段**均不存在**（`sim_system_reference.md` 的描述是设计意图，未落地）。本方案需新增。
+
+`SkillPoints` 组件 + `SkillSlot::Level` 字段是 MOBA 核心玩法（升级加技能等级）的基础，v1 完全缺失输入路径。本方案补齐。
+
+**新增组件/字段**：
+```cpp
+// components.h 新增
+struct SkillPoints {
+    int Available = 0;
+};
+
+// SkillSlot 加字段
+struct SkillSlot {
+    int SkillId = 0;
+    int Level = 1;                 // ← 新增（当前默认 1 级）
+    float CooldownTimer = 0.0f;
+    float MaxCooldown = 0.0f;
+    float ManaCost = 0.0f;
+};
+```
 
 **命令**：
 
@@ -371,24 +393,49 @@ var skill_slot: int   # 0-3，复用 SKILL 的 slot 字段
 - 检测 `Ctrl held + 技能键 press` → 生成 `SKILL_UPGRADE{slot=i}`，**不进入 SkillAiming**，CommandAxis 保持当前状态。
 - CastLocked 状态下忽略（施法中不能升级）。
 
-**Sim 消费**（新增 `skill_level_system` 或并入 `skill_cast`）：
-```
-PlayerTag(IsLocal) + PlayerInputState + SkillComponent + SkillPoints
-  if input.SkillUpgradeSlot >= 0 && SkillPoints.Available > 0:
-      slot = Skills.Slots[input.SkillUpgradeSlot]
-      if slot.SkillId > 0 && slot.Level < MaxSkillLevel:
-          slot.Level++
-          SkillPoints.Available--
-          # 可选：升级时刷新 CD/ManaCost（依数值表）
+**Sim 消费**（新增 `systems/skill_level.h`，独立 system 不并入 skill_cast）：
+```cpp
+// systems/skill_level.h
+inline void skill_level_system(entt::registry &reg) {
+    auto view = reg.view<PlayerTag, PlayerInputState, SkillComponent, SkillPoints>();
+    for (auto e : view) {
+        auto &tag = view.get<PlayerTag>(e);
+        if (!tag.IsLocal) continue;
+        auto &input = view.get<PlayerInputState>(e);
+        auto &skills = view.get<SkillComponent>(e);
+        auto &sp = view.get<SkillPoints>(e);
+        if (input.SkillUpgradeSlot < 0 || input.SkillUpgradeSlot >= 4) continue;
+        if (sp.Available <= 0) continue;
+        auto &slot = skills.Slots[input.SkillUpgradeSlot];
+        if (slot.SkillId <= 0 || slot.Level >= GameConfig::MaxSkillLevel) continue;
+        slot.Level++;
+        sp.Available--;
+    }
+}
 ```
 
 **LocalInputSingleton 新增字段**：`int SkillUpgradeSlot = -1;`（脉冲）。
 
 **SimServer API**：`void set_skill_upgrade_command(int slot);`
 
-**Snapshot**：`SimSkillSlotSnap.level` 已存在（`sim_system_reference.md` §7.4），View 已可读。`SimPlayerSnap.skill_points` 新增（§12.1 已加），用于 BottomHUD 显示可分配点数提示。
+**Snapshot 修正**：
+- `SimSkillSlotSnap.level` **语义修正**：v1 在 `snapshot_builder.cpp:33` 填的是 `char_level`（玩家等级）——这是 bug，View 若拿来当技能等级显示会出错。v2 改为填 `slot.Level`（技能等级）。
+- `SimPlayerSnap.skill_points` 新增（§12.1 已加），= `SkillPoints.Available`，用于 BottomHUD 显示可分配点数提示。
 
-**不在本方案范围**：升级数值曲线、升级时刷新 CD/Mana 的具体策略（由 `skill_defs.h` 后续扩展）。本方案仅打通"按键 → Sim 升级 → snapshot 回写"链路。
+**`_spawn_player` 补齐**：
+```cpp
+_reg.emplace<SkillPoints>(e, 0);   // 初始 0 点，升级时 progression 增加
+// SkillSlot 初始化加 Level=1
+for (int i = 0; i < 4; ++i) {
+    sc.Slots[i].SkillId = ...;
+    sc.Slots[i].Level = 1;          // ← 新增
+    ...
+}
+```
+
+**`progression_system` 配套**：玩家升级时 `SkillPoints.Available++`（当前 progression 不处理这个，需补；非本方案核心，可后续补但建议同期实施）。
+
+**不在本方案范围**：升级数值曲线、升级时刷新 CD/Mana 的具体策略（由 `skill_defs.h` 后续扩展）。本方案仅打通"按键 → Sim 升级 → snapshot 回写"链路 + 修正 SimSkillSlotSnap.level 语义 bug。
 
 ---
 
@@ -489,12 +536,12 @@ Phase::None + 收到 SKILL{confirm=false}
   → 仅更新 ActiveSlot / AimPos / TargetEntity（供下次 confirm 用）
   → 状态保持 None
 
-Phase::Chasing + 每 tick
-  ├─ 目标死亡 → refund + Phase::None + CastError=5
-  ├─ 目标在范围内 → Phase::Casting（Timer=CastTime）
-  ├─ 收到 CANCEL → refund + Phase::None
-  ├─ 移动：由 player_pathfinding_system 用 A* 朝 TargetEntity 寻路（详见 §10）
-  └─ 非指向性技能：AimPos 每帧由 input.CastAim 更新（追随鼠标）
+Phase::Chasing + 每 tick（在 skill_cast 内处理，详见 §13 tick 顺序）
+   ├─ 目标死亡 → refund + Phase::None + CastError=5
+   ├─ 目标在范围内 → Phase::Casting（Timer=CastTime）
+   ├─ 收到 CANCEL → refund + Phase::None
+   ├─ 移动：本 tick #3 skill_cast 设 Chasing 后，#4 player_pathfinding 同 tick 用 A* 朝 TargetEntity/AimPos 寻路写 MovePath，#5 player_movement 同 tick 跟随（无 1 tick 延迟）
+   └─ 非指向性技能：AimPos 每 tick 由 input.SkillAim 更新（追随鼠标）
 
 Phase::Casting + Timer<=0 → 触发 effect → 按 SkillKind 转 Channeling/Dashing/None
 Phase::Casting + CANCEL + 非 ChannelBurst → refund + None
@@ -529,12 +576,12 @@ Phase::Dashing → 位移推进，到点/撞墙 → None
 |---------|-----------|------|
 | None | 忽略 | — |
 | Aiming（Sim 内瞬时） | refund + None | 几乎不发生 |
-| Chasing | refund + None | 退蓝退 CD（玩家主动取消，未触发效果） |
-| Casting | refund + None | 退蓝退 CD（前摇打断，MOBA 惯例惩罚可调） |
+| Chasing | refund + None | **退蓝退 CD**（玩家主动取消，未触发效果） |
+| Casting | refund + None | **退蓝退 CD**（前摇打断，v2 默认宽容） |
 | Channeling | **忽略** | F 引导不可打断 |
 | Dashing | **忽略** | R 位移不可打断 |
 
-**refund 策略**：默认 Chasing/Casting 取消都 **退蓝退 CD**（与 v1 的"前摇打断不退"不同，因为用户未明确要求惩罚；如需惩罚可改为 Casting 阶段不退，Chasing 阶段退）。建议**配置化**：`GameConfig::RefundOnCastInterrupt / RefundOnChaseInterrupt`。
+**refund 策略（已定）**：Chasing/Casting 取消都 **退蓝退 CD**（v2 默认，与 v1 的"前摇打断不退"不同——v1 是惩罚性设计，v2 改为宽容，符合现代 MOBA 趋势且原型阶段对新手友好）。**配置化保留口**：`GameConfig::RefundOnCastInterrupt = true` / `RefundOnChaseInterrupt = true`，后续可调为 false 启用惩罚。
 
 ### 7.6 input 层镜像的意义
 
@@ -897,31 +944,34 @@ prev_cast_error = p.cast_error
 ```
 local_input_injection        #  1. 注入命令到 PlayerInputState
 player_attack_command        #  2. 处理 ATTACK 命令 + pending + 目标验证 + 清锁
-player_pathfinding           #  3. A* 寻路（右键移动 + 技能 Chasing）
-player_movement              #  4. 移动（含 Chasing 直线追击 + path 跟随）
-player_attack_fire           #  5. 锁定目标射 homing 箭
-skill_cast                   #  6. 施法状态机（None/Aiming/Chasing/Casting/Channeling/Dashing）
+skill_cast                   #  3. 施法状态机（None→Aiming/Chasing/Casting；Casting timer 推进+effect；Channeling；Dashing）
+player_pathfinding           #  4. A* 寻路（右键移动 + 技能 Chasing 跟随）—— 同 tick 看到 #3 设的 Chasing
+player_movement              #  5. 移动（Chasing 用 MovePath 跟随；AttackTarget 直线追击 + 设 Chasing 标志；Casting/Channeling/Dashing gate）
+player_attack_fire           #  6. 锁定目标射 homing 箱
 bot_targeting                #  7
 bot_ai                       #  8
 bot_combat                   #  9
 arrow_movement               # 10. +Homing 追踪
-wall_collision               # 11. 跳过 Chasing 玩家 + Homing 箭
+wall_collision               # 11. 跳过 AttackTarget.Chasing 玩家 + Dashing 玩家 + Homing 箭
 combat                       # 12. Homing 只命中锁定目标
 pickup                       # 13
 aoe                          # 14
 status_effect                # 15
 mana_regen                   # 16
 skill_cooldown               # 17
-progression                  # 18
-snapshot_export              # 19
+skill_level                  # 18. 消费 SkillUpgradeSlot → SkillPoints-- + slot.Level++（新增，§5.5）
+progression                  # 19
+snapshot_export              # 20
 ```
 
-**顺序要点**：
-- `player_pathfinding`(#3) 必须在 `skill_cast`(#6) 之前：Chasing 阶段的 A\* 路径在 #3 算出，#6 仅推进 CastState 状态转移（不直接写位置）。
-- `player_movement`(#4) 必须在 `skill_cast`(#6) 之前：Chasing 期间移动先发生，再由 skill_cast 检测是否进入 Range → 转 Casting。
-- `player_attack_command`(#2) 在 `player_pathfinding`(#3) 之前：先设/清 AttackTarget，再决定寻路。
-- `wall_collision`(#11) 在 `player_movement`(#4) 之后：读 `Chasing` 标志跳过穿墙追击。
+**顺序要点（无 1 tick 延迟设计）**：
+- `skill_cast`(#3) 必须在 `player_pathfinding`(#4) 与 `player_movement`(#5) **之前**：confirm 本 tick 在 #3 设 `State=Chasing` + `TargetEntity`/`AimPos`，#4 同 tick 看到 Chasing → 调 `nav.find_path` 写 MovePath，#5 同 tick 跟随 MovePath 移动。**confirm → A\* → 移动全在同 tick 完成，无 33ms 延迟**。
+- `player_movement`(#5) 在 `skill_cast`(#3) 之后：读 CastState 是本 tick 最新值（Casting/Channeling/Dashing 即时 gate；effect 触发后 State=None 即时解除 gate）。
+- `player_attack_command`(#2) 在 `skill_cast`(#3) 之前：先处理 AttackCmd 设/清 AttackTarget，再由 skill_cast 决定施法（施法中 AttackCmd 走 pending，下 tick CastState=None 时消费）。
+- `player_attack_fire`(#6) 在 `skill_cast`(#3) 之后：读 CastState!=None 即时 skip 普攻。
+- `wall_collision`(#11) 在 `player_movement`(#5) 之后：读 `AttackTarget.Chasing` 标志跳过穿墙追击，读 `CastState::Dashing` 跳过 dash 位移。
 - `combat`(#12) 在 `arrow_movement`(#10) 之后：Homing 箭已追踪到目标附近。
+- `skill_level`(#18) 独立于 skill_cast，放 skill_cooldown 附近；不参与状态机，仅消费 SkillUpgradeSlot 脉冲。
 
 ---
 
@@ -933,6 +983,10 @@ snapshot_export              # 19
 struct Homing {
     entt::entity Target = entt::null;
     int TargetNetId = -1;
+};
+
+struct SkillPoints {        // ← 新增（v1 缺失，sim_system_reference.md 描述但未落地）
+    int Available = 0;
 };
 ```
 
@@ -953,18 +1007,32 @@ struct AttackTarget {
     bool Chasing = false;   // 每 tick 由 player_movement 设置，wall_collision 读取
 };
 
+struct SkillSlot {
+    int SkillId = 0;
+    int Level = 1;                  // ← 新增字段（v1 缺失）
+    float CooldownTimer = 0.0f;
+    float MaxCooldown = 0.0f;
+    float ManaCost = 0.0f;
+};
+
+struct SkillComponent {
+    SkillSlot Slots[4];             // ← Slots[5] → Slots[4]（移除普攻虚拟槽）
+};
+
 struct LocalInputSingleton {
     // 完全重构为命令式，见 §11.3（含 SkillUpgradeSlot）
 };
 // PlayerInputState 同步重构（含 SkillUpgradeSlot）
-
-// SkillPoints 已存在（components.h），本方案首次接入输入路径
 ```
 
 ### 14.3 移除
 
 - `PlayerInputState.Move / Aim / Fire / CastInterrupt / CastSlot / CastConfirm / CastCancel / CastAim / CastTargetId` → 全部移除，由命令字段替代。
 - `LocalInputSingleton` 同上。
+- `SkillComponent.Slots[4]`（普攻虚拟槽，`SkillId=5`）→ 移除，`Slots[5]` 缩为 `Slots[4]`。
+- `skill_defs.h` id=5 Attack 行 → 移除。
+- `SkillKind::Attack` 枚举 → 移除（普攻不再走 skill_cast）。
+- `game_config.h` `SkillCooldowns[4]` / `SkillManaCosts[4]` / `SkillCount` → 移除（统一读 `skill_defs.h`）。
 - `ArrowTag.LifestealRatio` 保留（F 大招吸血仍需要）。
 
 ---
@@ -998,25 +1066,26 @@ struct LocalInputSingleton {
 
 | 文件 | 改动 |
 |------|------|
-| `components.h` | CastState +Chasing/TargetNetworkId/QuickCast；AttackTarget +Chasing；LocalInputSingleton/PlayerInputState 完全重构（含 SkillUpgradeSlot）；移除 Move/Aim/Fire/CastInterrupt；新增 Homing；SkillPoints 已存在（本方案接输入） |
-| `game_config.h` | +RefundOnCastInterrupt / RefundOnChaseInterrupt / SkillChaseRepaintDeadzone / MaxSkillLevel；移除 SkillCooldowns/SkillManaCosts（统一读 skill_defs.h） |
+| `components.h` | CastState +Chasing/TargetNetworkId/QuickCast；AttackTarget +Chasing；**新增 `SkillPoints` 组件**；`SkillSlot` +`Level` 字段；`SkillComponent.Slots[5]`→`Slots[4]`（移除普攻虚拟槽）；LocalInputSingleton/PlayerInputState 完全重构（含 SkillUpgradeSlot）；移除 Move/Aim/Fire/CastInterrupt；新增 Homing |
+| `game_config.h` | +RefundOnCastInterrupt(=true) / RefundOnChaseInterrupt(=true) / SkillChaseRepathDeadzone / MaxSkillLevel(=4)；移除 SkillCooldowns/SkillManaCosts/SkillCount（统一读 skill_defs.h） |
+| `skill_defs.h` | 删 id=5 Attack 行；移除 `SkillKind::Attack` 枚举 |
 | `systems/local_input_injection.h` | 复制新命令字段（含 SkillUpgradeSlot） |
-| `systems/player_pathfinding.h` | +技能 Chasing 分支（A\* 朝 TargetEntity/AimPos） |
-| `systems/player_movement.h` | +Chasing 阶段移动（用 MovePath）；+AttackTarget 直线追击 + Chasing 标志；移除 WASD 分支；**末尾写 is_moving 标志供 snapshot** |
+| `systems/player_pathfinding.h` | +技能 Chasing 分支（A\* 朝 TargetEntity/AimPos）；**移除现有 AttackTarget A\* 追击分支**（v1 的 50-82 行，普攻改直线穿墙交给 player_movement） |
+| `systems/player_movement.h` | +Chasing 阶段移动（用 MovePath）；+AttackTarget 直线追击 + 设 Chasing=true；移除 WASD 分支；**末尾写 is_moving 标志供 snapshot** |
 | `systems/player_attack_command.h` | 重构为消费 AttackCmd；处理 clear / ground / target_id |
 | `systems/player_attack_fire.h` | 保留（homing 箭逻辑） |
-| `systems/skill_cast.h` | +Chasing 阶段；refund 策略配置化；移除 Aiming 阶段的 normal-cast 等待（仅 quick cast 同 tick 中转） |
+| `systems/skill_cast.h` | **内加 Chasing 分支**（不拆分独立 system，无 1 tick 延迟）：None+confirm 超范围→Chasing；Chasing+目标进范围→Casting；Chasing+目标死→refund+None；Chasing+CANCEL→refund+None；`cast_slot<5`→`<4`；删 Attack 分支（v1 157-182 行）；refund 读 `RefundOnCastInterrupt`/`RefundOnChaseInterrupt` 配置 |
 | `systems/skill_level.h` | **新增**：消费 SkillUpgradeSlot → SkillPoints.Available-- + slot.Level++（§5.5） |
-| `systems/wall_collision.h` | +跳过 AttackTarget.Chasing 玩家 + Homing 箭 |
+| `systems/wall_collision.h` | +跳过 AttackTarget.Chasing 玩家（穿墙追击）+ 跳过 Homing 箭；保留现有跳过 Dashing |
 | `systems/combat.h` | +Homing 只命中锁定目标 |
 | `systems/arrow_movement.h` | +Homing 追踪 |
 | `arrow_spawner.h` | ArrowSpawnContext +homing 字段 |
-| `world.h/.cpp` | tick 顺序（插 skill_level_system）；set_*_command 实现（含 set_skill_upgrade_command）；_spawn_player emplace AttackTarget/Homing；移除 set_local_input/set_cast_input/set_skill_input |
+| `world.h/.cpp` | tick 顺序（§13：skill_cast 提前到 player_pathfinding 之前；插 skill_level_system）；set_*_command 实现（含 set_skill_upgrade_command）；_spawn_player emplace `SkillPoints{0}` + slot.Level=1 + 移除 slot 4 初始化；移除 set_local_input/set_cast_input/set_skill_input |
 | `sim_server.h/.cpp` | +set_move_command / set_skill_command / set_skill_upgrade_command / set_attack_command / set_cancel_command / set_stop_command；移除旧 API |
 | `register_types.cpp` | 绑定新 API |
-| `snapshot_types.h` | SimPlayerSnap +is_moving/cast_target_id/skill_points；移除 fire 相关 |
+| `snapshot_types.h` | SimPlayerSnap +is_moving/cast_target_id/skill_points |
 | `snapshot_bindings.cpp` | 注册新字段 |
-| `snapshot_builder.cpp` | 填新字段（is_moving 来源见 §12.1 注意） |
+| `snapshot_builder.cpp` | 填新字段（is_moving 来源见 §12.1 注意）；**修正 `SimSkillSlotSnap.level` 语义 bug**：`char_level` → `slot.Level` |
 
 ### 15.4 C++ 删除
 
@@ -1062,17 +1131,21 @@ struct LocalInputSingleton {
 
 **验收**：编译通过，旧 input_collector 删除，新链路工作。
 
-### 阶段 C — Sim CastState + Chasing
+### 阶段 C — Sim CastState + Chasing（skill_cast 内加分支，无 1 tick 延迟）
 
 | 步骤 | 文件 | 说明 |
 |------|------|------|
 | C1 | `components.h` CastState | +Chasing/TargetNetworkId/QuickCast |
-| C2 | `skill_cast.h` | +Chasing 阶段 + refund 配置化 |
-| C3 | `player_pathfinding.h` | +Chasing 分支 A\* 寻路 |
-| C4 | `player_movement.h` | +Chasing 移动；移除 WASD 分支 |
-| C5 | `snapshot_types.h/bindings/builder` | +cast_state(含 Chasing)/cast_target_id/is_moving/skill_points |
+| C2 | `skill_cast.h` | **内加 Chasing 分支**（不拆分独立 system）：None+confirm 超范围→Chasing；Chasing+进范围→Casting；Chasing+目标死→refund+None；Chasing+CANCEL→refund+None；refund 读 `RefundOnCastInterrupt`/`RefundOnChaseInterrupt` 配置（均=true） |
+| C3 | `world.cpp` | **tick 顺序调整**：`skill_cast` 提前到 `player_pathfinding` 之前（§13），保证 confirm 同 tick 算 A\* + 移动 |
+| C4 | `player_pathfinding.h` | +Chasing 分支 A\* 寻路（同 tick 看到 skill_cast 设的 Chasing）；移除现有 AttackTarget A\* 追击分支 |
+| C5 | `player_movement.h` | +Chasing 移动（用 MovePath）；移除 WASD 分支；末尾写 is_moving |
+| C6 | `snapshot_types.h/bindings/builder` | +cast_state(含 Chasing)/cast_target_id/is_moving/skill_points |
 
-**验收**：Q（MeleeSingle）确认超 Range → Sim 进 Chasing → A\* 追 → 到 Range → Casting → effect。
+**验收（关键：无 1 tick 延迟）**：
+- Q（MeleeSingle）确认超 Range → **同 tick** Sim 进 Chasing + player_pathfinding 算 A* + player_movement 跟随 → 后续 tick 到 Range → Casting → effect
+- Chasing 中按右键 → refund（退蓝退 CD）+ None
+- Chasing 中目标死亡 → refund + None + CastError=5
 
 ### 阶段 D — Quick Cast / Normal Cast 双模式
 
@@ -1112,18 +1185,19 @@ struct LocalInputSingleton {
 
 ### 阶段 E2 — 技能升级链路（SKILL_UPGRADE）
 
-> 独立小阶段，不依赖 D/E，可在 B 后任意时机插入。补齐 v1 遗漏的 SkillPoints 输入路径。
+> 独立小阶段，不依赖 D/E，可在 B 后任意时机插入。补齐 v1 完全缺失的 SkillPoints 输入路径 + SimSkillSlotSnap.level 语义 bug。
 
 | 步骤 | 文件 | 说明 |
 |------|------|------|
-| E2-1 | `components.h` | LocalInputSingleton/PlayerInputState +SkillUpgradeSlot（B1 已加则跳过） |
-| E2-2 | `game_config.h` | +MaxSkillLevel（建议 4 或 5） |
+| E2-1 | `components.h` | **新增 `SkillPoints` 组件**；`SkillSlot` +`Level` 字段；LocalInputSingleton/PlayerInputState +SkillUpgradeSlot（B1 已加则跳过） |
+| E2-2 | `game_config.h` | +MaxSkillLevel(=4) |
 | E2-3 | `systems/skill_level.h` **新增** | 消费 SkillUpgradeSlot：验证 SkillPoints.Available>0 && slot.Level<Max → Level++ / Available-- |
-| E2-4 | `world.cpp` | tick 顺序插 `skill_level_system`（在 skill_cast 之前或之后均可，互不依赖） |
-| E2-5 | `sim_server.h/.cpp` + `register_types.cpp` | +set_skill_upgrade_command 绑定 |
-| E2-6 | `command_builder.gd` | Ctrl+Q/W/E/R press → SKILL_UPGRADE{slot} |
-| E2-7 | `snapshot_types.h/bindings/builder` | SimPlayerSnap +skill_points（C5 已加则跳过） |
-| E2-8 | `bottom_hud.gd` | 显示可分配点数提示（skill_points>0 时高亮技能槽） |
+| E2-4 | `world.cpp` | tick 顺序插 `skill_level_system`（§13 #18，skill_cooldown 之后）；`_spawn_player` emplace `SkillPoints{0}` + slot.Level=1 |
+| E2-5 | `progression.h` | 玩家升级时 `SkillPoints.Available++`（当前 progression 不处理，需补） |
+| E2-6 | `sim_server.h/.cpp` + `register_types.cpp` | +set_skill_upgrade_command 绑定 |
+| E2-7 | `command_builder.gd` | Ctrl+Q/W/E/R press → SKILL_UPGRADE{slot} |
+| E2-8 | `snapshot_types.h/bindings/builder` | SimPlayerSnap +skill_points；**修正 `SimSkillSlotSnap.level` 语义 bug**：`char_level` → `slot.Level` |
+| E2-9 | `bottom_hud.gd` | 显示可分配点数提示（skill_points>0 时高亮技能槽） |
 
 **验收**：
 - 升级后击杀 bot 拿 XP → level up → SkillPoints.Available++ → Ctrl+Q → Q 技能 Level++ → snapshot 回写 → HUD 显示
@@ -1258,11 +1332,13 @@ struct LocalInputSingleton {
 
 1. **四层分离**：事件队列 / 状态机 / 命令翻译 / 命令缓冲，各司其职。
 2. **双正交状态轴**：MoveAxis × CommandAxis，支持"施法模式不打断移动"。
-3. **Sim Chasing 阶段**：跟随施法的权威实现，View 不参与寻路逻辑。
+3. **Sim Chasing 阶段**：跟随施法的权威实现，View 不参与寻路逻辑；**skill_cast 内加分支，tick 顺序 skill_cast 提前到 player_pathfinding 之前，confirm 同 tick 算 A\* + 移动，无 1 tick 延迟**。
 4. **Quick / Normal cast 双模式**：per-slot 可配置，行为统一（左键 confirm 语义一致）。
-5. **普攻独立模式**：AttackAiming + homing 箭 + 穿墙追击，与技能解耦。
+5. **普攻独立模式**：AttackAiming + homing 箭 + 直线穿墙追击（区别于技能 Chasing 的 A\* 绕墙），与技能解耦；**移除 v1 普攻虚拟槽**。
 6. **不丢指令**：CommandBuffer 跨 tick 持续，统一处理 30Hz vs 60Hz 差异。
 7. **状态镜像**：View CastLocked 完全由 snapshot 决定，打断施法是状态转移而非 flag。
 8. **WASD 模式彻底移除**：单一 MOBA 模式，文档与代码一致。
+9. **技能升级链路补齐**：新增 `SkillPoints` 组件 + `SkillSlot::Level` 字段 + `skill_level.h` + `SKILL_UPGRADE` 命令，修正 v1 完全缺失的输入路径 + `SimSkillSlotSnap.level` 语义 bug。
+10. **Refund 宽容**：Chasing/Casting 取消均退蓝退 CD（v2 默认，配置化留口）。
 
-实施按 §16 阶段 A→F 推进，最大风险在阶段 C（Sim Chasing 与 pathfinding/movement 的 tick 顺序）与阶段 D（No target 报错后 SkillAiming 保留的状态同步）。建议每阶段独立验收后再合并。
+实施按 §16 阶段 A→F + E2 推进，最大风险在阶段 C（Sim Chasing 的 tick 顺序——skill_cast 必须在 player_pathfinding 之前保证无延迟）与阶段 D（No target 报错后 SkillAiming 保留的状态同步）。建议每阶段独立验收后再合并。
