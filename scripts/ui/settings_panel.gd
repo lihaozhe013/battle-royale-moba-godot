@@ -5,6 +5,10 @@ extends CanvasLayer
 @onready var _edge_speed_spinbox: SpinBox = $PanelBg/ConfigName/HBoxContainer4/EdgeSpeedSpinBox
 @onready var _smooth_pan_option: OptionButton = $PanelBg/ConfigName/HBoxContainer5/SmoothPanOption
 @onready var _fullscreen_option: OptionButton = $PanelBg/ConfigName/HBoxContainer6/FullscreenOption
+@onready var _cast_mode_label: Label
+@onready var _cast_mode_option: OptionButton
+
+var _cast_option_added := false
 
 
 func _ready() -> void:
@@ -28,6 +32,42 @@ func _ready() -> void:
 	_fullscreen_option.add_item("Borderless", 1)
 	_fullscreen_option.add_item("Exclusive", 2)
 	_fullscreen_option.select(GameSettings.fullscreen)
+
+	_add_cast_mode_ui()
+
+
+func _add_cast_mode_ui() -> void:
+	if _cast_option_added:
+		return
+	_cast_option_added = true
+
+	var parent = $PanelBg/ConfigName
+	if not parent:
+		return
+
+	var hbox := HBoxContainer.new()
+	var label := Label.new()
+	label.text = "Cast Mode:"
+	label.custom_minimum_size = Vector2(160, 0)
+	hbox.add_child(label)
+
+	var option := OptionButton.new()
+	option.add_item("Normal", 0)
+	option.add_item("Quick", 1)
+	option.select(0)
+	option.item_selected.connect(_on_cast_mode_selected)
+	hbox.add_child(option)
+
+	parent.add_child(hbox)
+	_cast_mode_label = label
+	_cast_mode_option = option
+
+
+func _on_cast_mode_selected(index: int) -> void:
+	var cs = get_node_or_null("../CastSettings")
+	if cs:
+		for i in 4:
+			cs.skill_cast_mode[i] = index
 
 
 func _unhandled_input(event: InputEvent) -> void:

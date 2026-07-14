@@ -11,6 +11,13 @@ var _aoe_pool: Array[MeshInstance3D]
 var _dash_mesh: MeshInstance3D
 var _dash_material: Material
 
+# View 侧瞄准状态（由 sim_bridge 设置）
+var view_skill_aiming := false
+
+
+func set_skill_aiming(aiming: bool) -> void:
+	view_skill_aiming = aiming
+
 
 func _ready() -> void:
 	_cast_material = StandardMaterial3D.new()
@@ -35,8 +42,8 @@ func sync(snap: SimSnapshot, _player_view = null) -> void:
 	if not p:
 		return
 
-	# 1. 施法模式下绿线（Aiming）
-	if p.cast_state == 1:  # Aiming
+	# 1. 绿线：Normal cast 瞄准（View SkillAiming）或 Sim Aiming（quick cast 瞬态）
+	if view_skill_aiming or p.cast_state == 1:
 		_draw_cast_line(p.x, p.y, p.cast_aim_x, p.cast_aim_y)
 	else:
 		_clear_cast_line()

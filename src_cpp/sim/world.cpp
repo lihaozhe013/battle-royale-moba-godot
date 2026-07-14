@@ -17,20 +17,21 @@ void World::initialize(const std::string &map_json) {
     _local_input_entity = _reg.create();
     _reg.emplace<LocalInputSingleton>(
         _local_input_entity,
-        Vec2{0.0f},
-        Vec2{0.0f},
-        false,
-        0,
-        -1,
-        false,
-        false,
-        false,
-        Vec2{0.0f},
-        -1,
-        Vec2{0.0f},
-        false,
-        false,
-        -1
+        Vec2{0.0f},   // MoveTarget
+        false,         // MoveIssue
+        false,         // Stop
+        -1,            // SkillSlot
+        false,         // SkillConfirm
+        Vec2{0.0f},   // SkillAim
+        -1,            // SkillTargetId
+        -1,            // SkillUpgradeSlot
+        false,         // CancelSkill
+        false,         // CancelAttack
+        -1,            // AttackTargetId
+        false,         // AttackGround
+        Vec2{0.0f},   // AttackGroundPos
+        false,         // AttackClear
+        0              // Seq
     );
 
     _id_state_entity = _reg.create();
@@ -64,35 +65,38 @@ void World::initialize(const std::string &map_json) {
     _spawn_pickup_spawners();
 }
 
-void World::set_local_input(
-    const Vec2 &move, const Vec2 &aim, bool fire, int seq
-) {
+void World::set_skill_command(int slot, bool confirm, float ax, float ay, int target_id) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
-        li.Move = move;
-        li.Aim = aim;
-        li.Fire = fire;
-        li.Seq = seq;
+        li.SkillSlot = slot;
+        li.SkillConfirm = confirm;
+        li.SkillAim = Vec2{ax, ay};
+        li.SkillTargetId = target_id;
     }
 }
 
-void World::set_cast_input(
-    int cast_slot,
-    bool confirm,
-    bool cancel,
-    bool interrupt,
-    float aim_x,
-    float aim_y,
-    int target_id
-) {
+void World::set_skill_upgrade_command(int slot) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
-        li.CastSlot = cast_slot;
-        li.CastConfirm = confirm;
-        li.CastCancel = cancel;
-        li.CastInterrupt = interrupt;
-        li.CastAim = Vec2{aim_x, aim_y};
-        li.CastTargetId = target_id;
+        li.SkillUpgradeSlot = slot;
+    }
+}
+
+void World::set_attack_command(int target_id, bool ground, float gx, float gy, bool clear) {
+    if (_local_input_entity != entt::null) {
+        auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
+        li.AttackTargetId = target_id;
+        li.AttackGround = ground;
+        li.AttackGroundPos = Vec2{gx, gy};
+        li.AttackClear = clear;
+    }
+}
+
+void World::set_cancel_command(bool skill, bool attack) {
+    if (_local_input_entity != entt::null) {
+        auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
+        li.CancelSkill = skill;
+        li.CancelAttack = attack;
     }
 }
 
@@ -104,17 +108,28 @@ void World::set_move_command(float target_x, float target_y, bool issue) {
     }
 }
 
-void World::set_stop(bool stop) {
+void World::set_stop_command() {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
-        li.Stop = stop;
+        li.Stop = true;
     }
 }
 
-void World::set_attack_command(int target_id) {
+// ── 废弃 v1 API（临时保留，视图中 sim_bridge 临时适配后逐步移除） ──
+void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq) {
+    // Deprecated: no-op in v2
+}
+
+void World::set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y, int target_id) {
+    // Deprecated: maps to new API for backward compat
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
-        li.AttackTargetId = target_id;
+        li.SkillSlot = cast_slot;
+        if (confirm) li.SkillConfirm = true;
+        if (cancel) li.CancelSkill = true;
+        if (interrupt) li.CancelSkill = true;
+        li.SkillAim = Vec2{aim_x, aim_y};
+        li.SkillTargetId = target_id;
     }
 }
 
@@ -125,22 +140,29 @@ void World::tick(double dt) {
     _time += dt;
     float fdt = static_cast<float>(dt);
 
-    local_input_injection_system(_reg, _local_input_entity);
+    auto &ids = _reg.get<IdState>(_id_state_entity);
+    float map_half = _reg.get<MapBounds>(_map_bounds_entity).Half;
 
+    // ── Phase 1-2: Input injection + attack command ──
+    local_input_injection_system(_reg, _local_input_entity);
     player_attack_command_system(_reg, fdt);
 
-    player_pathfinding_system(_reg, _nav_grid);
+    // ── Phase 3: skill_cast (提前到 pathfinding 之前，同 tick 设 Chasing/Chasing → Casting) ──
+    skill_cast_system(_reg, fdt, _cb, ids, _time);
 
-    float map_half = _reg.get<MapBounds>(_map_bounds_entity).Half;
+    // ── Phase 4-5: 寻路 + 移动 ──
+    player_pathfinding_system(_reg, _nav_grid);
     player_movement_system(_reg, fdt, map_half);
 
-    auto &ids = _reg.get<IdState>(_id_state_entity);
+    // ── Phase 6: 普攻射击 ──
     player_attack_fire_system(_reg, _time, _cb, ids);
 
-    skill_cast_system(_reg, fdt, _cb, ids, _time);
+    // ── Bot ──
     bot_targeting_system(_reg, _rng, fdt);
     bot_ai_system(_reg, fdt, map_half, _rng);
     bot_combat_system(_reg, _time, _cb, ids);
+
+    // ── 物理 ──
     arrow_movement_system(_reg, fdt);
     wall_collision_system(_reg, _cb);
     combat_system(_reg, _cb);
@@ -156,11 +178,13 @@ void World::tick(double dt) {
         }
     }
 
+    // ── 游戏系统 ──
     pickup_system(_reg, fdt, _cb, ids);
     aoe_system(_reg, fdt, _cb);
     status_effect_system(_reg, fdt);
     mana_regen_system(_reg, fdt);
     skill_cooldown_system(_reg, fdt);
+    skill_level_system(_reg);                          // ← 新增
     progression_system(_reg);
     snapshot_export_system(_reg, _tick_counter, _latest_snapshot);
 
@@ -192,23 +216,8 @@ void World::_spawn_player(int player_id, bool is_local) {
         e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, -999.0
     );
     _reg.emplace<Kills>(e, 0);
-    _reg.emplace<PlayerInputState>(
-        e,
-        Vec2{0.0f},
-        Vec2{0.0f},
-        false,
-        0,
-        -1,
-        false,
-        false,
-        false,
-        Vec2{0.0f},
-        -1,
-        Vec2{0.0f},
-        false,
-        false,
-        -1
-    );
+    _reg.emplace<PlayerInputState>(e);
+    _reg.emplace<SkillPoints>(e, 0); // 初始 0 点
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, 1);
@@ -224,15 +233,9 @@ void World::_spawn_player(int player_id, bool is_local) {
         int sid = GameConfig::PlayerSkillIds[i];
         const auto &def = get_skill_def(sid);
         sc.Slots[i].SkillId = sid;
+        sc.Slots[i].Level = 1;
         sc.Slots[i].MaxCooldown = def.Cooldown;
         sc.Slots[i].ManaCost = def.ManaCost;
-    }
-    // Slot 4: 普攻虚拟槽
-    {
-        const auto &def = get_skill_def(5);
-        sc.Slots[4].SkillId = 5;
-        sc.Slots[4].MaxCooldown = def.Cooldown;
-        sc.Slots[4].ManaCost = def.ManaCost;
     }
     _reg.emplace<SkillComponent>(e, sc);
 }

@@ -109,11 +109,14 @@ struct GameConfig {
     static constexpr int HealPickupCount = 2;
     static constexpr int SmallHealPickupCount = 2;
 
-    // ── Pathfinding ──
+    // ── 寻路 ──
     static constexpr float RepathTargetDeadzone = 1.5f;
     static constexpr float RepathTargetDeadzoneSq =
         RepathTargetDeadzone * RepathTargetDeadzone;
-    static constexpr float PathTurnRate = 12.0f; // rad/s
+    static constexpr float PathTurnRate = 12.0f;
+    static constexpr float SkillChaseRepathDeadzone = 2.0f;
+    static constexpr float SkillChaseRepathDeadzoneSq =
+        SkillChaseRepathDeadzone * SkillChaseRepathDeadzone;
 
     // ── Mana ──
     static constexpr float PlayerBaseMana = 300.0f;
@@ -127,20 +130,20 @@ struct GameConfig {
     static constexpr float PlayerAttackRangeSq = PlayerAttackRange * PlayerAttackRange;
     static constexpr float AttackAcquisitionRange = 15.0f;
 
-    // ── Serialised ── Skill Definitions ──
-    static constexpr int SkillCount = 4;
-    // Player test skills: slot 0-3
+    // ── 技能索引 ──
     static constexpr int PlayerSkillIds[4] = {1, 2, 3, 4};
-    static constexpr float SkillCooldowns[4] = {4.0f, 6.0f, 8.0f, 15.0f};
-    static constexpr float SkillManaCosts[4] = {10.0f, 20.0f, 30.0f, 50.0f};
-    // Bot test skills: slot 0-3 (same for now)
     static constexpr int BotSkillIds[4] = {1, 2, 3, 4};
 
-    // ── 技能成长 ──
-    static constexpr float SkillDamageAtkRatio = 0.9f;
-    static constexpr float SkillCDRPerLevel = 0.05f;
-    static constexpr float SkillCDRMin = 0.4f;
+    // ── 技能数值 ──
+    static constexpr int MaxSkillLevel = 4;
     static constexpr float SkillManaReductionMin = 0.2f;
+    static constexpr float SkillCDRMin = 0.4f;
+    static constexpr float SkillCDRPerLevel = 0.05f;
+    static constexpr float SkillDamageAtkRatio = 0.9f;
+
+    // ── refund 配置（v2 默认宽容，退蓝退 CD） ──
+    static constexpr bool RefundOnCastInterrupt = true;
+    static constexpr bool RefundOnChaseInterrupt = true;
 };
 
 } // namespace sim

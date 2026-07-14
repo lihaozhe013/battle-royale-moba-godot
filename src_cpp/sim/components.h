@@ -14,7 +14,6 @@ enum class SkillKind : uint8_t {
     AoEField = 1,     // E
     Dash = 2,         // R
     ChannelBurst = 3, // F
-    Attack = 4,       // 普攻（虚拟技能）
 };
 
 enum class StatusType : uint8_t {
@@ -71,20 +70,30 @@ struct PlayerTag {
 };
 
 struct PlayerInputState {
-    Vec2 Move{0.0f};
-    Vec2 Aim{0.0f};
-    bool Fire = false;
-    int Seq = 0;
-    int CastSlot = -1;
-    bool CastConfirm = false;
-    bool CastCancel = false;
-    bool CastInterrupt = false;
-    Vec2 CastAim{0.0f};
-    int CastTargetId = -1;
+    // ── 移动 ──
     Vec2 MoveTarget{0.0f};
     bool MoveIssue = false;
     bool Stop = false;
-    int AttackTargetId = -1;
+
+    // ── 技能 ──
+    int  SkillSlot = -1;        // 当前 Aiming 槽，-1=无（0-3 QWER, 10-15 装备预留）
+    bool SkillConfirm = false;  // 本 tick 是否确认
+    Vec2 SkillAim{0.0f};
+    int  SkillTargetId = -1;
+    int  SkillUpgradeSlot = -1; // 技能升级脉冲（Ctrl+QWER），-1=无
+
+    // ── 施法取消 ──
+    bool CancelSkill = false;
+    bool CancelAttack = false;
+
+    // ── 普攻 ──
+    int  AttackTargetId = -1;
+    bool AttackGround = false;
+    Vec2 AttackGroundPos{0.0f};
+    bool AttackClear = false;
+
+    // ── 序号 ──
+    int Seq = 0;
 };
 
 struct CombatStats {
@@ -152,18 +161,18 @@ struct StatusEffect {
 
 struct CastState {
     enum class Phase : uint8_t {
-        None = 0,
-        Aiming = 1,
-        Casting = 2,
-        Channeling = 3,
-        Dashing = 4,
+        None       = 0,
+        Aiming     = 1,  // 仅 quick cast 同 tick 中转
+        Chasing    = 2,  // 跟随施法：confirm 超范围，A* 朝目标移动
+        Casting    = 3,  // 前摇
+        Channeling = 4,  // 引导（F）
+        Dashing    = 5,  // 位移（R）
     };
     Phase State = Phase::None;
     int ActiveSlot = -1;
     int SkillId = 0;
     float Timer = 0.0f;
     float SubTimer = 0.0f;
-    int EnteredSlot = -1;     // which slot triggered current Aiming
     float RejectTimer = 0.0f; // cooldown after None to prevent re-entry
     Vec2 AimPos{0.0f};
     Vec2 DashStart{0.0f};
@@ -171,6 +180,8 @@ struct CastState {
     int HitTargetId = -1;
     int CastError = 0;
     entt::entity TargetEntity = entt::null;
+    int TargetNetworkId = -1;   // 指向性技能锁定目标 NetworkId
+    bool QuickCast = false;     // 标记本次施法来源（View 触发 quick vs normal）
 };
 
 // ── AoE components ──
@@ -195,6 +206,7 @@ struct ArrowTag {
 struct AttackTarget {
     entt::entity Target = entt::null;
     int TargetNetworkId = -1;
+    bool Chasing = false;   // 每 tick 由 player_movement 设置，wall_collision 跳过
 };
 
 struct Homing {
@@ -251,13 +263,19 @@ struct MoveSpeed {
 
 struct SkillSlot {
     int SkillId = 0;
+    int Level = 1;
     float CooldownTimer = 0.0f;
     float MaxCooldown = 0.0f;
     float ManaCost = 0.0f;
 };
 
 struct SkillComponent {
-    SkillSlot Slots[5]; // [0-3] QWER 技能, [4] 普攻（虚拟槽, SkillId=5）
+    SkillSlot Slots[4]; // [0-3] QWER 技能, 普攻虚拟槽已移除（走独立 ATTACK 命令）
+};
+
+// ── SkillPoints (新增, v1 完全缺失) ──
+struct SkillPoints {
+    int Available = 0;
 };
 
 // ── MovePath.cs ──────────────────────────────────────────────────────────
@@ -272,20 +290,30 @@ struct MovePath {
 // ── SingletonComponents.cs ───────────────────────────────────────────────
 
 struct LocalInputSingleton {
-    Vec2 Move{0.0f};
-    Vec2 Aim{0.0f};
-    bool Fire = false;
-    int Seq = 0;
-    int CastSlot = -1;
-    bool CastConfirm = false;
-    bool CastCancel = false;
-    bool CastInterrupt = false;
-    Vec2 CastAim{0.0f};
-    int CastTargetId = -1;
+    // ── 移动 ──
     Vec2 MoveTarget{0.0f};
     bool MoveIssue = false;
     bool Stop = false;
-    int AttackTargetId = -1;
+
+    // ── 技能 ──
+    int  SkillSlot = -1;        // 当前 Aiming 槽，-1=无（0-3 QWER, 10-15 装备预留）
+    bool SkillConfirm = false;  // 本 tick 是否确认
+    Vec2 SkillAim{0.0f};
+    int  SkillTargetId = -1;
+    int  SkillUpgradeSlot = -1; // 技能升级脉冲（Ctrl+QWER），-1=无
+
+    // ── 施法取消 ──
+    bool CancelSkill = false;
+    bool CancelAttack = false;
+
+    // ── 普攻 ──
+    int  AttackTargetId = -1;
+    bool AttackGround = false;
+    Vec2 AttackGroundPos{0.0f};
+    bool AttackClear = false;
+
+    // ── 序号 ──
+    int Seq = 0;
 };
 
 struct MapBounds {

@@ -30,7 +30,7 @@ godot::Ref<SimSkillSlotSnap>
 _build_skill_slot(const SkillSlot &slot, int char_level) {
     auto s = godot::Ref<SimSkillSlotSnap>(memnew(SimSkillSlotSnap));
     s->skill_id = slot.SkillId;
-    s->level = char_level;
+    s->level = slot.Level;
     s->cooldown = slot.CooldownTimer;
     s->max_cooldown = slot.MaxCooldown;
     const auto &def = get_skill_def(slot.SkillId);
@@ -88,9 +88,7 @@ void SnapshotBuilder::_build_players(
         s->xp_needed = view.get<Experience>(e).Needed;
         s->speed = view.get<MoveSpeed>(e).Value;
         if (reg.all_of<SkillComponent>(e)) {
-            _build_skills(
-                s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
-            );
+            _build_skills(s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value);
         }
 
         // StatusEffect
@@ -129,12 +127,32 @@ void SnapshotBuilder::_build_players(
                 (max_timer > 0.0f) ? (1.0f - cs.Timer / max_timer) : 0.0f;
         }
 
-        s->attack_target_id = -1;
-        if (reg.all_of<AttackTarget>(e)) {
-            s->attack_target_id = reg.get<AttackTarget>(e).TargetNetworkId;
-        }
+    s->attack_target_id = -1;
+    if (reg.all_of<AttackTarget>(e)) {
+        s->attack_target_id = reg.get<AttackTarget>(e).TargetNetworkId;
+    }
 
-        snap->players.push_back(s);
+    // ── 新增 snapshot 字段 ──
+    s->cast_target_id = -1;
+    s->is_moving = false;
+    s->skill_points = 0;
+    if (reg.all_of<CastState>(e)) {
+        auto &cs = reg.get<CastState>(e);
+        s->cast_target_id = cs.TargetNetworkId;
+    }
+    if (reg.all_of<MovePath>(e)) {
+        auto &path = reg.get<MovePath>(e);
+        if (path.Following) s->is_moving = true;
+    }
+    if (reg.all_of<AttackTarget>(e)) {
+        auto &at = reg.get<AttackTarget>(e);
+        if (at.Chasing) s->is_moving = true;
+    }
+    if (reg.all_of<SkillPoints>(e)) {
+        s->skill_points = reg.get<SkillPoints>(e).Available;
+    }
+
+    snap->players.push_back(s);
     }
 }
 
@@ -175,9 +193,7 @@ void SnapshotBuilder::_build_bots(
         s->speed = view.get<MoveSpeed>(e).Value;
         s->tier = static_cast<int>(reg.get<BotTier>(e));
         if (reg.all_of<SkillComponent>(e)) {
-            _build_skills(
-                s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
-            );
+            _build_skills(s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value);
         }
 
         // StatusEffect

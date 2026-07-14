@@ -55,15 +55,16 @@ inline void player_attack_command_system(entt::registry &reg, float dt) {
                 continue;
         }
 
-        // 2. 清锁信号：移动 / Stop 时清
-        if (input.Stop || input.MoveIssue) {
+        // 2. 清锁信号：移动 / Stop / AttackClear
+        if (input.Stop || input.MoveIssue || input.AttackClear) {
             if (at.Target != entt::null)
-                printf("[ATK] clear target (stop=%d move=%d)\n", input.Stop, input.MoveIssue);
+                printf("[ATK] clear target (stop=%d move=%d clear=%d)\n",
+                       input.Stop, input.MoveIssue, input.AttackClear);
             at.Target = entt::null;
             at.TargetNetworkId = -1;
         }
 
-        // 3. 直接设目标
+        // 3. 直接设目标（右键点敌 / A+左键点敌）
         if (input.AttackTargetId >= 0) {
             entt::entity tgt = resolve_target_by_netid(reg, input.AttackTargetId);
             if (tgt != entt::null) {
@@ -78,7 +79,21 @@ inline void player_attack_command_system(entt::registry &reg, float dt) {
             }
         }
 
-        // 4. 验证当前 Target
+        // 4. 空地攻击（A+左键点空地 → 找最近敌人）
+        if (input.AttackGround) {
+            entt::entity tgt = find_nearest_enemy(
+                reg, input.AttackGroundPos, GameConfig::AttackAcquisitionRange, e);
+            if (tgt != entt::null) {
+                int net_id = reg.all_of<NetworkId>(tgt) ? reg.get<NetworkId>(tgt).Value : -1;
+                bool new_target = (tgt != at.Target);
+                at.Target = tgt;
+                at.TargetNetworkId = net_id;
+                if (new_target && reg.all_of<CombatStats>(e))
+                    reg.get<CombatStats>(e).LastFireTime = -999.0;
+            }
+        }
+
+        // 5. 验证当前 Target
         if (at.Target != entt::null) {
             if (!reg.valid(at.Target) ||
                 (reg.all_of<Dead>(at.Target) && reg.get<Dead>(at.Target).enabled)) {

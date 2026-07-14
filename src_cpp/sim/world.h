@@ -20,6 +20,7 @@
 #include "systems/progression.h"
 #include "systems/skill_cast.h"
 #include "systems/skill_cooldown.h"
+#include "systems/skill_level.h"
 #include "systems/snapshot_export.h"
 #include "systems/status_effect.h"
 #include "systems/wall_collision.h"
@@ -35,19 +36,21 @@ class World {
     World();
 
     void initialize(const std::string &map_json);
-    void set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq);
-    void set_cast_input(
-        int cast_slot,
-        bool confirm,
-        bool cancel,
-        bool interrupt,
-        float aim_x,
-        float aim_y,
-        int target_id = -1
-    );
+
+    // ── 新命令 API ──
+    void set_skill_command(int slot, bool confirm, float ax, float ay, int target_id);
+    void set_skill_upgrade_command(int slot);
+    void set_attack_command(int target_id, bool ground, float gx, float gy, bool clear);
+    void set_cancel_command(bool skill, bool attack);
+
+    // ── 保留（已有，签名不变） ──
     void set_move_command(float target_x, float target_y, bool issue);
-    void set_stop(bool stop);
-    void set_attack_command(int target_id);
+    void set_stop_command();
+
+    // ── 废弃（v1 API，逐步移除） ──
+    void set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq);
+    void set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y, int target_id = -1);
+
     void tick(double dt);
     bool is_game_over() const { return _game_over; }
 
