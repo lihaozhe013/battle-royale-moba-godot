@@ -7,27 +7,27 @@
 
 ## 操作方式
 
-| 操作 | 按键 | 说明 |
-|------|------|------|
-| **移动** | 右键点地板 | A\* 寻路自动移动 |
-| **技能** | Q / W / E / R | 4 技能槽（Quick / Normal cast 双模式可配） |
-| **普攻命令** | A 键 | 进入普攻瞄准 + 左键确认；或右键点敌直接攻击 |
-| **停止** | S | 清移动路径 |
-| **取消施法/普攻瞄准** | 右键 / S / ESC / H | — |
-| **设置** | ESC | 非施法时打开设置面板 |
+| 操作                  | 按键               | 说明                                        |
+| --------------------- | ------------------ | ------------------------------------------- |
+| **移动**              | 右键点地板         | A\* 寻路自动移动                            |
+| **技能**              | Q / W / E / R      | 4 技能槽（Quick / Normal cast 双模式可配）  |
+| **普攻命令**          | A 键               | 进入普攻瞄准 + 左键确认；或右键点敌直接攻击 |
+| **停止**              | S                  | 清移动路径                                  |
+| **取消施法/普攻瞄准** | 右键 / S / ESC / H | —                                           |
+| **设置**              | ESC                | 非施法时打开设置面板                        |
 
 MOBA 模式特性：右键连点节流、同区域重算跳过、转向速率平滑、S 键停止、右键长按连点（~6Hz）、普攻穿墙追击、技能超出范围自动 A\* 跟随施法。
 
 ## 相机控制
 
-| 功能 | 操作 | 设置 |
-|------|------|------|
-| **锁/自由** | Y 键切换 | ESC → Camera |
-| **中键拖屏** | 中键拖动（像素精准，1:1 鼠标→世界） | 恒定精准，无选项 |
-| **边缘推屏** | 鼠标贴边自动滚动 | ESC → Edge Pan On/Off + Speed (1.0-50.0) |
-| **平滑开关** | 平滑缓动 / 瞬时跳转 | ESC → Smooth Pan On/Off |
-| **全屏** | 窗口化 / 无边框 / 独占全屏 | ESC → Fullscreen |
-| **按住居中** | F1 / Space（按住锁定，松开解锁） | — |
+| 功能         | 操作                                | 设置                                     |
+| ------------ | ----------------------------------- | ---------------------------------------- |
+| **锁/自由**  | Y 键切换                            | ESC → Camera                             |
+| **中键拖屏** | 中键拖动（像素精准，1:1 鼠标→世界） | 恒定精准，无选项                         |
+| **边缘推屏** | 鼠标贴边自动滚动                    | ESC → Edge Pan On/Off + Speed (1.0-50.0) |
+| **平滑开关** | 平滑缓动 / 瞬时跳转                 | ESC → Smooth Pan On/Off                  |
+| **全屏**     | 窗口化 / 无边框 / 独占全屏          | ESC → Fullscreen                         |
+| **按住居中** | F1 / Space（按住锁定，松开解锁）    | —                                        |
 
 相机锁定跟随 30Hz Sim 数据时使用线性插值（LERP 1/30s），消除抖动。Smooth Pan 关闭时拖屏和推屏均为恒速无加速度。
 
@@ -35,12 +35,12 @@ MOBA 模式特性：右键连点节流、同区域重算跳过、转向速率平
 
 构建 C++ GDExtension 需要以下工具（构建脚本会自动检测）：
 
-| 工具 | 版本 | 安装方式 |
-|------|------|----------|
-| CMake | ≥ 3.17 | `brew install cmake` (macOS), `apt install cmake` (Linux), 或从 [cmake.org](https://cmake.org) 下载 |
-| Ninja | ≥ 1.10 | `brew install ninja` (macOS), `apt install ninja-build` (Linux), `pip install ninja` (全平台) |
-| Python | ≥ 3.13 | 项目使用 uv 管理，参考 `pyproject.toml` |
-| C++编译器 | C++17 | macOS: Xcode CLT (`xcode-select --install`), Linux: GCC ≥ 8 或 Clang ≥ 7, Windows: 需从 Visual Studio Developer Command Prompt 执行 |
+| 工具      | 版本   | 安装方式                                                                                                                            |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| CMake     | ≥ 3.17 | `brew install cmake` (macOS), `apt install cmake` (Linux), 或从 [cmake.org](https://cmake.org) 下载                                 |
+| Ninja     | ≥ 1.10 | `brew install ninja` (macOS), `apt install ninja-build` (Linux), `pip install ninja` (全平台)                                       |
+| Python    | ≥ 3.13 | 项目使用 uv 管理，参考 `pyproject.toml`                                                                                             |
+| C++编译器 | C++17  | macOS: Xcode CLT (`xcode-select --install`), Linux: GCC ≥ 8 或 Clang ≥ 7, Windows: 需从 Visual Studio Developer Command Prompt 执行 |
 
 首次构建前，复制对应的 `build_env.*.example` 为 `build_env.yaml` 并按需配置。
 
@@ -81,20 +81,20 @@ cd src_cpp && python build.py
 
 ## 关键设计决策
 
-| 决策 | 选择 | 理由 |
-|------|------|------|
-| 模拟层语言 | C++ GDExtension | ECS 性能，entt 生态 |
-| 视图层语言 | GDScript | 快速迭代，Godot 原生集成 |
-| Sim-View 通信 | Snapshot 数据契约 | 完全解耦，可独立测试 |
-| 客户端插值 | 33ms lerp (1/30) + seq 去重 | 匹配 Sim tick rate，消除角度 jitter |
-| 寻路算法 | Sim 层手写 A*（均匀网格 0.5u） | 零 Godot 依赖，墙体静态 AABB 天然适配 |
-| 操作模式 | 单一 MOBA 模式（WASD 已移除） | 右键移动 + QWER 技能 + A 普攻，符合 MOBA 标准 |
-| 右键仲裁 | 施法中仅取消不下达移动 | 符合 MOBA 直觉 (LoL/Dota)，Sim 权威判断 |
-| 输入系统 | 四层架构（事件队列/状态机/命令翻译/命令缓冲） | 不丢指令（30Hz Sim < 60Hz 渲染）+ 状态化打断施法 + 双正交状态轴 |
-| 相机拖屏 | 像素精准，直接 delta × world-per-pixel 映射 | 消除透视倾斜带来的世界坐标不一致感，响应无延迟 |
-| 边缘推屏 | 仅全屏/最大化下生效，速度随缩放比例自适应 | 窗口化下鼠标离开窗口边界会产生误触，全屏限定避免反直觉 |
-| 平滑开关 | ON = lerp 缓动，OFF = position = _look_at 直接跳转 | 玩家可选顺滑跟拍或即时响应；Locked 模式始终插值消除 30Hz 抖动 |
-| 按住居中 | F1/Space 按住切 Locked，松开回 Free | 与 MOBA 常规手感一致 (space 按住所英雄) |
+| 决策          | 选择                                               | 理由                                                            |
+| ------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| 模拟层语言    | C++ GDExtension                                    | ECS 性能，entt 生态                                             |
+| 视图层语言    | GDScript                                           | 快速迭代，Godot 原生集成                                        |
+| Sim-View 通信 | Snapshot 数据契约                                  | 完全解耦，可独立测试                                            |
+| 客户端插值    | 33ms lerp (1/30) + seq 去重                        | 匹配 Sim tick rate，消除角度 jitter                             |
+| 寻路算法      | Sim 层手写 A*（均匀网格 0.5u）                     | 零 Godot 依赖，墙体静态 AABB 天然适配                           |
+| 操作模式      | 单一 MOBA 模式（WASD 已移除）                      | 右键移动 + QWER 技能 + A 普攻，符合 MOBA 标准                   |
+| 右键仲裁      | 施法中仅取消不下达移动                             | 符合 MOBA 直觉 (LoL/Dota)，Sim 权威判断                         |
+| 输入系统      | 四层架构（事件队列/状态机/命令翻译/命令缓冲）      | 不丢指令（30Hz Sim < 60Hz 渲染）+ 状态化打断施法 + 双正交状态轴 |
+| 相机拖屏      | 像素精准，直接 delta × world-per-pixel 映射        | 消除透视倾斜带来的世界坐标不一致感，响应无延迟                  |
+| 边缘推屏      | 仅全屏/最大化下生效，速度随缩放比例自适应          | 窗口化下鼠标离开窗口边界会产生误触，全屏限定避免反直觉          |
+| 平滑开关      | ON = lerp 缓动，OFF = position = _look_at 直接跳转 | 玩家可选顺滑跟拍或即时响应；Locked 模式始终插值消除 30Hz 抖动   |
+| 按住居中      | F1/Space 按住切 Locked，松开回 Free                | 与 MOBA 常规手感一致 (space 按住所英雄)                         |
 
 ## 文档
 

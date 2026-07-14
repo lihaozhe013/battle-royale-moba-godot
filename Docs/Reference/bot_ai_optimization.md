@@ -26,36 +26,36 @@
 
 当前 bot 行为由三个扁平的 C++ system 组成（`bot_targeting.h` → `bot_ai.h` → `bot_combat.h`），无决策层：
 
-| System | 行为 | 问题 |
-|--------|------|------|
-| `bot_ai_system` | 随机 wander 到地图随机点 | 不会主动找 XP/血包；复活血量永远 Lv1 基础值 |
-| `bot_targeting_system` | 视野内按 min HP → min dist → random 选目标 | 逻辑正常，无需大改 |
-| `bot_combat_system` | 向目标射击 | 逻辑正常，射击方向已独立于 FacingAngle |
+| System                 | 行为                                       | 问题                                        |
+| ---------------------- | ------------------------------------------ | ------------------------------------------- |
+| `bot_ai_system`        | 随机 wander 到地图随机点                   | 不会主动找 XP/血包；复活血量永远 Lv1 基础值 |
+| `bot_targeting_system` | 视野内按 min HP → min dist → random 选目标 | 逻辑正常，无需大改                          |
+| `bot_combat_system`    | 向目标射击                                 | 逻辑正常，射击方向已独立于 FacingAngle      |
 
 ### 1.2 Bot 属性现状
 
-| 属性 | 存在 | 说明 |
-|------|------|------|
-| `Level` / `Experience` / `MoveSpeed` | ✅ | `world.cpp:159-161` 已有组件 |
-| `CombatStats.Atk/Asp` / `Kills` | ✅ | `world.cpp:156-157` 已有组件 |
-| 吃 XP 升级 / 吃血包回血 | ✅ | `pickup_system` 对所有 `Damageable` 生效 |
-| 击杀涨 Atk/Asp | ✅ | `progression_system` 对所有 combatant 生效 |
-| 主动寻路到 pickup | ❌ | `bot_ai` 只 wander |
-| 复活随机等级 / Tier | ❌ | 复活永远 `hp.Cur=BotHp`（`bot_ai.h:31`） |
-| 快照暴露 xp/speed | ❌ | `SimBotSnap` 只有 level（`snapshot_types.h:50-52`） |
-| 视图层显示等级/tier | ❌ | `StatsPanel` 仅显示玩家；血条等级徽章 todo P2#3 未做 |
+| 属性                                 | 存在 | 说明                                                 |
+| ------------------------------------ | ---- | ---------------------------------------------------- |
+| `Level` / `Experience` / `MoveSpeed` | ✅   | `world.cpp:159-161` 已有组件                         |
+| `CombatStats.Atk/Asp` / `Kills`      | ✅   | `world.cpp:156-157` 已有组件                         |
+| 吃 XP 升级 / 吃血包回血              | ✅   | `pickup_system` 对所有 `Damageable` 生效             |
+| 击杀涨 Atk/Asp                       | ✅   | `progression_system` 对所有 combatant 生效           |
+| 主动寻路到 pickup                    | ❌   | `bot_ai` 只 wander                                   |
+| 复活随机等级 / Tier                  | ❌   | 复活永远 `hp.Cur=BotHp`（`bot_ai.h:31`）             |
+| 快照暴露 xp/speed                    | ❌   | `SimBotSnap` 只有 level（`snapshot_types.h:50-52`）  |
+| 视图层显示等级/tier                  | ❌   | `StatsPanel` 仅显示玩家；血条等级徽章 todo P2#3 未做 |
 
 ### 1.3 Pickup 经济问题
 
-| 配置 | 当前值 | 问题 |
-|------|--------|------|
-| `XpPerLevelBase` | 100 | 升级门槛太低（Lv1 只需 5 个 XP pickup） |
-| `XpPickupValue` | 20 | 单个经验太多 |
-| `XpPickupCount` / Respawn | 6 / 8s | 产出 120 xp/8s=15/s → 约 7s 升一级 |
-| `HealPickupValue` (大) | 30% max | 回血比例可调 |
-| `HealPickupCount` | 3 | 太多 |
-| `SmallHealPickupValue` | 25% max | 太强 |
-| `SmallHealPickupCount` | 5 | 回血泛滥 |
+| 配置                      | 当前值  | 问题                                    |
+| ------------------------- | ------- | --------------------------------------- |
+| `XpPerLevelBase`          | 100     | 升级门槛太低（Lv1 只需 5 个 XP pickup） |
+| `XpPickupValue`           | 20      | 单个经验太多                            |
+| `XpPickupCount` / Respawn | 6 / 8s  | 产出 120 xp/8s=15/s → 约 7s 升一级      |
+| `HealPickupValue` (大)    | 30% max | 回血比例可调                            |
+| `HealPickupCount`         | 3       | 太多                                    |
+| `SmallHealPickupValue`    | 25% max | 太强                                    |
+| `SmallHealPickupCount`    | 5       | 回血泛滥                                |
 
 ---
 
@@ -154,7 +154,7 @@ step2 — 优先级决策（高→低）:
 step3 — 防聚堆:
   SeekHeal/SeekXp 时, 不取绝对最近, 而取 top-3 中随机一个:
     收集所有同类型 pickup, 按距离排序, 取前 3 → uniform_int(0,2) 选
-    
+
 step4 — 移动执行（沿用原有逻辑）:
   dir = normalize(MoveTarget - pos)
   if dist > 0.01f:
@@ -166,11 +166,11 @@ step4 — 移动执行（沿用原有逻辑）:
 
 ### 2.4 Kiting 战斗位移（ENGAGE 状态详细行为）
 
-| 条件 | 行为 |
-|------|------|
-| dist > vision × 0.8 | 追击 → MoveTarget = target.position |
-| dist < vision × 0.3 | 后撤 → MoveTarget = pos - normalize(to_target) × 20（撤到安全距离） |
-| 中间 | 横移 → dir = normalize(perpendicular(to_target))，左右交替（用 std::bernoulli_distribution 每次决策随机） |
+| 条件                | 行为                                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| dist > vision × 0.8 | 追击 → MoveTarget = target.position                                                                       |
+| dist < vision × 0.3 | 后撤 → MoveTarget = pos - normalize(to_target) × 20（撤到安全距离）                                       |
+| 中间                | 横移 → dir = normalize(perpendicular(to_target))，左右交替（用 std::bernoulli_distribution 每次决策随机） |
 
 `bot_combat` 不受影响——射击方向始终指向 target，独立于移动朝向。
 
@@ -268,7 +268,7 @@ if (dead) {
 ### 3.4 Hp/Atk/Asp/Speed 随等级成长曲线示例
 
 | Level | HP(N) | HP(E) | HP(B) | ATK(N) | ATK(E) | ATK(B) | ASP(N) | ASP(E) | ASP(B) | Speed(N) |
-|-------|-------|-------|-------|--------|--------|--------|--------|--------|--------|----------|
+| ----- | ----- | ----- | ----- | ------ | ------ | ------ | ------ | ------ | ------ | -------- |
 | 1     | 50    | 100   | 200   | 5.0    | 8.0    | 12.5   | 0.80   | 0.88   | 1.00   | 2.0      |
 | 5     | 82    | 164   | 328   | 8.2    | 13.1   | 20.5   | 0.92   | 1.01   | 1.15   | 3.2      |
 | 10    | 122   | 244   | 488   | 12.2   | 19.5   | 30.5   | 1.07   | 1.18   | 1.34   | 4.7      |
@@ -291,6 +291,7 @@ static constexpr float KillXpHighBonus = 0.5f; // 每高 1 级 +50%
 ```
 
 公式：
+
 ```
 kill_xp = KillXpBase × victim_level × (1 + max(0, victim_level - killer_level) × KillXpHighBonus)
 ```
@@ -298,6 +299,7 @@ kill_xp = KillXpBase × victim_level × (1 + max(0, victim_level - killer_level)
 ### 4.2 实现方式
 
 在 `progression_system` 中处理 `KillEventBuffer` 时，不再只读 `KillEvent` 的 `KillerId/VictimId`，而是：
+
 1. 用 `VictimId` 反查受害者的 `NetworkId` 对应的实体 → 读 `Level` 组件
 2. 用 `KillerId` 反查杀手的 `NetworkId` 对应的实体 → 读 `Level` + `Experience` 组件
 3. 计算 `kill_xp`，调用 `apply_xp(reg, killer_entity, kill_xp)`
@@ -330,13 +332,13 @@ inline void apply_xp(entt::registry &reg, entt::entity e, int xp_amount) {
 
 ### 4.4 示例（XpPerLevelBase=500）
 
-| 击杀场景 | victim_lv | killer_lv | kill_xp | 占 killer 当前级进度 |
-|---------|-----------|-----------|---------|-------------------|
-| Lv1 杀 Lv1 | 1 | 1 | 15 | 3% |
-| Lv1 杀 Lv10 Boss | 10 | 1 | 825 | 165%（升 1 级 + 余 325） |
-| Lv10 杀 Lv1 | 1 | 10 | 15 | 0.3%（Lv10 需 5000） |
-| Lv5 杀 Lv10 | 10 | 5 | 187 | —— |
-| Lv10 杀 Lv10 | 10 | 10 | 150 | 3% |
+| 击杀场景         | victim_lv | killer_lv | kill_xp | 占 killer 当前级进度     |
+| ---------------- | --------- | --------- | ------- | ------------------------ |
+| Lv1 杀 Lv1       | 1         | 1         | 15      | 3%                       |
+| Lv1 杀 Lv10 Boss | 10        | 1         | 825     | 165%（升 1 级 + 余 325） |
+| Lv10 杀 Lv1      | 1         | 10        | 15      | 0.3%（Lv10 需 5000）     |
+| Lv5 杀 Lv10      | 10        | 5         | 187     | ——                       |
+| Lv10 杀 Lv10     | 10        | 10        | 150     | 3%                       |
 
 ### 4.5 不动的部分
 
@@ -370,15 +372,15 @@ SmallHealPickupRespawnTime 8   → 20     // 20s 刷新
 
 ### 5.2 产出计算对比
 
-| 指标 | 调优前 | 调优后 | 变化 |
-|------|--------|--------|------|
-| XP 产出 / s | 120 / 8 = 15 | 64 / 10 = 6.4 | -57% |
-| Lv1 升级所需时间 | 100/15 ≈ 6.7s | 500/6.4 ≈ 78s | **×12** |
-| Lv10 升级所需时间 | 1000/15 ≈ 67s | 5000/6.4 ≈ 780s | **×12** |
-| 大血包产出 / s | 3×30% / 12 = 7.5% maxHP | 2×50% / 25 = 4% maxHP | -47% |
-| 小血包产出 / s | 5×25% / 8 = 15.6% maxHP | 2×15% / 20 = 1.5% maxHP | -90% |
-| 总回血产出 / s | ≈ 23% maxHP | ≈ 5.5% maxHP | **×0.24** |
-| 单次大血包价值 | 30% 立刻回 | 50% 立刻回 | **单次更强** |
+| 指标              | 调优前                  | 调优后                  | 变化         |
+| ----------------- | ----------------------- | ----------------------- | ------------ |
+| XP 产出 / s       | 120 / 8 = 15            | 64 / 10 = 6.4           | -57%         |
+| Lv1 升级所需时间  | 100/15 ≈ 6.7s           | 500/6.4 ≈ 78s           | **×12**      |
+| Lv10 升级所需时间 | 1000/15 ≈ 67s           | 5000/6.4 ≈ 780s         | **×12**      |
+| 大血包产出 / s    | 3×30% / 12 = 7.5% maxHP | 2×50% / 25 = 4% maxHP   | -47%         |
+| 小血包产出 / s    | 5×25% / 8 = 15.6% maxHP | 2×15% / 20 = 1.5% maxHP | -90%         |
+| 总回血产出 / s    | ≈ 23% maxHP             | ≈ 5.5% maxHP            | **×0.24**    |
+| 单次大血包价值    | 30% 立刻回              | 50% 立刻回              | **单次更强** |
 
 ### 5.3 配合 bot 全图感知的预期
 
@@ -440,11 +442,13 @@ HealthBarUI (Control)              -- 根，尺寸 124×16（原 100×10）
 ```
 
 **布局原理**（解耦关键）：
+
 - 根 Control 扩宽到 124px = 徽章 22px + 2px 间隔 + 血条 100px
 - 血条三件套（Background/DamageBar/Fill）整体右移 24px、下移 3px（在 16px 高度内垂直居中）
 - `set_screen_position` 以**血条中心**（非根中心）对齐实体头顶 → 徽章视觉上挂在血条左侧
 
 `health_bar_ui.gd` 新增方法：
+
 ```gdscript
 const TIER_COLORS := {
     0: Color(0.8, 0.2, 0.2),  # Normal 红
@@ -460,6 +464,7 @@ func update_level(lv: int, tier: int) -> void:
 ### 6.5 health_bar_manager.gd
 
 `sync_bars` 中，对 bot snapshot 传 level/tier：
+
 ```gdscript
 if snap.bots[i].dead:
     bar.hide()
@@ -488,6 +493,7 @@ Vec2{-35, 35},  Vec2{ 35, 35},
 Vec2{-35,  0},  Vec2{ 35,  0},
 Vec2{  0,-35},  Vec2{  0, 35},
 ```
+
 8 个点分散在地图边缘和轴向，玩家和 bot 需要离开中心区域去吃。
 
 ### 7.2 大血包生成器（2 个）
@@ -496,6 +502,7 @@ Vec2{  0,-35},  Vec2{  0, 35},
 Vec2{-20,-20},
 Vec2{ 20, 20},
 ```
+
 仅对角 2 个，25s 刷新。玩家需要跨地图才能吃第二个，bot 也会抢 → 血包争夺。
 
 ### 7.3 小血包生成器（2 个）
@@ -504,6 +511,7 @@ Vec2{ 20, 20},
 Vec2{-10, 10},
 Vec2{ 10,-10},
 ```
+
 中心附近偏 10 单位，20s 刷新。"救命稻草"定位。
 
 ---
@@ -515,98 +523,98 @@ Vec2{ 10,-10},
 
 ### 8.1 需要编辑的场景文件
 
-| 场景文件 | 操作 | 原因 |
-|---------|------|------|
-| `scenes/ui/health_bar_ui.tscn` | **修改**：加 2 个子节点 + 调整根尺寸和血条偏移 | 显示等级徽章 + tier 颜色 |
-| `scenes/main.tscn` | **不改** | HealthBarManager 节点已存在（todo #14 已完成） |
-| `scenes/entities/*.tscn` | **不改** | bot/player 实体外观不变，tier 通过血条颜色区分而非模型 |
+| 场景文件                       | 操作                                           | 原因                                                   |
+| ------------------------------ | ---------------------------------------------- | ------------------------------------------------------ |
+| `scenes/ui/health_bar_ui.tscn` | **修改**：加 2 个子节点 + 调整根尺寸和血条偏移 | 显示等级徽章 + tier 颜色                               |
+| `scenes/main.tscn`             | **不改**                                       | HealthBarManager 节点已存在（todo #14 已完成）         |
+| `scenes/entities/*.tscn`       | **不改**                                       | bot/player 实体外观不变，tier 通过血条颜色区分而非模型 |
 
 ### 8.2 `health_bar_ui.tscn` 详细编辑步骤
 
 #### 步骤 1：修改根节点 HealthBarUI 尺寸
 
-| 属性 | 旧值 | 新值 | 原因 |
-|------|------|------|------|
+| 属性                  | 旧值               | 新值               | 原因                    |
+| --------------------- | ------------------ | ------------------ | ----------------------- |
 | `custom_minimum_size` | `Vector2(100, 10)` | `Vector2(124, 16)` | 容纳左侧徽章 + 垂直居中 |
-| `offset_right` | `100.0` | `124.0` | 匹配最小尺寸 |
-| `offset_bottom` | `10.0` | `16.0` | 匹配最小尺寸 |
-| `mouse_filter` | `2` (IGNORE) | `2` (IGNORE) | 不变 |
+| `offset_right`        | `100.0`            | `124.0`            | 匹配最小尺寸            |
+| `offset_bottom`       | `10.0`             | `16.0`             | 匹配最小尺寸            |
+| `mouse_filter`        | `2` (IGNORE)       | `2` (IGNORE)       | 不变                    |
 
 #### 步骤 2：新增 LevelBadge 节点
 
 在 HealthBarUI 根节点下新增子节点：
 
-| 属性 | 值 | 说明 |
-|------|-----|------|
-| 节点类型 | `ColorRect` | |
-| 节点名 | `LevelBadge` | 脚本通过 `$LevelBadge` 引用 |
-| `layout_mode` | `1` (Anchors) | |
-| `anchors_preset` | `0` (Custom) | 手动定位 |
-| `offset_left` | `0.0` | 左上角 |
-| `offset_top` | `1.0` | 垂直留 1px 边距 |
-| `offset_right` | `22.0` | 宽 22px |
-| `offset_bottom` | `15.0` | 高 14px |
-| `color` | `Color(0.8, 0.2, 0.2, 1)` | 默认 Normal 红，运行时由脚本覆盖 |
-| `mouse_filter` | `2` (IGNORE) | 不拦截鼠标 |
+| 属性             | 值                        | 说明                             |
+| ---------------- | ------------------------- | -------------------------------- |
+| 节点类型         | `ColorRect`               |                                  |
+| 节点名           | `LevelBadge`              | 脚本通过 `$LevelBadge` 引用      |
+| `layout_mode`    | `1` (Anchors)             |                                  |
+| `anchors_preset` | `0` (Custom)              | 手动定位                         |
+| `offset_left`    | `0.0`                     | 左上角                           |
+| `offset_top`     | `1.0`                     | 垂直留 1px 边距                  |
+| `offset_right`   | `22.0`                    | 宽 22px                          |
+| `offset_bottom`  | `15.0`                    | 高 14px                          |
+| `color`          | `Color(0.8, 0.2, 0.2, 1)` | 默认 Normal 红，运行时由脚本覆盖 |
+| `mouse_filter`   | `2` (IGNORE)              | 不拦截鼠标                       |
 
 #### 步骤 3：新增 LevelLabel 节点
 
 作为 **LevelBadge 的子节点**新增：
 
-| 属性 | 值 | 说明 |
-|------|-----|------|
-| 节点类型 | `Label` | |
-| 节点名 | `LevelLabel` | 脚本通过 `$LevelBadge/LevelLabel` 引用 |
-| `layout_mode` | `1` (Anchors) | |
-| `anchors_preset` | `15` (FULL_RECT) | 填满父节点 LevelBadge |
-| `anchor_right` | `1.0` | |
-| `anchor_bottom` | `1.0` | |
-| `grow_horizontal` | `2` (Grow Both) | |
-| `grow_vertical` | `2` (Grow Both) | |
-| `horizontal_alignment` | `1` (CENTER) | 文字水平居中 |
-| `vertical_alignment` | `1` (CENTER) | 文字垂直居中 |
-| `text` | `1` | 默认显示 "1" |
-| `theme_override_font_sizes/font_size` | `11` | 小字体适配 14px 高度 |
-| `theme_override_colors/font_color` | `Color(1, 1, 1, 1)` | 白字 |
-| `mouse_filter` | `2` (IGNORE) | 不拦截鼠标 |
+| 属性                                  | 值                  | 说明                                   |
+| ------------------------------------- | ------------------- | -------------------------------------- |
+| 节点类型                              | `Label`             |                                        |
+| 节点名                                | `LevelLabel`        | 脚本通过 `$LevelBadge/LevelLabel` 引用 |
+| `layout_mode`                         | `1` (Anchors)       |                                        |
+| `anchors_preset`                      | `15` (FULL_RECT)    | 填满父节点 LevelBadge                  |
+| `anchor_right`                        | `1.0`               |                                        |
+| `anchor_bottom`                       | `1.0`               |                                        |
+| `grow_horizontal`                     | `2` (Grow Both)     |                                        |
+| `grow_vertical`                       | `2` (Grow Both)     |                                        |
+| `horizontal_alignment`                | `1` (CENTER)        | 文字水平居中                           |
+| `vertical_alignment`                  | `1` (CENTER)        | 文字垂直居中                           |
+| `text`                                | `1`                 | 默认显示 "1"                           |
+| `theme_override_font_sizes/font_size` | `11`                | 小字体适配 14px 高度                   |
+| `theme_override_colors/font_color`    | `Color(1, 1, 1, 1)` | 白字                                   |
+| `mouse_filter`                        | `2` (IGNORE)        | 不拦截鼠标                             |
 
 #### 步骤 4：调整 Background 节点偏移
 
-| 属性 | 旧值 | 新值 | 原因 |
-|------|------|------|------|
-| `anchors_preset` | `15` (FULL_RECT) | `0` (Custom) | 改为手动定位 |
-| `anchor_right` | `1.0` | `0.0` | 清除锚点 |
-| `anchor_bottom` | `1.0` | `0.0` | 清除锚点 |
-| `grow_horizontal` | `2` | `0` (Grow Begin) | 清除 |
-| `grow_vertical` | `2` | `0` (Grow Begin) | 清除 |
-| `offset_left` | （隐含 0） | `24.0` | 右移 24px 让出徽章位置 |
-| `offset_top` | （隐含 0） | `3.0` | 下移 3px 垂直居中 |
-| `offset_right` | （隐含 100） | `124.0` | 24+100=124 |
-| `offset_bottom` | （隐含 10） | `13.0` | 3+10=13 |
-| `color` | `Color(0.1, 0.1, 0.1, 0.8)` | 不变 | |
-| `mouse_filter` | `2` | `2` | 不变 |
+| 属性              | 旧值                        | 新值             | 原因                   |
+| ----------------- | --------------------------- | ---------------- | ---------------------- |
+| `anchors_preset`  | `15` (FULL_RECT)            | `0` (Custom)     | 改为手动定位           |
+| `anchor_right`    | `1.0`                       | `0.0`            | 清除锚点               |
+| `anchor_bottom`   | `1.0`                       | `0.0`            | 清除锚点               |
+| `grow_horizontal` | `2`                         | `0` (Grow Begin) | 清除                   |
+| `grow_vertical`   | `2`                         | `0` (Grow Begin) | 清除                   |
+| `offset_left`     | （隐含 0）                  | `24.0`           | 右移 24px 让出徽章位置 |
+| `offset_top`      | （隐含 0）                  | `3.0`            | 下移 3px 垂直居中      |
+| `offset_right`    | （隐含 100）                | `124.0`          | 24+100=124             |
+| `offset_bottom`   | （隐含 10）                 | `13.0`           | 3+10=13                |
+| `color`           | `Color(0.1, 0.1, 0.1, 0.8)` | 不变             |                        |
+| `mouse_filter`    | `2`                         | `2`              | 不变                   |
 
 #### 步骤 5：调整 DamageBar 节点偏移
 
-| 属性 | 旧值 | 新值 | 原因 |
-|------|------|------|------|
-| `offset_left` | `0.0` | `24.0` | 右移 |
-| `offset_top` | `0.0` | `3.0` | 下移 |
-| `offset_right` | `100.0` | `124.0` | 24+100 |
-| `offset_bottom` | `10.0` | `13.0` | 3+10 |
-| `color` | `Color(1, 0.8, 0, 1)` | 不变 | |
-| `mouse_filter` | `2` | `2` | 不变 |
+| 属性            | 旧值                  | 新值    | 原因   |
+| --------------- | --------------------- | ------- | ------ |
+| `offset_left`   | `0.0`                 | `24.0`  | 右移   |
+| `offset_top`    | `0.0`                 | `3.0`   | 下移   |
+| `offset_right`  | `100.0`               | `124.0` | 24+100 |
+| `offset_bottom` | `10.0`                | `13.0`  | 3+10   |
+| `color`         | `Color(1, 0.8, 0, 1)` | 不变    |        |
+| `mouse_filter`  | `2`                   | `2`     | 不变   |
 
 #### 步骤 6：调整 Fill 节点偏移
 
-| 属性 | 旧值 | 新值 | 原因 |
-|------|------|------|------|
-| `offset_left` | `0.0` | `24.0` | 右移 |
-| `offset_top` | `0.0` | `3.0` | 下移 |
-| `offset_right` | `100.0` | `124.0` | 24+100 |
-| `offset_bottom` | `10.0` | `13.0` | 3+10 |
-| `color` | `Color(0.2, 1, 0.2, 1)` | 不变 | 运行时由脚本覆盖 |
-| `mouse_filter` | `2` | `2` | 不变 |
+| 属性            | 旧值                    | 新值    | 原因             |
+| --------------- | ----------------------- | ------- | ---------------- |
+| `offset_left`   | `0.0`                   | `24.0`  | 右移             |
+| `offset_top`    | `0.0`                   | `3.0`   | 下移             |
+| `offset_right`  | `100.0`                 | `124.0` | 24+100           |
+| `offset_bottom` | `10.0`                  | `13.0`  | 3+10             |
+| `color`         | `Color(0.2, 1, 0.2, 1)` | 不变    | 运行时由脚本覆盖 |
+| `mouse_filter`  | `2`                     | `2`     | 不变             |
 
 #### 步骤 7：保存场景
 
@@ -627,14 +635,14 @@ HealthBarUI (Control)              custom_minimum_size = (124, 16)
 
 ### 8.4 解耦设计原则
 
-| 原则 | 实现 |
-|------|------|
-| **场景是视觉布局的唯一真源** | LevelBadge/LevelLabel 在 `.tscn` 中定义，不在代码中 `add_child` |
-| **脚本只读不建** | `health_bar_ui.gd` 通过 `@onready var _level_badge = $LevelBadge` 引用，不创建节点 |
-| **Manager 不知徽章存在** | `health_bar_manager.gd` 只调 `bar.update_level(lv, tier)`，不知徽章内部结构 |
-| **tier 颜色不在场景硬编码** | `.tscn` 中 LevelBadge 颜色只是默认值，运行时由 `update_level` 按 tier 覆盖 |
-| **血条定位以血条中心为准** | `set_screen_position` 以血条（非根 Control）中心对齐实体头顶 |
-| **fallback 路径同步** | `_create_bar()` 代码 fallback（`health_bar_manager.gd:73-101`）需同步加 LevelBadge/LevelLabel 构建，保持与 `.tscn` 一致 |
+| 原则                         | 实现                                                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **场景是视觉布局的唯一真源** | LevelBadge/LevelLabel 在 `.tscn` 中定义，不在代码中 `add_child`                                                         |
+| **脚本只读不建**             | `health_bar_ui.gd` 通过 `@onready var _level_badge = $LevelBadge` 引用，不创建节点                                      |
+| **Manager 不知徽章存在**     | `health_bar_manager.gd` 只调 `bar.update_level(lv, tier)`，不知徽章内部结构                                             |
+| **tier 颜色不在场景硬编码**  | `.tscn` 中 LevelBadge 颜色只是默认值，运行时由 `update_level` 按 tier 覆盖                                              |
+| **血条定位以血条中心为准**   | `set_screen_position` 以血条（非根 Control）中心对齐实体头顶                                                            |
+| **fallback 路径同步**        | `_create_bar()` 代码 fallback（`health_bar_manager.gd:73-101`）需同步加 LevelBadge/LevelLabel 构建，保持与 `.tscn` 一致 |
 
 ### 8.5 `_create_bar()` fallback 同步
 
@@ -731,13 +739,13 @@ for b in snap.bots:
 
 ### 8.8 无需编辑器操作的部分
 
-| 项目 | 理由 |
-|------|------|
-| `main.tscn` | HealthBarManager 节点已存在（`main.tscn:40`），CanvasLayer 已存在 |
-| bot/player/arrow 实体场景 | tier 通过血条颜色区分，不改 3D 模型 |
-| pickup 场景 | pickup 数量/位置在 C++ `world.cpp` 中定义，非场景 |
-| 新增场景文件 | 无需——没有新视觉组件需要独立预制 |
-| Project Settings | 无新输入映射、无新 autoload、无新 layer |
+| 项目                      | 理由                                                              |
+| ------------------------- | ----------------------------------------------------------------- |
+| `main.tscn`               | HealthBarManager 节点已存在（`main.tscn:40`），CanvasLayer 已存在 |
+| bot/player/arrow 实体场景 | tier 通过血条颜色区分，不改 3D 模型                               |
+| pickup 场景               | pickup 数量/位置在 C++ `world.cpp` 中定义，非场景                 |
+| 新增场景文件              | 无需——没有新视觉组件需要独立预制                                  |
+| Project Settings          | 无新输入映射、无新 autoload、无新 layer                           |
 
 ---
 
@@ -745,47 +753,47 @@ for b in snap.bots:
 
 ### C++ Sim 层（11 文件）
 
-| 文件 | 改动 |
-|------|------|
-| `src_cpp/sim/components.h` | 新增 `BotTier` enum、`BotBehaviorState` struct |
-| `src_cpp/sim/game_config.h` | 新增 Bot 等级成长常量、Tier 倍率、决策树参数、击杀 XP 参数；修改 XP/血包经济常量 |
-| `src_cpp/sim/world.cpp` | `_spawn_bot` 首次出生 roll tier+level + emplace 新组件；`_spawn_pickup_spawners` 重排点位和数量 |
-| `src_cpp/sim/world.h` | 如需新增 private 方法（如 `_roll_tier` / `_rand_level` / `_apply_bot_tier_stats`）则加 |
-| `src_cpp/sim/systems/bot_ai.h` | **重写**：`bot_decision_system`（决策树 + 移动）+ 复活 roll tier+level 应用属性 |
-| `src_cpp/sim/systems/xp_helper.h` | **新建**：`apply_xp()` 通用函数，抽取自 `pickup.h` 升级循环 |
-| `src_cpp/sim/systems/progression.h` | 新增击杀 XP 发放逻辑，调用 `apply_xp`；原有 Atk/Asp 保留 |
-| `src_cpp/sim/systems/pickup.h` | XP 拾取循环改为调用 `apply_xp`（复用） |
-| `src_cpp/sim/snapshot_types.h` | `SimBotSnap` + `xp/xp_needed/speed/tier` 字段 + getter/setter |
-| `src_cpp/sim/snapshot_bindings.cpp` | 注册 `SimBotSnap` 新属性到 GDCLASS `_bind_methods` |
-| `src_cpp/sim/snapshot_builder.cpp` | `_build_bots` 导出新字段 |
+| 文件                                | 改动                                                                                            |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `src_cpp/sim/components.h`          | 新增 `BotTier` enum、`BotBehaviorState` struct                                                  |
+| `src_cpp/sim/game_config.h`         | 新增 Bot 等级成长常量、Tier 倍率、决策树参数、击杀 XP 参数；修改 XP/血包经济常量                |
+| `src_cpp/sim/world.cpp`             | `_spawn_bot` 首次出生 roll tier+level + emplace 新组件；`_spawn_pickup_spawners` 重排点位和数量 |
+| `src_cpp/sim/world.h`               | 如需新增 private 方法（如 `_roll_tier` / `_rand_level` / `_apply_bot_tier_stats`）则加          |
+| `src_cpp/sim/systems/bot_ai.h`      | **重写**：`bot_decision_system`（决策树 + 移动）+ 复活 roll tier+level 应用属性                 |
+| `src_cpp/sim/systems/xp_helper.h`   | **新建**：`apply_xp()` 通用函数，抽取自 `pickup.h` 升级循环                                     |
+| `src_cpp/sim/systems/progression.h` | 新增击杀 XP 发放逻辑，调用 `apply_xp`；原有 Atk/Asp 保留                                        |
+| `src_cpp/sim/systems/pickup.h`      | XP 拾取循环改为调用 `apply_xp`（复用）                                                          |
+| `src_cpp/sim/snapshot_types.h`      | `SimBotSnap` + `xp/xp_needed/speed/tier` 字段 + getter/setter                                   |
+| `src_cpp/sim/snapshot_bindings.cpp` | 注册 `SimBotSnap` 新属性到 GDCLASS `_bind_methods`                                              |
+| `src_cpp/sim/snapshot_builder.cpp`  | `_build_bots` 导出新字段                                                                        |
 
 ### Godot 编辑器场景（1 文件，操作步骤见 [§8](#8-编辑器操作清单)）
 
-| 文件 | 改动 |
-|------|------|
+| 文件                           | 改动                                                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- |
 | `scenes/ui/health_bar_ui.tscn` | 根尺寸 100×10→124×16；新增 LevelBadge + LevelLabel 子节点；Background/DamageBar/Fill 偏移到 (24,3) |
 
 ### GDScript 视图层（2 文件）
 
-| 文件 | 改动 |
-|------|------|
-| `scripts/ui/health_bar_ui.gd` | 新增 `@onready` 引用 LevelBadge/LevelLabel；新增 `update_level(lv, tier)` + `TIER_COLORS` 常量；`set_screen_position` 改为以血条中心对齐；`reset` 同步徽章 |
-| `scripts/ui/health_bar_manager.gd` | `sync_bars` 传 `bar.update_level(p.level, 0)` / `bar.update_level(b.level, b.tier)`；`_create_bar()` fallback 同步构建 LevelBadge/LevelLabel |
+| 文件                               | 改动                                                                                                                                                       |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/ui/health_bar_ui.gd`      | 新增 `@onready` 引用 LevelBadge/LevelLabel；新增 `update_level(lv, tier)` + `TIER_COLORS` 常量；`set_screen_position` 改为以血条中心对齐；`reset` 同步徽章 |
+| `scripts/ui/health_bar_manager.gd` | `sync_bars` 传 `bar.update_level(p.level, 0)` / `bar.update_level(b.level, b.tier)`；`_create_bar()` fallback 同步构建 LevelBadge/LevelLabel               |
 
 ### 不动的文件
 
-| 文件 | 理由 |
-|------|------|
-| `scenes/main.tscn` | HealthBarManager 节点已存在（`main.tscn:40`），CanvasLayer 已存在 |
-| `scenes/entities/*.tscn` | bot/player/arrow/pickup 实体外观不变，tier 通过血条颜色区分 |
-| `bot_targeting.h` | 目标选择逻辑不变（min HP → dist → random） |
-| `bot_combat.h` | 射击方向独立于 FacingAngle，逻辑不变 |
-| `combat.h` | 伤害/击杀事件逻辑不变 |
-| `arrow_movement.h` / `wall_collision.h` / `player*.h` | 无关 |
-| `scripts/ui/stats_panel.gd` | 只显示玩家，不改 |
-| `scripts/view/entity_manager.gd` / `entity_view.gd` | 不改（SimBotSnap 新增字段只影响 health_bar_manager） |
-| `scripts/sim_bridge.gd` | 不改（已调度 all systems，已 preload health_bar_scene） |
-| `scripts/input/input_collector.gd` / `scripts/view/camera_controller.gd` | 无关 |
+| 文件                                                                     | 理由                                                              |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `scenes/main.tscn`                                                       | HealthBarManager 节点已存在（`main.tscn:40`），CanvasLayer 已存在 |
+| `scenes/entities/*.tscn`                                                 | bot/player/arrow/pickup 实体外观不变，tier 通过血条颜色区分       |
+| `bot_targeting.h`                                                        | 目标选择逻辑不变（min HP → dist → random）                        |
+| `bot_combat.h`                                                           | 射击方向独立于 FacingAngle，逻辑不变                              |
+| `combat.h`                                                               | 伤害/击杀事件逻辑不变                                             |
+| `arrow_movement.h` / `wall_collision.h` / `player*.h`                    | 无关                                                              |
+| `scripts/ui/stats_panel.gd`                                              | 只显示玩家，不改                                                  |
+| `scripts/view/entity_manager.gd` / `entity_view.gd`                      | 不改（SimBotSnap 新增字段只影响 health_bar_manager）              |
+| `scripts/sim_bridge.gd`                                                  | 不改（已调度 all systems，已 preload health_bar_scene）           |
+| `scripts/input/input_collector.gd` / `scripts/view/camera_controller.gd` | 无关                                                              |
 
 ---
 
@@ -802,6 +810,7 @@ for b in snap.bots:
 **风险**：Lv30 Boss（HP 1128, ATK 70）可能秒杀玩家。
 
 **对策**：
+
 1. 血条等级徽章 + tier 颜色让玩家**一眼看出威胁等级**
 2. 金血条 = Boss → 玩家可以选择规避
 3. 调优倍率在落地后试跑，必要时下调 BossAtkMul 到 2.0 等
@@ -852,30 +861,30 @@ GDScript View (60Hz)
 
 ### 11.1 可行性评估
 
-| 需求 | 实现路径 | 评估 |
-|------|---------|------|
-| Bot 总数增加 | 调 `GameConfig::BotCount`（5 → 10）+ 初次 spawn 循环 | 无风险，决策 cooldown=0.3s 已节流，5→10 bot 性能仍可忽略 |
-| 三类等级区间的 bot | 新增 `BotRole` 组件 + 每类角色有独立等级规则 | 与现有 `BotTier`（属性倍率）正交，互不冲突 |
-| Stalker 跟随玩家等级 | bot_ai_system 在复活段读 `PlayerTag + Level` 视图取玩家等级 | ✅ Sim 层任意 system 都可直接 view，无需跨层通信 |
-| 重生时扫描分布补缺 | 复活判定段调用 helper 扫描所有 alive bot 的 role 计数 | 复活每 3 秒最多触发 1 bot，扫描 O(BotCount) 完全可忽略 |
+| 需求                 | 实现路径                                                    | 评估                                                     |
+| -------------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
+| Bot 总数增加         | 调 `GameConfig::BotCount`（5 → 10）+ 初次 spawn 循环        | 无风险，决策 cooldown=0.3s 已节流，5→10 bot 性能仍可忽略 |
+| 三类等级区间的 bot   | 新增 `BotRole` 组件 + 每类角色有独立等级规则                | 与现有 `BotTier`（属性倍率）正交，互不冲突               |
+| Stalker 跟随玩家等级 | bot_ai_system 在复活段读 `PlayerTag + Level` 视图取玩家等级 | ✅ Sim 层任意 system 都可直接 view，无需跨层通信         |
+| 重生时扫描分布补缺   | 复活判定段调用 helper 扫描所有 alive bot 的 role 计数       | 复活每 3 秒最多触发 1 bot，扫描 O(BotCount) 完全可忽略   |
 
 **结论：可行，且改动面比 §3 小**——只动 1 个组件、2 个文件（`components.h` / `bot_ai.h`），加 1 处 `world.cpp` spawn 改造、1 处 `game_config.h` 常量、1 处 snapshot 选配。
 
 ### 11.2 三类角色定义
 
-| Role | 含义 | 等级规则 | 设计意图 |
-|------|------|---------|---------|
-| **Fodder（炮灰）** | 永远低等级 | `uniform(1, FodderMaxLv)` | 玩家送菜/打怪练级；Stalker/Brute 也靠杀它们成长 |
-| **Stalker（追猎者）** | 跟随玩家等级 | `clamp(player_lv + uniform(-2, +2), 1, MaxBotLevel)` | 始终给玩家一个"势均力敌"的对手，越级也只差 2 级 |
-| **Brute（重型机）** | 一出生高等级 | `uniform(BruteMinLv, MaxBotLevel)` | 地图威胁/资源 contested 目标；玩家要绕开或组队击杀 |
+| Role                  | 含义         | 等级规则                                             | 设计意图                                           |
+| --------------------- | ------------ | ---------------------------------------------------- | -------------------------------------------------- |
+| **Fodder（炮灰）**    | 永远低等级   | `uniform(1, FodderMaxLv)`                            | 玩家送菜/打怪练级；Stalker/Brute 也靠杀它们成长    |
+| **Stalker（追猎者）** | 跟随玩家等级 | `clamp(player_lv + uniform(-2, +2), 1, MaxBotLevel)` | 始终给玩家一个"势均力敌"的对手，越级也只差 2 级    |
+| **Brute（重型机）**   | 一出生高等级 | `uniform(BruteMinLv, MaxBotLevel)`                   | 地图威胁/资源 contested 目标；玩家要绕开或组队击杀 |
 
 **Tier 与 Role 的关系（建议正交但有倾向）：**
 
-| Role | Tier roll |
-|------|-----------|
-| Fodder | 永远 `Normal` |
-| Stalker | 沿用现有 `BossRoll=5% / EliteRoll=20% / Normal` 概率 |
-| Brute | 强制 `Elite` 概率 60%，`Boss` 概率 40%，不出 `Normal` |
+| Role    | Tier roll                                             |
+| ------- | ----------------------------------------------------- |
+| Fodder  | 永远 `Normal`                                         |
+| Stalker | 沿用现有 `BossRoll=5% / EliteRoll=20% / Normal` 概率  |
+| Brute   | 强制 `Elite` 概率 60%，`Boss` 概率 40%，不出 `Normal` |
 
 > 这样 Fodder 是清一色普通小怪；Stalker 维持稀有 Boss 的惊喜感；Brute 永远是高威胁的橙/金血条。Tier 倍率常数（`GameConfig` 中现有）保持不变。
 
@@ -1124,56 +1133,56 @@ inline TierMult _tier_mult(BotTier t) {
 
 ### 11.8 阶梯分布示例（10 bot 目标）
 
-| Role | 权重 | 目标占比 | 10 bot 期望数 | 等级范围 |
-|------|------|---------|--------------|---------|
-| Fodder | 4 | 40% | 4 | 1~5 |
-| Stalker | 4 | 40% | 4 | player_lv ± 2 |
-| Brute | 2 | 20% | 2 | 22~30，Tier 强制 Elite/Boss |
+| Role    | 权重 | 目标占比 | 10 bot 期望数 | 等级范围                    |
+| ------- | ---- | -------- | ------------- | --------------------------- |
+| Fodder  | 4    | 40%      | 4             | 1~5                         |
+| Stalker | 4    | 40%      | 4             | player_lv ± 2               |
+| Brute   | 2    | 20%      | 2             | 22~30，Tier 强制 Elite/Boss |
 
 10 bot × 3 role × 3s 复活周期 → 每 3s 至多 1 次扫描。每次扫描 10 个 bot → 30 次比较/秒，可忽略。
 
 ### 11.9 文件改动清单（基于本方案）
 
-| 文件 | 改动 |
-|------|------|
-| `src_cpp/sim/components.h` | 新增 `enum class BotRole : uint8_t { Fodder, Stalker, Brute }` |
-| `src_cpp/sim/game_config.h` | 新增 role 常量：`BotCount=10`、`FodderMaxLv`、`BruteMinLv`、`StalkerOffset`、`FodderWeight/StalkerWeight/BruteWeight`、`BruteEliteRoll` |
-| `src_cpp/sim/systems/bot_role_rules.h` | **新建** header-only： `_roll_bot_level_for_role` / `_roll_bot_tier_for_role` / `_tier_mult` |
-| `src_cpp/sim/world.h` | 声明 `_spawn_bot_with_role(BotRole)`；不再用 `_spawn_bot` 单一入口（或保留为 thin wrapper） |
-| `src_cpp/sim/world.cpp` | `_spawn_bot` 改造为"按权重采样 role → 调 `_spawn_bot_with_role`"；首次出生 emplace `BotRole` 组件 |
-| `src_cpp/sim/systems/bot_ai.h` | 复活段重写：扫描 role 分布 → 选最低密度 role → roll 等级/Tier → 应用属性（其余逻辑不动） |
+| 文件                                   | 改动                                                                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `src_cpp/sim/components.h`             | 新增 `enum class BotRole : uint8_t { Fodder, Stalker, Brute }`                                                                          |
+| `src_cpp/sim/game_config.h`            | 新增 role 常量：`BotCount=10`、`FodderMaxLv`、`BruteMinLv`、`StalkerOffset`、`FodderWeight/StalkerWeight/BruteWeight`、`BruteEliteRoll` |
+| `src_cpp/sim/systems/bot_role_rules.h` | **新建** header-only： `_roll_bot_level_for_role` / `_roll_bot_tier_for_role` / `_tier_mult`                                            |
+| `src_cpp/sim/world.h`                  | 声明 `_spawn_bot_with_role(BotRole)`；不再用 `_spawn_bot` 单一入口（或保留为 thin wrapper）                                             |
+| `src_cpp/sim/world.cpp`                | `_spawn_bot` 改造为"按权重采样 role → 调 `_spawn_bot_with_role`"；首次出生 emplace `BotRole` 组件                                       |
+| `src_cpp/sim/systems/bot_ai.h`         | 复活段重写：扫描 role 分布 → 选最低密度 role → roll 等级/Tier → 应用属性（其余逻辑不动）                                                |
 
 ### 11.10 可选扩展（视图层）
 
-| 扩展 | 文件 | 说明 |
-|------|------|------|
-| Role 字段进快照 | `snapshot_types.h` / `snapshot_builder.cpp` / `snapshot_bindings.cpp` | `SimBotSnap.role: int`，仅用于调试/小地图图标 |
-| Level Badge 颜色按 role 细分 | `health_bar_ui.gd` | 可选：Brute 加描边/橙色发光，让玩家远距离识别威胁 |
+| 扩展                         | 文件                                                                  | 说明                                              |
+| ---------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- |
+| Role 字段进快照              | `snapshot_types.h` / `snapshot_builder.cpp` / `snapshot_bindings.cpp` | `SimBotSnap.role: int`，仅用于调试/小地图图标     |
+| Level Badge 颜色按 role 细分 | `health_bar_ui.gd`                                                    | 可选：Brute 加描边/橙色发光，让玩家远距离识别威胁 |
 
 > 视图层改动**完全不阻塞 Sim 实现**，可作为后续 P2 任务。
 
 ### 11.11 风险与对策
 
-| 风险 | 描述 | 对策 |
-|------|------|------|
-| Stalker 全场紧迫玩家 | 当玩家升到 Lv25+，Stalker 全部 Lv25±2，密度高 | Stalker 数量受权重限制（4 bot）；AimDistance/BotVisionRange 不变，玩家靠走位脱战 |
-| 玩家很早遇到 Brute | 开局玩家 Lv1，Brute Lv25 Boss 蹲脸 → 开局即死 | Brute 出生位置可单独设置（远离玩家初始位置 30+ 单位），需要 `world.cpp` 初始 spawn 时算玩家距离拒绝采样（可选优化） |
-| bot 全场分布不均 | 复活时若 Stalker 全死光，每次都补 Stalker，可能瞬间涌出 4 个 Stalker | density 选择算法天然分布更均匀；	exports `density = count/weight` 而不是 `count`，能更好回到权重配比 |
-| 玩家死亡后 Stalker 失锚 | BR 模式玩家淘汰后无 PlayerTag.IsLocal，Stalker 升级逻辑崩 | `_roll_bot_level_for_role(Stalker)` fallback：取场上最高 HP alive bot 的等级；或固定升级到 MaxBotLevel（在 P0-5 死亡系统落地后再处理） |
-| Role 与 Tier 双系统都改属性 | Role 控制"等级范围"，Tier 控制"属性倍率"，两者相乘可能数值失控（Brute Lv30 Boss HP=1128） | 直接复用 §3.4 已有数值表，已有平衡；Brute 默认 max HP=1128 仍是设计内威胁 |
-| 性能（10 bot + 复活扫描） | 每 tick 复活段扫描 10 bot role 计数 | 10 ops × 0.33 Hz (复活率) = 3.3 ops/s，完全可忽略 |
+| 风险                        | 描述                                                                                      | 对策                                                                                                                                   |
+| --------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Stalker 全场紧迫玩家        | 当玩家升到 Lv25+，Stalker 全部 Lv25±2，密度高                                             | Stalker 数量受权重限制（4 bot）；AimDistance/BotVisionRange 不变，玩家靠走位脱战                                                       |
+| 玩家很早遇到 Brute          | 开局玩家 Lv1，Brute Lv25 Boss 蹲脸 → 开局即死                                             | Brute 出生位置可单独设置（远离玩家初始位置 30+ 单位），需要 `world.cpp` 初始 spawn 时算玩家距离拒绝采样（可选优化）                    |
+| bot 全场分布不均            | 复活时若 Stalker 全死光，每次都补 Stalker，可能瞬间涌出 4 个 Stalker                      | density 选择算法天然分布更均匀； exports `density = count/weight` 而不是 `count`，能更好回到权重配比                                   |
+| 玩家死亡后 Stalker 失锚     | BR 模式玩家淘汰后无 PlayerTag.IsLocal，Stalker 升级逻辑崩                                 | `_roll_bot_level_for_role(Stalker)` fallback：取场上最高 HP alive bot 的等级；或固定升级到 MaxBotLevel（在 P0-5 死亡系统落地后再处理） |
+| Role 与 Tier 双系统都改属性 | Role 控制"等级范围"，Tier 控制"属性倍率"，两者相乘可能数值失控（Brute Lv30 Boss HP=1128） | 直接复用 §3.4 已有数值表，已有平衡；Brute 默认 max HP=1128 仍是设计内威胁                                                              |
+| 性能（10 bot + 复活扫描）   | 每 tick 复活段扫描 10 bot role 计数                                                       | 10 ops × 0.33 Hz (复活率) = 3.3 ops/s，完全可忽略                                                                                      |
 
 ---
 
 ## 附录 B：v2 方案与 §3 方案的关系
 
-| 项 | §3（v1） | §11（v2 本节） |
-|----|---------|---------------|
-| Bot 总数 | 5 | 10 |
-| 等级 roll | `uniform(1, 30)` | 按 role 分段 |
-| Tier roll | 全角色同概率 | role 决定 Tier 分布 |
-| 复活策略 | 完全随机重 roll | 扫描分布、补缺密度 |
-| 玩家等级感知 | 无 | Stalker 跟随玩家等级 |
+| 项           | §3（v1）         | §11（v2 本节）                                                    |
+| ------------ | ---------------- | ----------------------------------------------------------------- |
+| Bot 总数     | 5                | 10                                                                |
+| 等级 roll    | `uniform(1, 30)` | 按 role 分段                                                      |
+| Tier roll    | 全角色同概率     | role 决定 Tier 分布                                               |
+| 复活策略     | 完全随机重 roll  | 扫描分布、补缺密度                                                |
+| 玩家等级感知 | 无               | Stalker 跟随玩家等级                                              |
 | 视觉难度梯度 | 仅靠血条徽章颜色 | 阶梯让玩家可"看等级选目标"：Fodder 当菜、Stalker 互殴、Brute 避开 |
 
 **实施顺序建议**：先做 §11 的 Sim 改造（不动视图层），跑 1 局观察等级分布是否符合 §11.8 期望，再决定是否要 §11.10 视图扩展。§3 中已写好的"Tier 倍率数值表 + 决策树 + Pickup 经济调优"全部继续沿用，本方案只重写"复活段 roll" 这一段。

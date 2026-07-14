@@ -24,14 +24,14 @@ sim_bridge.gd (系统调度器)
 
 ### ECS 对齐
 
-| ECS 概念 | 本项目对应 |
-|---------|-----------|
-| World | C++ `entt::registry` |
-| Systems | C++ 12 systems (movement, combat, spawning…) |
-| Components | C++ 21 ECS components |
-| Component data | `SimSnapshot`（序列化到 GDScript 层）|
-| View Systems | GDScript: `EntityManager`, `HealthBarManager` |
-| View Entities | `EntityView` (3D), `HealthBarUI` (2D) |
+| ECS 概念       | 本项目对应                                    |
+| -------------- | --------------------------------------------- |
+| World          | C++ `entt::registry`                          |
+| Systems        | C++ 12 systems (movement, combat, spawning…)  |
+| Components     | C++ 21 ECS components                         |
+| Component data | `SimSnapshot`（序列化到 GDScript 层）         |
+| View Systems   | GDScript: `EntityManager`, `HealthBarManager` |
+| View Entities  | `EntityView` (3D), `HealthBarUI` (2D)         |
 
 ### 数据流
 
@@ -50,14 +50,14 @@ SimSnapshot
 
 **选择 2D 屏幕空间血条**，不使用 Sprite3D 世界空间血条。
 
-| 维度 | 2D 屏幕空间 ✅ | Sprite3D 世界空间 |
-|------|--------------|-------------------|
-| MOBA 标准 | LoL / DOTA / HotS 均用此方案 | 多用于 ARPG (Diablo / PoE) |
-| 像素清晰度 | 像素完美，不受 3D 分辨率影响 | 受 pixel_size 和相机距离影响 |
-| 分段线 / 图标 | 容易用 Control + `_draw()` 实现 | 需要 shader 或额外纹理 |
-| 穿墙可见 | 天然在 3D 之上（MOBA 硬需求）| 需 `no_depth_test` |
-| 位置更新 | 需每帧 `unproject_position` | 自动跟随父节点 |
-| 扩展性 | 加 Mana / Shield / 状态图标只需加子节点 | 每个功能需额外 Sprite3D + 材质 |
+| 维度          | 2D 屏幕空间 ✅                          | Sprite3D 世界空间              |
+| ------------- | --------------------------------------- | ------------------------------ |
+| MOBA 标准     | LoL / DOTA / HotS 均用此方案            | 多用于 ARPG (Diablo / PoE)     |
+| 像素清晰度    | 像素完美，不受 3D 分辨率影响            | 受 pixel_size 和相机距离影响   |
+| 分段线 / 图标 | 容易用 Control + `_draw()` 实现         | 需要 shader 或额外纹理         |
+| 穿墙可见      | 天然在 3D 之上（MOBA 硬需求）           | 需 `no_depth_test`             |
+| 位置更新      | 需每帧 `unproject_position`             | 自动跟随父节点                 |
+| 扩展性        | 加 Mana / Shield / 状态图标只需加子节点 | 每个功能需额外 Sprite3D + 材质 |
 
 MOBA 血条需要始终可见（玩家需随时看到所有实体血量），"穿墙可见"是优点而非缺点。
 
@@ -77,18 +77,20 @@ HealthBarUI (Control, health_bar_ui.tscn 预制场景)
 ### HealthBarManager（视图系统）
 
 **职责**：
+
 1. 管理 HealthBarUI 对象池（创建/回收/复用）
 2. 从 Snapshot 读取 HP / 阵营数据，更新到 HealthBarUI
 3. 每帧查询 EntityManager 获取实体插值位置，投影到屏幕，定位 HealthBarUI
 
 **两条更新路径（关注点分离）**：
 
-| 路径 | 频率 | 数据来源 | 职责 |
-|------|------|---------|------|
-| `sync_bars(snap)` | 30Hz（仅新快照时）| SimSnapshot | HP 数据、阵营、显隐 |
-| `_process(delta)` | 60Hz（每帧）| EntityManager → EntityView.global_position | 屏幕坐标投影定位 |
+| 路径              | 频率               | 数据来源                                   | 职责                |
+| ----------------- | ------------------ | ------------------------------------------ | ------------------- |
+| `sync_bars(snap)` | 30Hz（仅新快照时） | SimSnapshot                                | HP 数据、阵营、显隐 |
+| `_process(delta)` | 60Hz（每帧）       | EntityManager → EntityView.global_position | 屏幕坐标投影定位    |
 
 **位置查询路径**：
+
 ```
 HealthBarManager._process
   → EntityManager.get_entity(id)                        // 查实体
@@ -98,6 +100,7 @@ HealthBarManager._process
 ```
 
 **为什么查询 EntityView 而非直接读 Snapshot 位置？**
+
 - EntityView 做了客户端插值（60Hz lerp），3D 模型位置是平滑的
 - 如果血条用 Snapshot 原始位置（30Hz），会与 3D 模型产生视觉错位（抖动）
 - 查询 `EntityView.global_position` 保证血条与 3D 模型完全同步
@@ -106,15 +109,16 @@ HealthBarManager._process
 
 **职责**：纯展示组件 — 接收数据并渲染，不含任何游戏逻辑。
 
-| 方法 | 参数 | 说明 |
-|------|------|------|
-| `update_hp` | `hp: int, max_hp: int` | 更新 Fill 宽度 + 颜色 |
-| `set_team` | `team: int` | 设置阵营色（0=自己绿, 2=敌方红）|
-| `set_screen_position` | `pos: Vector2` | 设置 2D 屏幕位置（居中对齐）|
-| `reset` | — | 回收到池前重置状态 |
-| `_process` | `delta: float` | DamageBar lerp 追赶 Fill |
+| 方法                  | 参数                   | 说明                             |
+| --------------------- | ---------------------- | -------------------------------- |
+| `update_hp`           | `hp: int, max_hp: int` | 更新 Fill 宽度 + 颜色            |
+| `set_team`            | `team: int`            | 设置阵营色（0=自己绿, 2=敌方红） |
+| `set_screen_position` | `pos: Vector2`         | 设置 2D 屏幕位置（居中对齐）     |
+| `reset`               | —                      | 回收到池前重置状态               |
+| `_process`            | `delta: float`         | DamageBar lerp 追赶 Fill         |
 
 **HealthBarUI 不知道的事情（解耦边界）**：
+
 - 不知道 Sim / Snapshot / EntityManager 的存在
 - 不知道 3D 世界坐标 / 相机
 - 只接收：`hp`, `max_hp`, `team`, `screen_position`
@@ -138,14 +142,15 @@ HealthBarManager._process
 
 ### 阵营色系统
 
-| 阵营 | Team ID | Fill 颜色 | 当前映射 |
-|------|---------|----------|---------|
-| 自己 | 0 | `Color(0.2, 1.0, 0.2)` 亮绿 | entity_type=0 (Player) |
-| 友方 | 1 | `Color(0.2, 0.6, 1.0)` 蓝 | 未来扩展（多玩家时）|
-| 敌方 | 2 | `Color(1.0, 0.3, 0.3)` 红 | entity_type=1 (Bot) |
-| 中立 | 3 | `Color(1.0, 0.8, 0.2)` 黄 | 未来扩展（野怪）|
+| 阵营 | Team ID | Fill 颜色                   | 当前映射               |
+| ---- | ------- | --------------------------- | ---------------------- |
+| 自己 | 0       | `Color(0.2, 1.0, 0.2)` 亮绿 | entity_type=0 (Player) |
+| 友方 | 1       | `Color(0.2, 0.6, 1.0)` 蓝   | 未来扩展（多玩家时）   |
+| 敌方 | 2       | `Color(1.0, 0.3, 0.3)` 红   | entity_type=1 (Bot)    |
+| 中立 | 3       | `Color(1.0, 0.8, 0.2)` 黄   | 未来扩展（野怪）       |
 
 **HP 颜色渐变规则**（MOBA 惯例）：
+
 - **自己/友方**：>60% 阵营色 → 25-60% 黄 → <25% 红
 - **敌方**：固定红色，不随 HP 变化（敌方血条始终红色便于识别）
 
@@ -243,6 +248,7 @@ scenes/
 └── ui/
 	└── health_bar_ui.tscn          # 血条预制场景
 ```
+
 ---
 
 ## HealthBarUI 场景布局
@@ -273,9 +279,11 @@ HealthBarUI (Control)
 ```
 
 **Fill/DamageBar 宽度由脚本设置**：
+
 ```gdscript
 _fill.size = Vector2(BAR_WIDTH * _hp_ratio, BAR_HEIGHT)
 ```
+
 TOP_LEFT 锚点确保左边缘固定，宽度缩放时从右往左缩。
 
 ---
@@ -283,6 +291,7 @@ TOP_LEFT 锚点确保左边缘固定，宽度缩放时从右往左缩。
 ## 扩展路线图
 
 ### Phase 1（已完成）：基础血条
+
 - Background + DamageBar + Fill（3 个 ColorRect）
 - 阵营色（自己=绿，敌方=红）
 - DamageBar 延迟动画
@@ -290,6 +299,7 @@ TOP_LEFT 锚点确保左边缘固定，宽度缩放时从右往左缩。
 - 屏幕坐标定位（unproject_position）
 
 ### Phase 2+：MOBA 完整升级
+
 - 完整升级方案见下方 `MOBA 大逃杀升级方案`
 - 优先级：Mana → 技能系统 → 指示器 → 技能栏 → 大逃杀机制 → 装备 → 小地图/迷雾 → 多英雄
 
@@ -325,17 +335,17 @@ rotation = Vector3(x, y, z)
 
 ### 现有能力盘点
 
-| 系统 | 可用于MOBA | 说明 |
-|------|-----------|------|
-| 右键点地板移动 + 鼠标瞄准 | ✅ | 单一 MOBA 模式，瞄准已投影到地面平面 |
-| 非指向型普攻（箭矢） | ✅ | 保留为 Q 技能或右键技能占位 |
-| HP 系统 + 血条 | ✅ | 后续需加 ManaBar / ShieldBar |
-| 等级/XP/成长 | ✅ | 保留，扩展技能点分配 |
-| Pickup 拾取 | ✅ | 扩展为装备/消耗品体系 |
-| Bot AI（决策树） | ✅ | 后期扩展使用技能的 AI |
-| 3D 实体 + 60Hz 插值 | ✅ | 保留 |
-| **玩家死亡逻辑** | ❌ | **当前完全缺失** |
-| **游戏结束条件** | ❌ | **当前无限运行，bot 无限重生** |
+| 系统                      | 可用于MOBA | 说明                                 |
+| ------------------------- | ---------- | ------------------------------------ |
+| 右键点地板移动 + 鼠标瞄准 | ✅         | 单一 MOBA 模式，瞄准已投影到地面平面 |
+| 非指向型普攻（箭矢）      | ✅         | 保留为 Q 技能或右键技能占位          |
+| HP 系统 + 血条            | ✅         | 后续需加 ManaBar / ShieldBar         |
+| 等级/XP/成长              | ✅         | 保留，扩展技能点分配                 |
+| Pickup 拾取               | ✅         | 扩展为装备/消耗品体系                |
+| Bot AI（决策树）          | ✅         | 后期扩展使用技能的 AI                |
+| 3D 实体 + 60Hz 插值       | ✅         | 保留                                 |
+| **玩家死亡逻辑**          | ❌         | **当前完全缺失**                     |
+| **游戏结束条件**          | ❌         | **当前无限运行，bot 无限重生**       |
 
 ---
 
@@ -346,6 +356,7 @@ rotation = Vector3(x, y, z)
 #### Sim 层
 
 **新增组件（`components.h`）：**
+
 ```cpp
 struct Mana {
     float Cur = 0.0f;
@@ -357,17 +368,20 @@ struct Mana {
 ```
 
 **新增 System（`systems/mana_regen.h`）：**
+
 - 每 tick 恢复 Mana：
   - 若 `Mana.RegenTimer <= 0`：`Mana.Cur = min(Mana.Cur + Mana.RegenRate * dt, Mana.Max)`
   - 若使用技能（消耗 Mana）：`Mana.RegenTimer = Mana.RegenDelay`
   - 每 tick `Mana.RegenTimer -= dt`
 
 **Snapshot 扩展（`snapshot_types.h`）：**
+
 - `SimPlayerSnap` / `SimBotSnap` 新增 `mana / max_mana`
 
 #### View 层
 
 **HealthBarUI 扩展：**
+
 ```
 HealthBarUI (Control)
 ├── LevelBadge / LevelLabel          -- 已有
@@ -376,25 +390,26 @@ HealthBarUI (Control)
     anchors_preset = TOP_LEFT, offset = (24, 13, 124, 17)
     color = Color(0.2, 0.4, 1.0, 0.8)
 ```
+
 - 新增 `update_mana(mana, max_mana)` 方法
 - Mana 无 DamageBar，无阵营色，固定蓝色
 
 #### 涉及文件
 
-| 层级 | 文件 | 改动 |
-|------|------|------|
-| C++ | `components.h` | 新增 `Mana` 组件 |
-| C++ | `systems/mana_regen.h` | 新建 |
-| C++ | `game_config.h` | 新增 Mana 相关常量 |
-| C++ | `world.cpp` | Player/Bot 出生时 emplace `Mana` |
-| C++ | `snapshot_types.h` | SimPlayerSnap/SimBotSnap 加 mana/max_mana |
-| C++ | `snapshot_bindings.cpp` | 注册新属性 |
-| C++ | `snapshot_builder.cpp` | 导出新字段 |
-| C++ | `world.h` | 添加 tick 顺序中的 mana_regen |
-| GDScript | `health_bar_ui.tscn` | 新增 ManaBar 子节点 |
-| GDScript | `health_bar_ui.gd` | 新增 `update_mana` / `ManaBar` 引用 |
-| GDScript | `health_bar_manager.gd` | sync_bars 传 mana 数据 |
-| GDScript | `stats_panel.gd` | 可选加 Mana 显示 |
+| 层级     | 文件                    | 改动                                      |
+| -------- | ----------------------- | ----------------------------------------- |
+| C++      | `components.h`          | 新增 `Mana` 组件                          |
+| C++      | `systems/mana_regen.h`  | 新建                                      |
+| C++      | `game_config.h`         | 新增 Mana 相关常量                        |
+| C++      | `world.cpp`             | Player/Bot 出生时 emplace `Mana`          |
+| C++      | `snapshot_types.h`      | SimPlayerSnap/SimBotSnap 加 mana/max_mana |
+| C++      | `snapshot_bindings.cpp` | 注册新属性                                |
+| C++      | `snapshot_builder.cpp`  | 导出新字段                                |
+| C++      | `world.h`               | 添加 tick 顺序中的 mana_regen             |
+| GDScript | `health_bar_ui.tscn`    | 新增 ManaBar 子节点                       |
+| GDScript | `health_bar_ui.gd`      | 新增 `update_mana` / `ManaBar` 引用       |
+| GDScript | `health_bar_manager.gd` | sync_bars 传 mana 数据                    |
+| GDScript | `stats_panel.gd`        | 可选加 Mana 显示                          |
 
 ---
 
@@ -405,6 +420,7 @@ HealthBarUI (Control)
 #### 2.1 技能定义与数据模型
 
 **技能模板定义：**
+
 ```cpp
 enum class SkillTargetType : uint8_t {
     Skillshot,     // 非指向弹道（类似当前箭矢）
@@ -460,13 +476,13 @@ struct SkillPoints {
 
 #### 2.3 新增 Systems
 
-| System | 文件 | 职责 |
-|--------|------|------|
-| `SkillInputSystem` | `systems/skill_input.h` | 从 LocalInputSingleton 读取技能按键（Q/W/E/R），触发 `CastState` |
-| `SkillCastSystem` | `systems/skill_cast.h` | 管理施法流程：前摇阶段 → 释放时创建技能效果 → 进入冷却 |
-| `SkillEffectSystem` | `systems/skill_effect.h` | 执行技能效果（生成投射物 / AoE 区域 / 冲撞检测 / 添加 Buff）|
-| `SkillCooldownSystem` | `systems/skill_cooldown.h` | 每 tick 递减 CooldownTimer |
-| `SkillLevelSystem` | `systems/skill_level.h` | 升级时分配技能点，处理技能升级属性成长 |
+| System                | 文件                       | 职责                                                             |
+| --------------------- | -------------------------- | ---------------------------------------------------------------- |
+| `SkillInputSystem`    | `systems/skill_input.h`    | 从 LocalInputSingleton 读取技能按键（Q/W/E/R），触发 `CastState` |
+| `SkillCastSystem`     | `systems/skill_cast.h`     | 管理施法流程：前摇阶段 → 释放时创建技能效果 → 进入冷却           |
+| `SkillEffectSystem`   | `systems/skill_effect.h`   | 执行技能效果（生成投射物 / AoE 区域 / 冲撞检测 / 添加 Buff）     |
+| `SkillCooldownSystem` | `systems/skill_cooldown.h` | 每 tick 递减 CooldownTimer                                       |
+| `SkillLevelSystem`    | `systems/skill_level.h`    | 升级时分配技能点，处理技能升级属性成长                           |
 
 #### 2.4 技能效果实体 — 泛化投射物系统
 
@@ -505,11 +521,13 @@ struct AoETag {
 #### 2.5 输入扩展
 
 `input_collector.gd` 增加技能键：
+
 - Q / W / E / R 映射到 `skill[4] bool`
 - 技能瞄准位置 = 鼠标世界坐标（与普攻共用 aim_world）
 - 锁定目标 = 鼠标下方最近的 Damageable 实体（Targeted 类型专用）
 
 `LocalInputSingleton` 扩展：
+
 ```cpp
 struct LocalInputSingleton {
     // … 已有 move / aim / fire
@@ -525,6 +543,7 @@ struct LocalInputSingleton {
 #### 2.6 Snapshot 扩展
 
 新增 `SimSkillSlotSnap` 与 `SimAoESnap`：
+
 ```cpp
 class SimSkillSlotSnap : public godot::RefCounted {
     int skill_id = 0;
@@ -545,26 +564,26 @@ class SimAoESnap {
 
 #### 涉及文件
 
-| 层级 | 文件 | 改动 |
-|------|------|------|
-| C++ | `components.h` | 新增 SkillSlot / SkillComponent / CastState / SkillPoints / ProjectileTag / AoETag |
-| C++ | `game_config.h` | 技能常量定义表 |
-| C++ | `systems/skill_input.h` | 新建 |
-| C++ | `systems/skill_cast.h` | 新建 |
-| C++ | `systems/skill_effect.h` | 新建 |
-| C++ | `systems/skill_cooldown.h` | 新建 |
-| C++ | `systems/skill_level.h` | 新建 |
-| C++ | `systems/projectile_movement.h` | 从 `arrow_movement.h` 重写泛化 |
-| C++ | `systems/player_fire.h` | 改为通过技能系统触发普攻 |
-| C++ | `systems/bot_combat.h` | 后期改为技能调用 |
-| C++ | `systems/combat.h` | 扩展 AoE 碰撞检测 |
-| C++ | `snapshot_types.h` | SimSkillSlotSnap / SimAoESnap |
-| C++ | `snapshot_bindings.cpp` | 注册新类型 |
-| C++ | `snapshot_builder.cpp` | 导出技能快照 |
-| C++ | `world.cpp` | 注册新 system |
-| GDScript | `input_collector.gd` | 新增 Q/W/E/R 映射 |
-| GDScript | `entity_view.gd` | 新增 AoE / 技能投射物视觉 |
-| GDScript | `entity_manager.gd` | 新增实体类型 |
+| 层级     | 文件                            | 改动                                                                               |
+| -------- | ------------------------------- | ---------------------------------------------------------------------------------- |
+| C++      | `components.h`                  | 新增 SkillSlot / SkillComponent / CastState / SkillPoints / ProjectileTag / AoETag |
+| C++      | `game_config.h`                 | 技能常量定义表                                                                     |
+| C++      | `systems/skill_input.h`         | 新建                                                                               |
+| C++      | `systems/skill_cast.h`          | 新建                                                                               |
+| C++      | `systems/skill_effect.h`        | 新建                                                                               |
+| C++      | `systems/skill_cooldown.h`      | 新建                                                                               |
+| C++      | `systems/skill_level.h`         | 新建                                                                               |
+| C++      | `systems/projectile_movement.h` | 从 `arrow_movement.h` 重写泛化                                                     |
+| C++      | `systems/player_fire.h`         | 改为通过技能系统触发普攻                                                           |
+| C++      | `systems/bot_combat.h`          | 后期改为技能调用                                                                   |
+| C++      | `systems/combat.h`              | 扩展 AoE 碰撞检测                                                                  |
+| C++      | `snapshot_types.h`              | SimSkillSlotSnap / SimAoESnap                                                      |
+| C++      | `snapshot_bindings.cpp`         | 注册新类型                                                                         |
+| C++      | `snapshot_builder.cpp`          | 导出技能快照                                                                       |
+| C++      | `world.cpp`                     | 注册新 system                                                                      |
+| GDScript | `input_collector.gd`            | 新增 Q/W/E/R 映射                                                                  |
+| GDScript | `entity_view.gd`                | 新增 AoE / 技能投射物视觉                                                          |
+| GDScript | `entity_manager.gd`             | 新增实体类型                                                                       |
 
 ---
 
@@ -574,14 +593,14 @@ class SimAoESnap {
 
 #### 3.1 指示器类型
 
-| 类型 | 渲染方式 | 触发条件 |
-|------|---------|---------|
-| **范围圈** | 3D 半透明圆环（`MeshInstance3D` + `CylinderMesh` 或 `CSGPolygon`） | 按下技能时显示在角色脚底，半径 = SkillDef.Range |
-| **方向线** | 从角色到鼠标位置的线段或箭头 | Skillshot 类型技能按下时 |
-| **AoE 预览** | 鼠标位置的半透明圆/矩形（绿色=可释放，红色=超出范围）| AoEGround 类型技能瞄准时 |
-| **目标锁定框** | 目标实体脚下圆圈或高亮边框 | Targeted 类型技能选目标 |
-| **施法进度条** | 角色头顶细长条（类似血条）| 前摇阶段（CastTime > 0） |
-| **鼠标指针** | 技能激活时替换为对应光标 | 技能按下后到释放前 |
+| 类型           | 渲染方式                                                           | 触发条件                                        |
+| -------------- | ------------------------------------------------------------------ | ----------------------------------------------- |
+| **范围圈**     | 3D 半透明圆环（`MeshInstance3D` + `CylinderMesh` 或 `CSGPolygon`） | 按下技能时显示在角色脚底，半径 = SkillDef.Range |
+| **方向线**     | 从角色到鼠标位置的线段或箭头                                       | Skillshot 类型技能按下时                        |
+| **AoE 预览**   | 鼠标位置的半透明圆/矩形（绿色=可释放，红色=超出范围）              | AoEGround 类型技能瞄准时                        |
+| **目标锁定框** | 目标实体脚下圆圈或高亮边框                                         | Targeted 类型技能选目标                         |
+| **施法进度条** | 角色头顶细长条（类似血条）                                         | 前摇阶段（CastTime > 0）                        |
+| **鼠标指针**   | 技能激活时替换为对应光标                                           | 技能按下后到释放前                              |
 
 #### 3.2 架构
 
@@ -598,21 +617,22 @@ scenes/view/
 ```
 
 `indicator_manager.gd` 职责：
+
 - 监听 `input_collector` 的技能按键
 - 根据技能类型创建/更新/销毁对应指示器
 - 每帧更新指示器位置（鼠标移动/技能范围变更）
 
 #### 涉及文件
 
-| 层级 | 文件 | 改动 |
-|------|------|------|
-| GDScript | `scripts/view/indicator_manager.gd` | 新建 |
-| GDScript | `scripts/view/range_indicator.gd` | 新建 |
-| GDScript | `scripts/view/aoe_preview_indicator.gd` | 新建 |
-| GDScript | `scripts/view/direction_indicator.gd` | 新建 |
-| GDScript | `scripts/ui/cast_bar_ui.gd` | 新建 |
-| GDScript | `scenes/main.tscn` | 添加 IndicatorManager 节点 |
-| GDScript | `scripts/input/input_collector.gd` | 扩展 emit 技能按下信号 |
+| 层级     | 文件                                    | 改动                       |
+| -------- | --------------------------------------- | -------------------------- |
+| GDScript | `scripts/view/indicator_manager.gd`     | 新建                       |
+| GDScript | `scripts/view/range_indicator.gd`       | 新建                       |
+| GDScript | `scripts/view/aoe_preview_indicator.gd` | 新建                       |
+| GDScript | `scripts/view/direction_indicator.gd`   | 新建                       |
+| GDScript | `scripts/ui/cast_bar_ui.gd`             | 新建                       |
+| GDScript | `scenes/main.tscn`                      | 添加 IndicatorManager 节点 |
+| GDScript | `scripts/input/input_collector.gd`      | 扩展 emit 技能按下信号     |
 
 ---
 
@@ -662,13 +682,13 @@ SkillPointIndicator (Control)
 
 #### 涉及文件
 
-| 文件 | 改动 |
-|------|------|
-| `scripts/ui/skill_bar_hud.gd` | 新建 |
-| `scripts/ui/skill_slot_ui.gd` | 新建 |
-| `scenes/ui/skill_bar_hud.tscn` | 新建 |
-| `scripts/ui/stats_panel.gd` | 合并/嵌入技能栏区域 |
-| `scripts/sim_bridge.gd` | 桥接技能快照到 SkillBarHUD |
+| 文件                           | 改动                       |
+| ------------------------------ | -------------------------- |
+| `scripts/ui/skill_bar_hud.gd`  | 新建                       |
+| `scripts/ui/skill_slot_ui.gd`  | 新建                       |
+| `scenes/ui/skill_bar_hud.tscn` | 新建                       |
+| `scripts/ui/stats_panel.gd`    | 合并/嵌入技能栏区域        |
+| `scripts/sim_bridge.gd`        | 桥接技能快照到 SkillBarHUD |
 
 ---
 
@@ -677,12 +697,14 @@ SkillPointIndicator (Control)
 #### Sim 层
 
 `SkillSlot` 已含 CooldownTimer / MaxCooldown，`SkillCooldownSystem` 每 tick 递减：
+
 ```cpp
 auto &slot = reg.get<SkillComponent>(e).Slots[i];
 slot.CooldownTimer = max(0.0f, slot.CooldownTimer - dt);
 ```
 
 释放技能时设 CooldownTimer：
+
 ```cpp
 slot.CooldownTimer = slot.MaxCooldown * (1.0f - cdr); // CDR = 冷却缩减
 ```
@@ -690,6 +712,7 @@ slot.CooldownTimer = slot.MaxCooldown * (1.0f - cdr); // CDR = 冷却缩减
 #### View 层
 
 `SkillSlotUI.set_cooldown(ratio)` 中：
+
 - ratio = slot.CooldownTimer / slot.MaxCooldown
 - CooldownMask.width = Icon.width × ratio
 - 若 ratio > 0，叠加半透明黑色遮罩 + 中央倒计时文本
@@ -704,6 +727,7 @@ slot.CooldownTimer = slot.MaxCooldown * (1.0f - cdr); // CDR = 冷却缩减
 #### 6.1 缩圈系统（Safe Zone / Storm）
 
 **新增组件（`components.h`）：**
+
 ```cpp
 struct SafeZone {
     Vec2 Center{0.0f};
@@ -720,16 +744,19 @@ struct SafeZone {
 ```
 
 **新增 Systems（`systems/safe_zone.h`）：**
+
 - `SafeZoneShrinkSystem`：定时缩圈，分阶段：等待 → 缩圈 → 等待…
 - `SafeZoneDamageSystem`：对圈外 Damageable 实体造成伤害
 
 **View 层：**
+
 - 安全区视觉：地面半透明圆柱墙（`MeshInstance3D` + `CylinderMesh`）
 - 下一阶段预览：白色虚线圈（缩圈前提示）
 - 安全区边缘闪烁警告（毒圈来临前）
 - 玩家 HUD：距安全区距离 + 方向指示器
 
 **Snapshot 扩展：**
+
 ```cpp
 class SimZoneSnap : public godot::RefCounted {
     float center_x, center_y;
@@ -753,11 +780,13 @@ class SimZoneSnap : public godot::RefCounted {
 #### 6.3 生死规则
 
 **玩家死亡逻辑（当前完全缺失）：**
+
 - 玩家 `Dead` 组件标记为 true 时触发淘汰
 - 死亡状态持续到游戏结束（BR 模式下无重生）
 - 死亡后切换为观战模式（或回到大厅）
 
 **新增组件：**
+
 ```cpp
 struct Eliminated {
     bool Value = false;
@@ -769,10 +798,12 @@ struct SurvivingCount {
 ```
 
 **新增 System：**
+
 - `GameOverSystem`：检测存活数量 ≤ 1 → 触发游戏结束
 - 游戏结束事件写入 `SimEventSnap`
 
 **View 层：**
+
 - 存活人数 HUD（右上角 `"存活: 12/20"`）
 - 淘汰提示（屏幕中央 `"玩家A 淘汰了 玩家B"`）
 - 游戏结束画面（胜利 / 失败）
@@ -850,6 +881,7 @@ struct EquipmentBonuses {
 #### Sim 层
 
 **新增组件（`components.h`）：**
+
 ```cpp
 struct Vision {
     float Radius = 20.0f;
@@ -863,6 +895,7 @@ struct FogReveal {
 ```
 
 **新增 System（`systems/vision_system.h`）：**
+
 - 计算每个实体视野范围内的其他实体
 - 写入 `VisibleEntityIds`
 - 不可见实体不在 snapshot 中输出
@@ -893,6 +926,7 @@ Minimap (CanvasLayer, 右上角, 200×200)
 ```
 
 **实现方案：**
+
 - 推荐 `_draw()` 手动绘制（轻量），数据来源：
   - 玩家位置：`snapshot.players[0].x/y`
   - 安全区：`SimZoneSnap`
@@ -903,15 +937,16 @@ Minimap (CanvasLayer, 右上角, 200×200)
 
 ### 十、战斗反馈系统
 
-| 功能 | 实现层 | 说明 |
-|------|--------|------|
-| **伤害数字** | View | 浮动数字从受击实体头顶弹出，颜色=伤害类型 |
-| **击杀通知** | View | 右上角滚动消息 |
-| **技能命中特效** | View | 粒子 + 屏幕震动 + 闪光 |
-| **音效** | View | 通过 SimEventSnap 触发 |
-| **连杀提示** | View | "Double Kill!" 等横幅 |
+| 功能             | 实现层 | 说明                                      |
+| ---------------- | ------ | ----------------------------------------- |
+| **伤害数字**     | View   | 浮动数字从受击实体头顶弹出，颜色=伤害类型 |
+| **击杀通知**     | View   | 右上角滚动消息                            |
+| **技能命中特效** | View   | 粒子 + 屏幕震动 + 闪光                    |
+| **音效**         | View   | 通过 SimEventSnap 触发                    |
+| **连杀提示**     | View   | "Double Kill!" 等横幅                     |
 
 **SimEventSnap 扩展：**
+
 ```cpp
 enum class EventType : uint8_t {
     Kill,
@@ -960,15 +995,15 @@ struct HeroDef {
 
 ### 十二、其他必要补完
 
-| 功能 | Sim/View | 说明 |
-|------|----------|------|
-| **护盾系统** | Sim | `Shield` 组件（Cur/Max），伤害先扣盾后扣血 |
-| **护盾血条** | View | Fill 右侧延伸白色段 |
-| **状态效果** | Sim | `StatusEffect` 组件（Stun/Slow/Silence/Burn），DurationTimer |
-| **状态图标** | View | 血条上方图标行 |
-| **玩家死亡** | Sim | 玩家死亡后触发淘汰流程 |
-| **草丛隐身** | Sim | 实体进入 BushArea → Stealth 状态 |
-| **草丛视觉** | View | 3D 草丛 + 进入后透明度变化 |
+| 功能         | Sim/View | 说明                                                         |
+| ------------ | -------- | ------------------------------------------------------------ |
+| **护盾系统** | Sim      | `Shield` 组件（Cur/Max），伤害先扣盾后扣血                   |
+| **护盾血条** | View     | Fill 右侧延伸白色段                                          |
+| **状态效果** | Sim      | `StatusEffect` 组件（Stun/Slow/Silence/Burn），DurationTimer |
+| **状态图标** | View     | 血条上方图标行                                               |
+| **玩家死亡** | Sim      | 玩家死亡后触发淘汰流程                                       |
+| **草丛隐身** | Sim      | 实体进入 BushArea → Stealth 状态                             |
+| **草丛视觉** | View     | 3D 草丛 + 进入后透明度变化                                   |
 
 ---
 
@@ -1015,6 +1050,7 @@ P2 — 完整 MOBA:
 ```
 
 重构关键点：
+
 1. `player_fire.h` 变成 `skill_cast.h` 的特例（普攻 = SkillId=0 的 skillshot）
 2. `arrow_movement.h` 泛化为 `projectile_movement.h`，支持不同速度/跟踪/碰撞
 3. `combat.h` 扩展 AoE 区域伤害检测（Circle-Circle 改为 Circle-Rect 等）
