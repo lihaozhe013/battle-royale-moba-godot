@@ -49,6 +49,7 @@
 ```
 
 **核心设计原则：**
+
 - Sim 层零 Godot 渲染依赖，纯逻辑
 - 所有 System 是 header-only inline 函数，无 `.cpp` 文件（除 `world.cpp` / `snapshot_builder.cpp` / `snapshot_bindings.cpp` / `sim_server.cpp`）
 - 实体创建/销毁通过 `CommandBuffer` 延迟到 tick 末尾执行（防止迭代器失效）
@@ -102,81 +103,81 @@ src_cpp/
 
 ### 3.1 通用组件
 
-| 组件 | 字段 | 用途 | 依附实体 |
-|------|------|------|---------|
-| `Position2D` | `Vec2 Value` | 2D 世界坐标 | Player, Bot, Arrow, Pickup |
-| `Velocity2D` | `Vec2 Value` | 2D 速度向量 | Arrow |
-| `FacingAngle` | `float Radians` | 朝向弧度 | Player, Bot, Arrow |
-| `Health` | `int Cur, Max` | 生命值 | Player, Bot |
-| `Dead` | `bool enabled` | 死亡标记 | Player, Bot |
-| `Lifetime` | `float Remaining` | 剩余存活时间 | Arrow |
-| `NetworkId` | `int Value` | 网络唯一 ID | Player, Bot, Arrow, Pickup |
-| `Damageable` | _(空标记)_ | 可受伤 | Player, Bot |
-| `Mana` | `float Cur, Max, RegenRate, RegenDelay, RegenTimer` | 法力值+回复 | Player, Bot |
+| 组件          | 字段                                                | 用途         | 依附实体                   |
+| ------------- | --------------------------------------------------- | ------------ | -------------------------- |
+| `Position2D`  | `Vec2 Value`                                        | 2D 世界坐标  | Player, Bot, Arrow, Pickup |
+| `Velocity2D`  | `Vec2 Value`                                        | 2D 速度向量  | Arrow                      |
+| `FacingAngle` | `float Radians`                                     | 朝向弧度     | Player, Bot, Arrow         |
+| `Health`      | `int Cur, Max`                                      | 生命值       | Player, Bot                |
+| `Dead`        | `bool enabled`                                      | 死亡标记     | Player, Bot                |
+| `Lifetime`    | `float Remaining`                                   | 剩余存活时间 | Arrow                      |
+| `NetworkId`   | `int Value`                                         | 网络唯一 ID  | Player, Bot, Arrow, Pickup |
+| `Damageable`  | _(空标记)_                                          | 可受伤       | Player, Bot                |
+| `Mana`        | `float Cur, Max, RegenRate, RegenDelay, RegenTimer` | 法力值+回复  | Player, Bot                |
 
 ### 3.2 玩家组件
 
-| 组件 | 字段 | 用途 |
-|------|------|------|
-| `PlayerTag` | `bool IsLocal` | 玩家标记 + 是否本地 |
+| 组件               | 字段                                                                      | 用途                     |
+| ------------------ | ------------------------------------------------------------------------- | ------------------------ |
+| `PlayerTag`        | `bool IsLocal`                                                            | 玩家标记 + 是否本地      |
 | `PlayerInputState` | `Vec2 Move, Aim; bool Fire; int Seq; bool SkillQ, SkillW, SkillE, SkillR` | 当前帧输入（含技能按键） |
-| `CombatStats` | `float Atk, Asp; double LastFireTime` | 战斗属性 |
-| `Kills` | `int Value` | 击杀计数 |
+| `CombatStats`      | `float Atk, Asp; double LastFireTime`                                     | 战斗属性                 |
+| `Kills`            | `int Value`                                                               | 击杀计数                 |
 
 ### 3.3 Bot 组件
 
-| 组件 | 字段 | 用途 |
-|------|------|------|
-| `BotTag` | _(空标记)_ | Bot 标记 |
-| `BotTier` | `enum: Normal/Elite/Boss` | 难度等级 |
-| `BotBehaviorState` | `Goal Current; entity PickupTarget; float DecisionCooldown; KiteSub Kite; int StrafeDir; float GoalCommitTimer` | 行为决策状态 |
-| `BotAIState` | `Vec2 MoveTarget; float RespawnTimer; entity TargetEntity; float WanderTimer; float TargetLockTimer` | AI 运行时状态 |
-| `BotVisionRange` | `float Value` | 视野半径 |
+| 组件               | 字段                                                                                                            | 用途          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- | ------------- |
+| `BotTag`           | _(空标记)_                                                                                                      | Bot 标记      |
+| `BotTier`          | `enum: Normal/Elite/Boss`                                                                                       | 难度等级      |
+| `BotBehaviorState` | `Goal Current; entity PickupTarget; float DecisionCooldown; KiteSub Kite; int StrafeDir; float GoalCommitTimer` | 行为决策状态  |
+| `BotAIState`       | `Vec2 MoveTarget; float RespawnTimer; entity TargetEntity; float WanderTimer; float TargetLockTimer`            | AI 运行时状态 |
+| `BotVisionRange`   | `float Value`                                                                                                   | 视野半径      |
 
 ### 3.4 箭矢组件
 
-| 组件 | 字段 | 用途 |
-|------|------|------|
+| 组件       | 字段                                         | 用途                |
+| ---------- | -------------------------------------------- | ------------------- |
 | `ArrowTag` | `int OwnerId; entity OwnerEntity; float Dmg` | 箭矢标记 + 伤害归属 |
 
 ### 3.5 墙壁组件
 
-| 组件 | 字段 | 用途 |
-|------|------|------|
-| `WallTag` | _(空标记)_ | 墙壁标记 |
+| 组件         | 字段            | 用途      |
+| ------------ | --------------- | --------- |
+| `WallTag`    | _(空标记)_      | 墙壁标记  |
 | `WallBounds` | `Vec2 Min, Max` | AABB 边界 |
 
 ### 3.6 拾取物组件
 
-| 组件 | 字段 | 用途 |
-|------|------|------|
-| `PickupTag` | `PickupType Type; int Value` | 拾取物标记 |
-| `PickupSpawner` | `PickupType Type; int Value; Vec2 Position; float RespawnTime; float CurrentTimer; bool Active; int CurrentEntityId` | 生成器 |
+| 组件            | 字段                                                                                                                 | 用途       |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `PickupTag`     | `PickupType Type; int Value`                                                                                         | 拾取物标记 |
+| `PickupSpawner` | `PickupType Type; int Value; Vec2 Position; float RespawnTime; float CurrentTimer; bool Active; int CurrentEntityId` | 生成器     |
 
 ### 3.7 成长组件
 
-| 组件 | 字段 | 用途 |
-|------|------|------|
-| `Level` | `int Value` | 当前等级 |
-| `Experience` | `int Cur, Needed` | 经验值 |
-| `MoveSpeed` | `float Value` | 移动速度 |
+| 组件         | 字段              | 用途     |
+| ------------ | ----------------- | -------- |
+| `Level`      | `int Value`       | 当前等级 |
+| `Experience` | `int Cur, Needed` | 经验值   |
+| `MoveSpeed`  | `float Value`     | 移动速度 |
 
 ### 3.8 技能组件
 
-| 组件 | 字段 | 用途 |
-|------|------|------|
-| `SkillSlot` | `int SkillId, Level; float CooldownTimer, MaxCooldown, ManaCost` | 单个技能槽 |
-| `SkillComponent` | `SkillSlot Slots[4]` | 4 个技能槽（Q/W/E/R） |
-| `SkillPoints` | `int Available` | 未分配的技能点 |
+| 组件             | 字段                                                             | 用途                  |
+| ---------------- | ---------------------------------------------------------------- | --------------------- |
+| `SkillSlot`      | `int SkillId, Level; float CooldownTimer, MaxCooldown, ManaCost` | 单个技能槽            |
+| `SkillComponent` | `SkillSlot Slots[4]`                                             | 4 个技能槽（Q/W/E/R） |
+| `SkillPoints`    | `int Available`                                                  | 未分配的技能点        |
 
 ### 3.9 枚举
 
-| 枚举 | 值 | 用途 |
-|------|-----|------|
-| `BotTier` | `Normal=0, Elite=1, Boss=2` | Bot 难度 |
-| `BotBehaviorState::Goal` | `Flee=0, SeekHeal=1, SeekXp=2, Engage=3, Wander=4` | 行为目标 |
-| `BotBehaviorState::KiteSub` | `Chase, Strafe, Retreat` | 战斗子状态 |
-| `PickupType` | `Xp=0, Heal=1, SmallHeal=2` | 拾取物类型 |
+| 枚举                        | 值                                                 | 用途       |
+| --------------------------- | -------------------------------------------------- | ---------- |
+| `BotTier`                   | `Normal=0, Elite=1, Boss=2`                        | Bot 难度   |
+| `BotBehaviorState::Goal`    | `Flee=0, SeekHeal=1, SeekXp=2, Engage=3, Wander=4` | 行为目标   |
+| `BotBehaviorState::KiteSub` | `Chase, Strafe, Retreat`                           | 战斗子状态 |
+| `PickupType`                | `Xp=0, Heal=1, SmallHeal=2`                        | 拾取物类型 |
 
 ---
 
@@ -184,23 +185,23 @@ src_cpp/
 
 在 `World::tick()` 中按以下顺序执行，每 tick 调用一次：
 
-| # | System | 函数签名 | 源文件 | 读写概要 |
-|---|--------|---------|--------|---------|
-| 1 | LocalInputInjection | `void (registry&, entity)` | `local_input_injection.h` | 读 LocalInputSingleton → 写 PlayerInputState |
-| 2 | PlayerMovement | `void (registry&, float dt, float map_half)` | `player_movement.h` | 读 PlayerInputState/MoveSpeed → 写 Position2D/FacingAngle |
-| 3 | PlayerFire | `void (registry&, double now, CommandBuffer&, IdState&)` | `player_fire.h` | 读 PlayerInputState/CombatStats → 写 CommandBuffer(创建箭矢) |
-| 4 | SkillInput | `void (registry&)` | `skill_input.h` | 读 PlayerInputState/SkillComponent/Mana → 写 SkillSlot(冷却)/Mana(消耗) |
-| 5 | BotTargeting | `void (registry&, mt19937&, float dt)` | `bot_targeting.h` | 读 Position2D/Health/BotVisionRange → 写 BotAIState.TargetEntity |
-| 6 | BotAI | `void (registry&, float dt, float map_half, mt19937&)` | `bot_ai.h` | 读 BotBehaviorState/Health → 写 Position2D/FacingAngle/BotAIState |
-| 7 | BotCombat | `void (registry&, double now, CommandBuffer&, IdState&)` | `bot_combat.h` | 读 BotAIState/CombatStats → 写 CommandBuffer(创建箭矢) |
-| 8 | ArrowMovement | `void (registry&, float dt)` | `arrow_movement.h` | 读 Velocity2D → 写 Position2D/Lifetime |
-| 9 | WallCollision | `void (registry&, CommandBuffer&)` | `wall_collision.h` | 读 WallBounds → 写 Position2D(推回) / CommandBuffer(销毁箭矢) |
-| 10 | Combat | `void (registry&, CommandBuffer&)` | `combat.h` | 读 ArrowTag/Position2D → 写 Health/Dead/KillEventBuffer |
-| 11 | Pickup | `void (registry&, float dt, CommandBuffer&, IdState&)` | `pickup.h` | 读 PickupSpawner/PickupTag → 写 Health/Experience/CommandBuffer |
-| 12 | ManaRegen | `void (registry&, float dt)` | `mana_regen.h` | 读 Mana → 写 Mana.Cur(回复) |
-| 13 | SkillCooldown | `void (registry&, float dt)` | `skill_cooldown.h` | 读 SkillComponent → 写 SkillSlot.CooldownTimer(递减) |
-| 14 | Progression | `void (registry&)` | `progression.h` | 读 KillEventBuffer → 写 CombatStats/Experience/Level/MoveSpeed/Health |
-| 15 | SnapshotExport | `bool (registry&, int&, Ref<SimSnapshot>&)` | `snapshot_export.h` | 读全部 → 写 SimSnapshot |
+| #   | System              | 函数签名                                                 | 源文件                    | 读写概要                                                                |
+| --- | ------------------- | -------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------- |
+| 1   | LocalInputInjection | `void (registry&, entity)`                               | `local_input_injection.h` | 读 LocalInputSingleton → 写 PlayerInputState                            |
+| 2   | PlayerMovement      | `void (registry&, float dt, float map_half)`             | `player_movement.h`       | 读 PlayerInputState/MoveSpeed → 写 Position2D/FacingAngle               |
+| 3   | PlayerFire          | `void (registry&, double now, CommandBuffer&, IdState&)` | `player_fire.h`           | 读 PlayerInputState/CombatStats → 写 CommandBuffer(创建箭矢)            |
+| 4   | SkillInput          | `void (registry&)`                                       | `skill_input.h`           | 读 PlayerInputState/SkillComponent/Mana → 写 SkillSlot(冷却)/Mana(消耗) |
+| 5   | BotTargeting        | `void (registry&, mt19937&, float dt)`                   | `bot_targeting.h`         | 读 Position2D/Health/BotVisionRange → 写 BotAIState.TargetEntity        |
+| 6   | BotAI               | `void (registry&, float dt, float map_half, mt19937&)`   | `bot_ai.h`                | 读 BotBehaviorState/Health → 写 Position2D/FacingAngle/BotAIState       |
+| 7   | BotCombat           | `void (registry&, double now, CommandBuffer&, IdState&)` | `bot_combat.h`            | 读 BotAIState/CombatStats → 写 CommandBuffer(创建箭矢)                  |
+| 8   | ArrowMovement       | `void (registry&, float dt)`                             | `arrow_movement.h`        | 读 Velocity2D → 写 Position2D/Lifetime                                  |
+| 9   | WallCollision       | `void (registry&, CommandBuffer&)`                       | `wall_collision.h`        | 读 WallBounds → 写 Position2D(推回) / CommandBuffer(销毁箭矢)           |
+| 10  | Combat              | `void (registry&, CommandBuffer&)`                       | `combat.h`                | 读 ArrowTag/Position2D → 写 Health/Dead/KillEventBuffer                 |
+| 11  | Pickup              | `void (registry&, float dt, CommandBuffer&, IdState&)`   | `pickup.h`                | 读 PickupSpawner/PickupTag → 写 Health/Experience/CommandBuffer         |
+| 12  | ManaRegen           | `void (registry&, float dt)`                             | `mana_regen.h`            | 读 Mana → 写 Mana.Cur(回复)                                             |
+| 13  | SkillCooldown       | `void (registry&, float dt)`                             | `skill_cooldown.h`        | 读 SkillComponent → 写 SkillSlot.CooldownTimer(递减)                    |
+| 14  | Progression         | `void (registry&)`                                       | `progression.h`           | 读 KillEventBuffer → 写 CombatStats/Experience/Level/MoveSpeed/Health   |
+| 15  | SnapshotExport      | `bool (registry&, int&, Ref<SimSnapshot>&)`              | `snapshot_export.h`       | 读全部 → 写 SimSnapshot                                                 |
 
 **所有 System 执行完毕后**，`CommandBuffer::flush()` 执行延迟的实体创建/销毁。
 
@@ -216,6 +217,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 读取 `LocalInputSingleton` 组件（从 `local_input_entity`）
 2. 遍历所有 `PlayerTag + PlayerInputState`
 3. 若 `PlayerTag.IsLocal == true`：将 Singleton 的 Move/Aim/Fire/Seq 复制到 PlayerInputState
@@ -232,6 +234,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历 `PlayerTag + Position2D + FacingAngle + PlayerInputState + MoveSpeed`
 2. 仅处理 `IsLocal == true` 的玩家
 3. 若 `length(input.Move) > 0.01`：
@@ -249,12 +252,14 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历 `PlayerTag + Position2D + PlayerInputState + CombatStats + NetworkId`
 2. 仅处理 `IsLocal == true` 且 `input.Fire == true`
 3. 计算 `aim_dir = normalize(input.Aim - pos.Value)`
 4. 构造 `ArrowSpawnContext`，调用 `try_fire(stats, ctx)`
 
 **`try_fire()` 逻辑（`arrow_spawner.h`）：**
+
 1. 冷却检查：`now - stats.LastFireTime < 1.0 / stats.Asp` → 跳过
 2. 更新 `stats.LastFireTime = now`
 3. 分配 `arrow_id = ids.NextArrowId++`
@@ -272,6 +277,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历所有 Bot（`BotTag + Position2D + BotVisionRange + BotAIState`）
 2. 跳过已死亡的 Bot
 3. **目标锁定：** 若当前 `TargetEntity` 有效且仍在视野内 → 锁定 `BotTargetLockTime`(2s)
@@ -292,12 +298,14 @@ src_cpp/
 **逻辑（最复杂的 System）：**
 
 **死亡处理（优先）：**
+
 - `RespawnTimer -= dt`，归零后：
   - 随机等级 1~30，Roll Tier (Boss 5% / Elite 15% / Normal 80%)
   - 按 Tier 倍率计算 HP/ATK/ASP/Speed/Vision
   - 随机重生位置，重置 AI 状态
 
 **决策（每 0.3s 一次，DecisionCooldown）：**
+
 1. 扫描全图 Pickup（Heal + SmallHeal 合并排序 + XP）
 2. 计算视野内最近敌人
 3. **Goal 选择（优先级高→低）：**
@@ -309,13 +317,15 @@ src_cpp/
 4. **Goal 承诺计时器 (0.8s)：** 防止频繁切换，仅紧急条件(Flee)可打断
 
 **Kiting 状态机（滞回）：**
-| 状态 | 进入条件 | 行为 |
-|------|---------|------|
-| Chase | dist > vision×0.85 | 朝目标移动 |
-| Strafe | 中间距离 | 垂直方向横移（随机左右） |
-| Retreat | dist < vision×0.25 | 远离目标 |
+
+| 状态    | 进入条件           | 行为                     |
+| ------- | ------------------ | ------------------------ |
+| Chase   | dist > vision×0.85 | 朝目标移动               |
+| Strafe  | 中间距离           | 垂直方向横移（随机左右） |
+| Retreat | dist < vision×0.25 | 远离目标                 |
 
 **移动执行：**
+
 - `dir = normalize(target_pos - pos)`
 - `pos = clamp_to_map(pos + dir * min(move_dist, speed*dt), map_half)`
 - `angle.Radians = atan2(dir.y, dir.x)`
@@ -330,6 +340,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历 `BotTag + Position2D + BotAIState + NetworkId + CombatStats`
 2. 跳过死亡 / 无目标 / 目标无效
 3. 计算 `to_target` 方向（射击方向独立于移动朝向）
@@ -345,6 +356,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历 `ArrowTag + Position2D + Velocity2D + Lifetime`
 2. `pos.Value += vel.Value * dt`
 3. `life.Remaining -= dt`
@@ -359,6 +371,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 收集所有 `WallBounds` 到 `std::vector`
 2. **Mover 碰撞（Player/Bot）：**
    - `Damageable + Position2D`，跳过死亡
@@ -378,6 +391,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历 `ArrowTag + NetworkId + Position2D + Lifetime`
 2. 过期箭矢（`Lifetime <= 0`）→ `CommandBuffer` 销毁
 3. 对每支箭矢，遍历 `Damageable + Position2D + Health`：
@@ -401,6 +415,7 @@ src_cpp/
 ```
 
 **Phase 1 — Spawner Tick：**
+
 1. 遍历 `PickupSpawner`，跳过 `Active`
 2. `CurrentTimer -= dt`，归零后：
    - 分配 pickup ID
@@ -408,6 +423,7 @@ src_cpp/
    - `CommandBuffer` 创建 `PickupTag + Position2D + NetworkId` 实体
 
 **Phase 2 — Mover Overlap：**
+
 1. 遍历 `PickupTag + Position2D + NetworkId`，对每个 pickup：
 2. 遍历 `Damageable + Position2D`（跳过自身和死亡）：
 3. `circles_overlap` 检测
@@ -427,6 +443,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 读取 `KillEventBuffer` 中的所有事件
 2. 对每个 KillEvent：
    - **ATK/ASP 成长：** 查找 `NetworkId == KillerId` → `Atk += AtkPerKill`, `Asp += AspPerKill`（上限 AspMax）
@@ -445,11 +462,11 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. `tick_counter++`
 2. 每 tick 都生成快照（`tick_counter % 1 == 0`）
 3. 调用 `SnapshotBuilder::build(reg, tick_counter)` 构建完整快照
 4. 返回 `true` 表示有新快照
-
 
 ### 5.13 ManaRegenSystem
 
@@ -459,11 +476,11 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历所有 `Mana` 组件
 2. `Mana.RegenTimer -= dt`
 3. 若 `RegenTimer <= 0`：`Mana.Cur = min(Mana.Cur + Mana.RegenRate * dt, Mana.Max)`
 4. 技能消耗 Mana 时会重置 `RegenTimer = ManaRegenDelay`，暂停回复 3 秒
-
 
 ### 5.14 SkillInputSystem
 
@@ -473,6 +490,7 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历 `PlayerTag(IsLocal) + PlayerInputState + SkillComponent + Mana`
 2. 对 4 个技能槽分别检查 `input.SkillQ/W/E/R`
 3. 若按键按下且 `SkillId > 0`、`CooldownTimer == 0`、`Mana >= ManaCost`：
@@ -480,7 +498,6 @@ src_cpp/
    - `Mana.RegenTimer = ManaRegenDelay`
    - `CooldownTimer = MaxCooldown`（触发冷却）
 4. 无实际技能效果生成（纯冷却+消耗，效果待后续实现）
-
 
 ### 5.15 SkillCooldownSystem
 
@@ -490,28 +507,29 @@ src_cpp/
 ```
 
 **逻辑：**
+
 1. 遍历所有 `SkillComponent`
 2. 对 4 个槽分别：若 `CooldownTimer > 0`，`CooldownTimer = max(0, CooldownTimer - dt)`
-
 
 ---
 
 这些组件挂载在专用实体上，全局唯一：
 
-| 实体变量 | 组件 | 用途 |
-|---------|------|------|
+| 实体变量              | 组件                  | 用途                                                      |
+| --------------------- | --------------------- | --------------------------------------------------------- |
 | `_local_input_entity` | `LocalInputSingleton` | 当前帧输入：Move/Aim/Fire/Seq/SkillQ/SkillW/SkillE/SkillR |
-| `_map_bounds_entity` | `MapBounds` | 地图半径 Half |
-| `_id_state_entity` | `IdState` | 自增 ID 分配器（4 种实体类型） |
-| `_kill_event_entity` | `KillEventBuffer` | 击杀事件队列（tick 末清空） |
+| `_map_bounds_entity`  | `MapBounds`           | 地图半径 Half                                             |
+| `_id_state_entity`    | `IdState`             | 自增 ID 分配器（4 种实体类型）                            |
+| `_kill_event_entity`  | `KillEventBuffer`     | 击杀事件队列（tick 末清空）                               |
 
 **ID 分配范围：**
-| 类型 | 起始值 | 变量 |
-|------|--------|------|
-| Player | 1 | `IdState::NextPlayerId` |
-| Bot | 1001 | `IdState::NextBotId` |
-| Arrow | 2001 | `IdState::NextArrowId` |
-| Pickup | 3001 | `IdState::NextPickupId` |
+
+| 类型   | 起始值 | 变量                    |
+| ------ | ------ | ----------------------- |
+| Player | 1      | `IdState::NextPlayerId` |
+| Bot    | 1001   | `IdState::NextBotId`    |
+| Arrow  | 2001   | `IdState::NextArrowId`  |
+| Pickup | 3001   | `IdState::NextPickupId` |
 
 ---
 
@@ -532,83 +550,83 @@ SimSnapshot (RefCounted)
 
 ### 7.2 SimPlayerSnap
 
-| 字段 | GDScript 类型 | 来源组件 | 说明 |
-|------|-------------|---------|------|
-| `id` | `int` | `NetworkId.Value` | 唯一 ID |
-| `x` | `float` | `Position2D.Value.x` | 世界 X |
-| `y` | `float` | `Position2D.Value.y` | 世界 Y |
-| `ang` | `float` | `FacingAngle.Radians` | 朝向弧度 |
-| `hp` | `int` | `Health.Cur` | 当前 HP |
-| `max_hp` | `int` | `Health.Max` | 最大 HP |
-| `mana` | `float` | `Mana.Cur` | 当前 Mana |
-| `max_mana` | `float` | `Mana.Max` | 最大 Mana |
-| `atk` | `float` | `CombatStats.Atk` | 攻击力 |
-| `asp` | `float` | `CombatStats.Asp` | 攻速 |
-| `speed` | `float` | `MoveSpeed.Value` | 移动速度 |
-| `kills` | `int` | `Kills.Value` | 击杀数 |
-| `level` | `int` | `Level.Value` | 等级 |
-| `xp` | `int` | `Experience.Cur` | 当前经验 |
-| `xp_needed` | `int` | `Experience.Needed` | 升级所需 |
-| `skills` | `TypedArray<SimSkillSlotSnap>` | `SkillComponent.Slots[]` | 4 个技能槽状态 |
+| 字段        | GDScript 类型                  | 来源组件                 | 说明           |
+| ----------- | ------------------------------ | ------------------------ | -------------- |
+| `id`        | `int`                          | `NetworkId.Value`        | 唯一 ID        |
+| `x`         | `float`                        | `Position2D.Value.x`     | 世界 X         |
+| `y`         | `float`                        | `Position2D.Value.y`     | 世界 Y         |
+| `ang`       | `float`                        | `FacingAngle.Radians`    | 朝向弧度       |
+| `hp`        | `int`                          | `Health.Cur`             | 当前 HP        |
+| `max_hp`    | `int`                          | `Health.Max`             | 最大 HP        |
+| `mana`      | `float`                        | `Mana.Cur`               | 当前 Mana      |
+| `max_mana`  | `float`                        | `Mana.Max`               | 最大 Mana      |
+| `atk`       | `float`                        | `CombatStats.Atk`        | 攻击力         |
+| `asp`       | `float`                        | `CombatStats.Asp`        | 攻速           |
+| `speed`     | `float`                        | `MoveSpeed.Value`        | 移动速度       |
+| `kills`     | `int`                          | `Kills.Value`            | 击杀数         |
+| `level`     | `int`                          | `Level.Value`            | 等级           |
+| `xp`        | `int`                          | `Experience.Cur`         | 当前经验       |
+| `xp_needed` | `int`                          | `Experience.Needed`      | 升级所需       |
+| `skills`    | `TypedArray<SimSkillSlotSnap>` | `SkillComponent.Slots[]` | 4 个技能槽状态 |
 
 ### 7.3 SimBotSnap
 
-| 字段 | GDScript 类型 | 来源组件 | 说明 |
-|------|-------------|---------|------|
-| `id` | `int` | `NetworkId.Value` | 唯一 ID |
-| `x` | `float` | `Position2D.Value.x` | 世界 X |
-| `y` | `float` | `Position2D.Value.y` | 世界 Y |
-| `ang` | `float` | `FacingAngle.Radians` | 朝向弧度 |
-| `hp` | `int` | `Health.Cur` | 当前 HP |
-| `max_hp` | `int` | `Health.Max` | 最大 HP |
-| `dead` | `bool` | `Dead.enabled` | 是否死亡 |
-| `mana` | `float` | `Mana.Cur` | 当前 Mana |
-| `max_mana` | `float` | `Mana.Max` | 最大 Mana |
-| `atk` | `float` | `CombatStats.Atk` | 攻击力 |
-| `asp` | `float` | `CombatStats.Asp` | 攻速 |
-| `kills` | `int` | `Kills.Value` | 击杀数 |
-| `level` | `int` | `Level.Value` | 等级 |
-| `xp` | `int` | `Experience.Cur` | 当前经验 |
-| `xp_needed` | `int` | `Experience.Needed` | 升级所需 |
-| `speed` | `float` | `MoveSpeed.Value` | 移动速度 |
-| `tier` | `int` | `BotTier` (cast) | 0=Normal 1=Elite 2=Boss |
-| `skills` | `TypedArray<SimSkillSlotSnap>` | `SkillComponent.Slots[]` | 4 个技能槽状态 |
+| 字段        | GDScript 类型                  | 来源组件                 | 说明                    |
+| ----------- | ------------------------------ | ------------------------ | ----------------------- |
+| `id`        | `int`                          | `NetworkId.Value`        | 唯一 ID                 |
+| `x`         | `float`                        | `Position2D.Value.x`     | 世界 X                  |
+| `y`         | `float`                        | `Position2D.Value.y`     | 世界 Y                  |
+| `ang`       | `float`                        | `FacingAngle.Radians`    | 朝向弧度                |
+| `hp`        | `int`                          | `Health.Cur`             | 当前 HP                 |
+| `max_hp`    | `int`                          | `Health.Max`             | 最大 HP                 |
+| `dead`      | `bool`                         | `Dead.enabled`           | 是否死亡                |
+| `mana`      | `float`                        | `Mana.Cur`               | 当前 Mana               |
+| `max_mana`  | `float`                        | `Mana.Max`               | 最大 Mana               |
+| `atk`       | `float`                        | `CombatStats.Atk`        | 攻击力                  |
+| `asp`       | `float`                        | `CombatStats.Asp`        | 攻速                    |
+| `kills`     | `int`                          | `Kills.Value`            | 击杀数                  |
+| `level`     | `int`                          | `Level.Value`            | 等级                    |
+| `xp`        | `int`                          | `Experience.Cur`         | 当前经验                |
+| `xp_needed` | `int`                          | `Experience.Needed`      | 升级所需                |
+| `speed`     | `float`                        | `MoveSpeed.Value`        | 移动速度                |
+| `tier`      | `int`                          | `BotTier` (cast)         | 0=Normal 1=Elite 2=Boss |
+| `skills`    | `TypedArray<SimSkillSlotSnap>` | `SkillComponent.Slots[]` | 4 个技能槽状态          |
 
 ### 7.4 SimSkillSlotSnap
 
-| 字段 | GDScript 类型 | 来源组件 | 说明 |
-|------|-------------|---------|------|
-| `skill_id` | `int` | `SkillSlot.SkillId` | 技能模板 ID |
-| `level` | `int` | `SkillSlot.Level` | 技能等级 |
-| `cooldown` | `float` | `SkillSlot.CooldownTimer` | 当前冷却剩余 |
-| `max_cooldown` | `float` | `SkillSlot.MaxCooldown` | 最大冷却 |
-| `mana_cost` | `float` | `SkillSlot.ManaCost` | 法力消耗 |
+| 字段           | GDScript 类型 | 来源组件                  | 说明         |
+| -------------- | ------------- | ------------------------- | ------------ |
+| `skill_id`     | `int`         | `SkillSlot.SkillId`       | 技能模板 ID  |
+| `level`        | `int`         | `SkillSlot.Level`         | 技能等级     |
+| `cooldown`     | `float`       | `SkillSlot.CooldownTimer` | 当前冷却剩余 |
+| `max_cooldown` | `float`       | `SkillSlot.MaxCooldown`   | 最大冷却     |
+| `mana_cost`    | `float`       | `SkillSlot.ManaCost`      | 法力消耗     |
 
 ### 7.4 SimArrowSnap
 
-| 字段 | GDScript 类型 | 来源组件 | 说明 |
-|------|-------------|---------|------|
-| `id` | `int` | `NetworkId.Value` | 唯一 ID |
-| `x` | `float` | `Position2D.Value.x` | 世界 X |
-| `y` | `float` | `Position2D.Value.y` | 世界 Y |
-| `ang` | `float` | `FacingAngle.Radians` | 朝向弧度 |
+| 字段  | GDScript 类型 | 来源组件              | 说明     |
+| ----- | ------------- | --------------------- | -------- |
+| `id`  | `int`         | `NetworkId.Value`     | 唯一 ID  |
+| `x`   | `float`       | `Position2D.Value.x`  | 世界 X   |
+| `y`   | `float`       | `Position2D.Value.y`  | 世界 Y   |
+| `ang` | `float`       | `FacingAngle.Radians` | 朝向弧度 |
 
 ### 7.5 SimPickupSnap
 
-| 字段 | GDScript 类型 | 来源组件 | 说明 |
-|------|-------------|---------|------|
-| `id` | `int` | `NetworkId.Value` | 唯一 ID |
-| `x` | `float` | `Position2D.Value.x` | 世界 X |
-| `y` | `float` | `Position2D.Value.y` | 世界 Y |
-| `type` | `int` | `PickupTag.Type` (cast) | 0=Xp 1=Heal 2=SmallHeal |
-| `value` | `int` | `PickupTag.Value` | 数值 |
+| 字段    | GDScript 类型 | 来源组件                | 说明                    |
+| ------- | ------------- | ----------------------- | ----------------------- |
+| `id`    | `int`         | `NetworkId.Value`       | 唯一 ID                 |
+| `x`     | `float`       | `Position2D.Value.x`    | 世界 X                  |
+| `y`     | `float`       | `Position2D.Value.y`    | 世界 Y                  |
+| `type`  | `int`         | `PickupTag.Type` (cast) | 0=Xp 1=Heal 2=SmallHeal |
+| `value` | `int`         | `PickupTag.Value`       | 数值                    |
 
 ### 7.6 SimEventSnap
 
-| 字段 | GDScript 类型 | 来源 | 说明 |
-|------|-------------|------|------|
-| `killer_id` | `int` | `KillEvent.KillerId` | 击杀者 NetworkId |
-| `victim_id` | `int` | `KillEvent.VictimId` | 受害者 NetworkId |
+| 字段        | GDScript 类型 | 来源                 | 说明             |
+| ----------- | ------------- | -------------------- | ---------------- |
+| `killer_id` | `int`         | `KillEvent.KillerId` | 击杀者 NetworkId |
+| `victim_id` | `int`         | `KillEvent.VictimId` | 受害者 NetworkId |
 
 ### 7.7 GDScript 访问模式
 
@@ -640,13 +658,13 @@ if snap.players.size() > 0:
 
 ### 8.1 SimServer API
 
-| 方法 | 签名 | 说明 |
-|------|------|------|
-| `initialize` | `(map_json: String) -> void` | 解析地图 JSON，创建所有初始实体 |
-| `set_local_input` | `(move: Vector2, aim: Vector2, fire: bool, seq: int) -> void` | 设置当前帧移动/瞄准/射击输入 |
-| `set_skill_input` | `(q: bool, w: bool, e: bool, r: bool) -> void` | 设置当前帧技能按键输入 |
-| `tick` | `(delta: float) -> void` | 执行一个 tick（30Hz） |
-| `pop_snapshot` | `() -> RefCounted` | 取出最新快照（消费后清空） |
+| 方法              | 签名                                                          | 说明                            |
+| ----------------- | ------------------------------------------------------------- | ------------------------------- |
+| `initialize`      | `(map_json: String) -> void`                                  | 解析地图 JSON，创建所有初始实体 |
+| `set_local_input` | `(move: Vector2, aim: Vector2, fire: bool, seq: int) -> void` | 设置当前帧移动/瞄准/射击输入    |
+| `set_skill_input` | `(q: bool, w: bool, e: bool, r: bool) -> void`                | 设置当前帧技能按键输入          |
+| `tick`            | `(delta: float) -> void`                                      | 执行一个 tick（30Hz）           |
+| `pop_snapshot`    | `() -> RefCounted`                                            | 取出最新快照（消费后清空）      |
 
 ### 8.2 注册的 GDCLASS 类型
 
@@ -683,67 +701,67 @@ ClassDB::register_class<sim::SimEventSnap>();
 
 ### 9.1 Player（`_spawn_player`）
 
-| 组件 | 初始值 |
-|------|--------|
-| `PlayerTag` | `IsLocal=true` |
-| `NetworkId` | `player_id` (从 1 开始) |
-| `Position2D` | 随机地图位置 |
-| `FacingAngle` | `0.0f` |
-| `Health` | `100 / 100` |
-| `CombatStats` | `Atk=10, Asp=1.0, LastFireTime=0` |
-| `Mana` | `Cur=100, Max=100, RegenRate=5, RegenDelay=3, RegenTimer=0` |
-| `Kills` | `0` |
-| `PlayerInputState` | `Move=(0,0), Aim=(0,0), Fire=false, Seq=0, SkillQ/W/E/R=false` |
-| `Damageable` | _(空)_ |
-| `Dead` | `false` |
-| `Level` | `1` |
-| `Experience` | `Cur=0, Needed=500` |
-| `MoveSpeed` | `5.0` |
-| `SkillComponent` | `Slots[0-3] = {SkillId=1..4, Level=1, MaxCooldown=4/6/8/15s, ManaCost=10/20/30/50}` |
-| `SkillPoints` | `Available=0` |
+| 组件               | 初始值                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `PlayerTag`        | `IsLocal=true`                                                                      |
+| `NetworkId`        | `player_id` (从 1 开始)                                                             |
+| `Position2D`       | 随机地图位置                                                                        |
+| `FacingAngle`      | `0.0f`                                                                              |
+| `Health`           | `100 / 100`                                                                         |
+| `CombatStats`      | `Atk=10, Asp=1.0, LastFireTime=0`                                                   |
+| `Mana`             | `Cur=100, Max=100, RegenRate=5, RegenDelay=3, RegenTimer=0`                         |
+| `Kills`            | `0`                                                                                 |
+| `PlayerInputState` | `Move=(0,0), Aim=(0,0), Fire=false, Seq=0, SkillQ/W/E/R=false`                      |
+| `Damageable`       | _(空)_                                                                              |
+| `Dead`             | `false`                                                                             |
+| `Level`            | `1`                                                                                 |
+| `Experience`       | `Cur=0, Needed=500`                                                                 |
+| `MoveSpeed`        | `5.0`                                                                               |
+| `SkillComponent`   | `Slots[0-3] = {SkillId=1..4, Level=1, MaxCooldown=4/6/8/15s, ManaCost=10/20/30/50}` |
+| `SkillPoints`      | `Available=0`                                                                       |
 
 ### 9.2 Bot（`_spawn_bot`）
 
-| 组件 | 初始值 |
-|------|--------|
-| `BotTag` | _(空)_ |
-| `NetworkId` | `bot_id` (从 1001 开始) |
-| `Position2D` | 随机地图位置 |
-| `FacingAngle` | `0.0f` |
-| `Health` | `(BotHp + (lv-1)*HpPerLv) * TierHpMul` |
-| `BotAIState` | `MoveTarget=random, RespawnTimer=0, TargetEntity=null, WanderTimer=random` |
-| `BotBehaviorState` | 默认（Goal=Wander） |
-| `BotTier` | 随机 roll |
-| `BotVisionRange` | `BotVisionRange * TierVisionMul` |
-| `CombatStats` | `Atk/Asp 按等级+Tier计算` |
-| `Mana` | `Cur=80, Max=80, RegenRate=3, RegenDelay=3, RegenTimer=0` |
-| `Kills` | `0` |
-| `Damageable` | _(空)_ |
-| `Dead` | `false` |
-| `Level` | 随机 1~30 |
-| `Experience` | `Cur=0, Needed=lv*500` |
-| `MoveSpeed` | `(BotSpeed + (lv-1)*SpeedPerLv) * TierSpeedMul` |
-| `SkillComponent` | `Slots[0-3] = {SkillId=1..4, Level=1, MaxCooldown=4/6/8/15s, ManaCost=10/20/30/50}` |
-| `SkillPoints` | `Available=0` |
+| 组件               | 初始值                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `BotTag`           | _(空)_                                                                              |
+| `NetworkId`        | `bot_id` (从 1001 开始)                                                             |
+| `Position2D`       | 随机地图位置                                                                        |
+| `FacingAngle`      | `0.0f`                                                                              |
+| `Health`           | `(BotHp + (lv-1)*HpPerLv) * TierHpMul`                                              |
+| `BotAIState`       | `MoveTarget=random, RespawnTimer=0, TargetEntity=null, WanderTimer=random`          |
+| `BotBehaviorState` | 默认（Goal=Wander）                                                                 |
+| `BotTier`          | 随机 roll                                                                           |
+| `BotVisionRange`   | `BotVisionRange * TierVisionMul`                                                    |
+| `CombatStats`      | `Atk/Asp 按等级+Tier计算`                                                           |
+| `Mana`             | `Cur=80, Max=80, RegenRate=3, RegenDelay=3, RegenTimer=0`                           |
+| `Kills`            | `0`                                                                                 |
+| `Damageable`       | _(空)_                                                                              |
+| `Dead`             | `false`                                                                             |
+| `Level`            | 随机 1~30                                                                           |
+| `Experience`       | `Cur=0, Needed=lv*500`                                                              |
+| `MoveSpeed`        | `(BotSpeed + (lv-1)*SpeedPerLv) * TierSpeedMul`                                     |
+| `SkillComponent`   | `Slots[0-3] = {SkillId=1..4, Level=1, MaxCooldown=4/6/8/15s, ManaCost=10/20/30/50}` |
+| `SkillPoints`      | `Available=0`                                                                       |
 
 ### 9.3 Arrow（`try_fire` → CommandBuffer 创建）
 
-| 组件 | 初始值 |
-|------|--------|
-| `Position2D` | `spawn_pos` |
-| `Velocity2D` | `(cos/sin * ArrowSpeed)` |
-| `FacingAngle` | `aim_angle` |
-| `ArrowTag` | `OwnerId, OwnerEntity, Dmg` |
-| `Lifetime` | `2.0s` |
-| `NetworkId` | `arrow_id` (从 2001 开始) |
+| 组件          | 初始值                      |
+| ------------- | --------------------------- |
+| `Position2D`  | `spawn_pos`                 |
+| `Velocity2D`  | `(cos/sin * ArrowSpeed)`    |
+| `FacingAngle` | `aim_angle`                 |
+| `ArrowTag`    | `OwnerId, OwnerEntity, Dmg` |
+| `Lifetime`    | `2.0s`                      |
+| `NetworkId`   | `arrow_id` (从 2001 开始)   |
 
 ### 9.4 Pickup（`_spawn_one_spawner` → PickupSystem 创建）
 
-| 组件 | 初始值 |
-|------|--------|
-| `NetworkId` | `pickup_id` (从 3001 开始) |
-| `Position2D` | spawner.Position |
-| `PickupTag` | `Type, Value` |
+| 组件         | 初始值                     |
+| ------------ | -------------------------- |
+| `NetworkId`  | `pickup_id` (从 3001 开始) |
+| `Position2D` | spawner.Position           |
+| `PickupTag`  | `Type, Value`              |
 
 ---
 
@@ -751,94 +769,94 @@ ClassDB::register_class<sim::SimEventSnap>();
 
 ### 10.1 核心
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `TickRate` | 30.0 | tick 频率 |
+| 常量           | 值   | 说明                                   |
+| -------------- | ---- | -------------------------------------- |
+| `TickRate`     | 30.0 | tick 频率                              |
 | `SnapshotRate` | 20.0 | 快照频率（未使用，当前每 tick 都导出） |
-| `MapHalf` | 50.0 | 地图半径 |
+| `MapHalf`      | 50.0 | 地图半径                               |
 
 ### 10.2 玩家
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `PlayerRadius` | 0.5 | 碰撞半径 |
-| `PlayerSpeed` | 5.0 | 基础移动速度 |
-| `PlayerBaseHp` | 100 | 基础 HP |
-| `BaseAttack` | 10.0 | 基础攻击力 |
-| `BaseAttackSpeed` | 1.0 | 基础攻速 |
+| 常量              | 值   | 说明         |
+| ----------------- | ---- | ------------ |
+| `PlayerRadius`    | 0.5  | 碰撞半径     |
+| `PlayerSpeed`     | 5.0  | 基础移动速度 |
+| `PlayerBaseHp`    | 100  | 基础 HP      |
+| `BaseAttack`      | 10.0 | 基础攻击力   |
+| `BaseAttackSpeed` | 1.0  | 基础攻速     |
 
 ### 10.3 箭矢
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `ArrowSpeed` | 20.0 | 箭矢速度 |
-| `ArrowLifetime` | 2.0 | 箭矢存活时间 |
-| `ArrowRadius` | 0.3 | 箭矢碰撞半径 |
+| 常量            | 值   | 说明         |
+| --------------- | ---- | ------------ |
+| `ArrowSpeed`    | 20.0 | 箭矢速度     |
+| `ArrowLifetime` | 2.0  | 箭矢存活时间 |
+| `ArrowRadius`   | 0.3  | 箭矢碰撞半径 |
 
 ### 10.4 Bot
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `BotCount` | 5 | 初始 Bot 数量 |
-| `BotRadius` | 0.5 | 碰撞半径 |
-| `BotSpeed` | 2.0 | 基础速度 |
-| `BotHp` | 50 | 基础 HP |
-| `BotBaseAttack` | 5.0 | 基础攻击 |
-| `BotBaseAttackSpeed` | 0.8 | 基础攻速 |
-| `BotRespawnTime` | 8.0 | 重生时间（死亡后停留秒数，用于 VFX 播放） |
-| `BotVisionRange` | 20.0 | 视野范围 |
-| `MaxBotLevel` | 30 | 随机等级上限 |
-| `BossRoll` | 0.05 | Boss 出现概率 |
-| `EliteRoll` | 0.20 | Elite 出现概率 |
+| 常量                 | 值   | 说明                                      |
+| -------------------- | ---- | ----------------------------------------- |
+| `BotCount`           | 5    | 初始 Bot 数量                             |
+| `BotRadius`          | 0.5  | 碰撞半径                                  |
+| `BotSpeed`           | 2.0  | 基础速度                                  |
+| `BotHp`              | 50   | 基础 HP                                   |
+| `BotBaseAttack`      | 5.0  | 基础攻击                                  |
+| `BotBaseAttackSpeed` | 0.8  | 基础攻速                                  |
+| `BotRespawnTime`     | 8.0  | 重生时间（死亡后停留秒数，用于 VFX 播放） |
+| `BotVisionRange`     | 20.0 | 视野范围                                  |
+| `MaxBotLevel`        | 30   | 随机等级上限                              |
+| `BossRoll`           | 0.05 | Boss 出现概率                             |
+| `EliteRoll`          | 0.20 | Elite 出现概率                            |
 
 ### 10.5 成长
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `AtkPerKill` | 2.0 | 每次击杀 ATK 增量 |
-| `AspPerKill` | 0.05 | 每次击杀 ASP 增量 |
-| `AspMax` | 4.0 | ASP 上限 |
-| `KillXpBase` | 15 | 击杀 XP 基数 |
-| `KillXpHighBonus` | 0.5 | 越级击杀奖励系数 |
-| `XpPerLevelBase` | 500 | 升级 XP = level × 500 |
-| `HpPerLevel` | 10 | 升级 MaxHP 增量 |
-| `SpeedPerLevel` | 0.5 | 升级 Speed 增量 |
-| `HealFraction` | 0.5 | 大血包回血比例 |
+| 常量              | 值   | 说明                  |
+| ----------------- | ---- | --------------------- |
+| `AtkPerKill`      | 2.0  | 每次击杀 ATK 增量     |
+| `AspPerKill`      | 0.05 | 每次击杀 ASP 增量     |
+| `AspMax`          | 4.0  | ASP 上限              |
+| `KillXpBase`      | 15   | 击杀 XP 基数          |
+| `KillXpHighBonus` | 0.5  | 越级击杀奖励系数      |
+| `XpPerLevelBase`  | 500  | 升级 XP = level × 500 |
+| `HpPerLevel`      | 10   | 升级 MaxHP 增量       |
+| `SpeedPerLevel`   | 0.5  | 升级 Speed 增量       |
+| `HealFraction`    | 0.5  | 大血包回血比例        |
 
 ### 10.6 Mana
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `PlayerBaseMana` | 100.0 | 玩家基础 Mana |
-| `PlayerManaRegen` | 5.0 | 玩家每秒回复 |
-| `BotBaseMana` | 80.0 | Bot 基础 Mana |
-| `BotManaRegen` | 3.0 | Bot 每秒回复 |
-| `ManaRegenDelay` | 3.0 | 使用技能后暂停回复时间 |
+| 常量              | 值    | 说明                   |
+| ----------------- | ----- | ---------------------- |
+| `PlayerBaseMana`  | 100.0 | 玩家基础 Mana          |
+| `PlayerManaRegen` | 5.0   | 玩家每秒回复           |
+| `BotBaseMana`     | 80.0  | Bot 基础 Mana          |
+| `BotManaRegen`    | 3.0   | Bot 每秒回复           |
+| `ManaRegenDelay`  | 3.0   | 使用技能后暂停回复时间 |
 
 ### 10.7 技能
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `SkillCount` | 4 | 技能槽数量 |
-| `PlayerSkillIds[4]` | `{1,2,3,4}` | 玩家测试技能 ID |
-| `SkillCooldowns[4]` | `{4,6,8,15}` | 各技能冷却时间（秒） |
-| `SkillManaCosts[4]` | `{10,20,30,50}` | 各技能法力消耗 |
-| `BotSkillIds[4]` | `{1,2,3,4}` | Bot 测试技能 ID |
+| 常量                | 值              | 说明                 |
+| ------------------- | --------------- | -------------------- |
+| `SkillCount`        | 4               | 技能槽数量           |
+| `PlayerSkillIds[4]` | `{1,2,3,4}`     | 玩家测试技能 ID      |
+| `SkillCooldowns[4]` | `{4,6,8,15}`    | 各技能冷却时间（秒） |
+| `SkillManaCosts[4]` | `{10,20,30,50}` | 各技能法力消耗       |
+| `BotSkillIds[4]`    | `{1,2,3,4}`     | Bot 测试技能 ID      |
 
 ### 10.8 Pickup
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `XpPickupValue` | 16 | XP pickup 经验值 |
-| `HealPickupValue` | 30 | 大血包值（未直接用，用 HealFraction） |
-| `SmallHealPickupValue` | 25 | 小血包值（用于 15% 计算） |
-| `XpPickupRespawnTime` | 10.0 | XP 刷新时间 |
-| `HealPickupRespawnTime` | 25.0 | 大血包刷新时间 |
-| `SmallHealPickupRespawnTime` | 20.0 | 小血包刷新时间 |
-| `PickupRadius` | 0.5 | 拾取碰撞半径 |
-| `XpPickupCount` | 120 | XP 生成器数量 |
-| `HealPickupCount` | 2 | 大血包生成器数量 |
-| `SmallHealPickupCount` | 2 | 小血包生成器数量 |
+| 常量                         | 值   | 说明                                  |
+| ---------------------------- | ---- | ------------------------------------- |
+| `XpPickupValue`              | 16   | XP pickup 经验值                      |
+| `HealPickupValue`            | 30   | 大血包值（未直接用，用 HealFraction） |
+| `SmallHealPickupValue`       | 25   | 小血包值（用于 15% 计算）             |
+| `XpPickupRespawnTime`        | 10.0 | XP 刷新时间                           |
+| `HealPickupRespawnTime`      | 25.0 | 大血包刷新时间                        |
+| `SmallHealPickupRespawnTime` | 20.0 | 小血包刷新时间                        |
+| `PickupRadius`               | 0.5  | 拾取碰撞半径                          |
+| `XpPickupCount`              | 120  | XP 生成器数量                         |
+| `HealPickupCount`            | 2    | 大血包生成器数量                      |
+| `SmallHealPickupCount`       | 2    | 小血包生成器数量                      |
 
 ---
 
@@ -852,6 +870,7 @@ ClassDB::register_class<sim::SimEventSnap>();
 > 参考实际代码：`components.h` `Mana`、`systems/mana_regen.h`、`world.cpp` 中 emplace
 
 **新增组件：**
+
 ```cpp
 struct Mana {
     float Cur = 0.0f;
@@ -863,6 +882,7 @@ struct Mana {
 ```
 
 **新增 System：**
+
 ```cpp
 inline void mana_regen_system(entt::registry &reg, float dt) {
     auto view = reg.view<Mana>();
@@ -877,6 +897,7 @@ inline void mana_regen_system(entt::registry &reg, float dt) {
 ```
 
 **Snapshot 扩展：**
+
 - `SimPlayerSnap` + `mana: float, max_mana: float` ✅
 - `SimBotSnap` + `mana: float, max_mana: float` ✅
 
@@ -889,25 +910,30 @@ inline void mana_regen_system(entt::registry &reg, float dt) {
 #### ✅ 已完成（本次实现）
 
 **组件：**
+
 - `SkillSlot`（`SkillId/Level/CooldownTimer/MaxCooldown/ManaCost`）
 - `SkillComponent`（`Slots[4]`）
 - `SkillPoints`（`Available`）
 - `LocalInputSingleton` + `PlayerInputState` 扩展 `SkillQ/SkillW/SkillE/SkillR`
 
 **System：**
+
 - `SkillInputSystem`（读取技能按键 → 消耗 Mana + 触发冷却）
 - `SkillCooldownSystem`（每 tick 递减冷却计时）
 
 **SimServer API：**
+
 - 新增 `set_skill_input(q, w, e, r)` 方法
 
 **Snapshot 扩展：**
+
 - 新增 `SimSkillSlotSnap`（`skill_id/level/cooldown/max_cooldown/mana_cost`）
 - `SimPlayerSnap.skills[]` + `SimBotSnap.skills[]`
 
 #### ❌ 待实现
 
 **剩余组件：**
+
 ```cpp
 struct SkillDef {
     int Id = 0;
@@ -933,11 +959,13 @@ struct CastState {
 ```
 
 **剩余 System：**
+
 - `SkillCastSystem` — 管理前摇 → 释放 → 实际技能效果
 - `SkillEffectSystem` — 执行技能效果（生成投射物/AoE/Buff）
 - `SkillLevelSystem` — 技能点分配
 
 **剩余重构：**
+
 - `arrow_movement.h` → `projectile_movement.h`（泛化投射物）
 - `player_fire.h` 改为技能系统触发（普攻 = SkillId=0）
 - `combat.h` 扩展 AoE 碰撞检测
@@ -949,6 +977,7 @@ struct CastState {
 **纯 View 层，无 Sim 改动。**
 
 **新增 GDScript 文件：**
+
 ```
 scripts/view/indicator_manager.gd     — 指示器生命周期管理
 scripts/view/range_indicator.gd       — 范围圈（3D MeshInstance3D）
@@ -966,6 +995,7 @@ scripts/ui/cast_bar_ui.gd             — 施法进度条（2D CanvasLayer）
 **纯 View 层。**
 
 **新增 GDScript 场景：**
+
 ```
 scripts/ui/skill_bar_hud.gd
 scripts/ui/skill_slot_ui.gd
@@ -979,6 +1009,7 @@ scenes/ui/skill_bar_hud.tscn
 ### P0-5: 玩家死亡 + 淘汰
 
 **Sim 层改动：**
+
 - `combat.h` 中玩家 `hp.Cur <= 0` 时，当前仅设置 `Dead.enabled=true`
 - 需新增：BR 模式下玩家死亡 = 淘汰（不再重生）
 - 新增 `Eliminated` 组件或标记
@@ -986,6 +1017,7 @@ scenes/ui/skill_bar_hud.tscn
 - 新增 `GameOverSystem` 检测存活人数
 
 **Snapshot 扩展：**
+
 - `SimPlayerSnap` + `eliminated: bool`
 - `SimSnapshot` + `alive_count: int`
 
@@ -994,6 +1026,7 @@ scenes/ui/skill_bar_hud.tscn
 ### P0-6: 缩圈系统
 
 **新增组件：**
+
 ```cpp
 struct SafeZone {
     Vec2 Center{0.0f};
@@ -1009,12 +1042,14 @@ struct SafeZone {
 ```
 
 **新增 System：**
+
 ```cpp
 // systems/safe_zone.h
 inline void safe_zone_system(entt::registry &reg, float dt, CommandBuffer &cb);
 ```
 
 **Snapshot 扩展：**
+
 ```cpp
 class SimZoneSnap : public godot::RefCounted {
     GDCLASS(SimZoneSnap, godot::RefCounted)
@@ -1036,13 +1071,13 @@ SimZoneSnap zone;  // 或 Ref<SimZoneSnap>
 
 ### P1-7~11: 后续模块
 
-| # | 模块 | 新增组件 | 新增 System | Snapshot 扩展 |
-|---|------|---------|------------|--------------|
-| 7 | 多技能类型 | _(P0-2 已定义)_ | skill_effect 扩展 | SimProjectileSnap 替代 SimArrowSnap |
-| 8 | 装备系统 | `Inventory`, `ItemDef`, `EquipmentBonuses`, `ItemTag` | `item_spawn_system`, `item_pickup_system`, `item_passive_system` | `SimItemSnap`, `SimPlayerSnap.items` |
-| 9 | 小地图 | _(无)_ | _(无，纯 View)_ | _(无)_ |
-| 10 | 战争迷雾 | `Vision`, `FogReveal`, `StealthTag` | `vision_system` | `SimSnapshot.visible_*` 过滤 |
-| 11 | 战斗反馈 | _(无)_ | _(无)_ | `SimEventSnap` 扩展 type/value/skill_id/x/y |
+| #   | 模块       | 新增组件                                              | 新增 System                                                      | Snapshot 扩展                               |
+| --- | ---------- | ----------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------- |
+| 7   | 多技能类型 | _(P0-2 已定义)_                                       | skill_effect 扩展                                                | SimProjectileSnap 替代 SimArrowSnap         |
+| 8   | 装备系统   | `Inventory`, `ItemDef`, `EquipmentBonuses`, `ItemTag` | `item_spawn_system`, `item_pickup_system`, `item_passive_system` | `SimItemSnap`, `SimPlayerSnap.items`        |
+| 9   | 小地图     | _(无)_                                                | _(无，纯 View)_                                                  | _(无)_                                      |
+| 10  | 战争迷雾   | `Vision`, `FogReveal`, `StealthTag`                   | `vision_system`                                                  | `SimSnapshot.visible_*` 过滤                |
+| 11  | 战斗反馈   | _(无)_                                                | _(无)_                                                           | `SimEventSnap` 扩展 type/value/skill_id/x/y |
 
 ---
 
@@ -1074,6 +1109,7 @@ inline void xxx_system(entt::registry &reg, float dt, CommandBuffer &cb) {
 ```
 
 **约定：**
+
 1. 所有 System 是 `inline void` 自由函数，放在 `sim` namespace
 2. 参数顺序：`registry &reg` 必在最前，然后 `float dt`，然后其他引用
 3. 实体创建/销毁必须通过 `CommandBuffer`，绝不在 System 内直接操作 registry
@@ -1084,6 +1120,7 @@ inline void xxx_system(entt::registry &reg, float dt, CommandBuffer &cb) {
 8. 新增组件必须同时更新 `_spawn_player` / `_spawn_bot` / `SnapshotBuilder` / `snapshot_bindings`
 
 **新增 Snapshot 类型的完整步骤：**
+
 1. `snapshot_types.h` 中新增 `GDCLASS` 类（继承 `RefCounted`）
 2. 添加字段 + getter/setter + `static void _bind_methods();` 声明
 3. `snapshot_bindings.cpp` 中实现 `_bind_methods()`（BIND + PROP 宏）

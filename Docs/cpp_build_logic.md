@@ -49,7 +49,7 @@ godot-cpp 默认为**全部 1051 个 Godot 类**各生成一个 .cpp，构成 43
 
 ```json
 {
-    "enabled_classes": ["RefCounted"]
+  "enabled_classes": ["RefCounted"]
 }
 ```
 
@@ -75,11 +75,11 @@ godot-cpp 默认为**全部 1051 个 Godot 类**各生成一个 .cpp，构成 43
 
 ## 构建目标（target）
 
-| 目标 | CMake 配置 | 优化 | 调试符号 | 用途 |
-|------|-----------|------|---------|------|
-| `editor` | Debug | `/Od` | 完整 PDB | **不需要**。在 Godot 编辑器中调试 C++ 断点时用 |
-| `template_debug` | RelWithDebInfo | `/O2` | 完整 PDB | **不需要**。需要 attach 调试器时用 |
-| `template_release` | Release | `/O2 + LTO` | 无 | 日常使用。只跑游戏看效果，不调试 C++ |
+| 目标               | CMake 配置     | 优化        | 调试符号 | 用途                                           |
+| ------------------ | -------------- | ----------- | -------- | ---------------------------------------------- |
+| `editor`           | Debug          | `/Od`       | 完整 PDB | **不需要**。在 Godot 编辑器中调试 C++ 断点时用 |
+| `template_debug`   | RelWithDebInfo | `/O2`       | 完整 PDB | **不需要**。需要 attach 调试器时用             |
+| `template_release` | Release        | `/O2 + LTO` | 无       | 日常使用。只跑游戏看效果，不调试 C++           |
 
 ---
 
@@ -112,12 +112,12 @@ src_cpp/
 ```yaml
 toolchain: msvc
 msvc:
-  vs_install_dir: "C:/Program Files/Microsoft Visual Studio/2022/Community"
-cmake_bin_dir: ""            # 留空自动从 VS 或 PATH 检测
-python3_executable: "..."     # 默认用 .venv 或 uv 管理的 Python
+  vs_install_dir: 'C:/Program Files/Microsoft Visual Studio/2022/Community'
+cmake_bin_dir: '' # 留空自动从 VS 或 PATH 检测
+python3_executable: '...' # 默认用 .venv 或 uv 管理的 Python
 build:
   target: template_release
-  jobs: 0                     # 0 = 自动（CPU 数 - 1）
+  jobs: 0 # 0 = 自动（CPU 数 - 1）
   verbose: false
 ```
 
@@ -137,6 +137,7 @@ build:
 ### Q: 改了什么后需要 `distclean`？
 
 需要重新生成绑定的情况：
+
 - 修改了 `build_profile.json`
 - 更新了 godot-cpp 版本
 - 修改了 CMakeLists.txt 中的 GODOTCPP_* 选项
