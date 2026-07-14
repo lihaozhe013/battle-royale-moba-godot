@@ -28,9 +28,10 @@ func _ready() -> void:
 	add_child(_ring)
 	_ring.visible = false
 
-	# Listen for move commands
-	if get_parent() and get_parent().has_node("InputCollector"):
-		get_parent().get_node("InputCollector").move_issued.connect(_on_move_issued)
+	# Listen for move commands from CommandBuilder
+	var parent = get_parent()
+	if parent and parent.has_node("CommandBuilder"):
+		parent.get_node("CommandBuilder").move_issued.connect(_on_move_issued)
 
 
 func _on_move_issued(target: Vector2) -> void:

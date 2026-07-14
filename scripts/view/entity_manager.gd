@@ -70,6 +70,9 @@ func set_hover_id(id: int) -> void:
 	if id >= 0 and _entities.has(id):
 		_entities[id].set_hovered(true)
 
+func get_hovered_id() -> int:
+	return _hovered_id
+
 func set_attack_target_id(id: int) -> void:
 	if _attack_target_id == id:
 		return

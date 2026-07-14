@@ -24,6 +24,35 @@ var held_mouse: Dictionary = {}
 var _queue: Array[Ev] = []
 var _seq := 0
 
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var cam := get_viewport().get_camera_3d()
+		if cam:
+			var from := cam.project_ray_origin(event.position)
+			var dir := cam.project_ray_normal(event.position)
+			if abs(dir.y) > 0.001:
+				var t := -from.y / dir.y
+				mouse_world = Vector2(from.x + dir.x * t, from.z + dir.z * t)
+		return
+
+	if event is InputEventKey and event.pressed and not event.echo:
+		push_key_press(event.keycode)
+	elif event is InputEventKey and not event.pressed:
+		push_key_release(event.keycode)
+	elif event is InputEventMouseButton:
+		var cam := get_viewport().get_camera_3d()
+		if cam:
+			var from := cam.project_ray_origin(event.position)
+			var dir := cam.project_ray_normal(event.position)
+			if abs(dir.y) > 0.001:
+				var t := -from.y / dir.y
+				mouse_world = Vector2(from.x + dir.x * t, from.z + dir.z * t)
+		if event.pressed:
+			push_mb_press(event.button_index)
+		else:
+			push_mb_release(event.button_index)
+
 func push_key_press(k: int) -> void:
 	held_keys[k] = true
 	_seq += 1
