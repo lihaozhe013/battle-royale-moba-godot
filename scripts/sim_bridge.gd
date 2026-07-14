@@ -15,9 +15,32 @@ var _prev_player_cast_error := 0
 @onready var bottom_hud = $BottomHUD
 @onready var cast_bar_layer = $CastBarLayer
 @onready var cast_error_layer = $CastErrorLayer
+var input_event_queue: InputEventQueue
+var input_state_machine: InputStateMachine
+var command_buffer: CommandBuffer
+var command_builder: CommandBuilder
+var cast_settings: CastSettings
 var _skill_vfx: Node3D
 
 const HOVER_RADIUS := 2.0
+const TICK_RATE := 1.0 / 30.0
+
+# Temp adapter state (translates Command → new Sim API)
+var _tmp_move_target := Vector2.ZERO
+var _tmp_move_issue := false
+var _tmp_stop := false
+var _tmp_cast_slot := -1
+var _tmp_cast_confirm := false
+var _tmp_cast_aim := Vector2.ZERO
+var _tmp_cast_target_id := -1
+var _tmp_upgrade_slot := -1
+var _tmp_cancel_skill := false
+var _tmp_cancel_attack := false
+var _tmp_attack_target_id := -1
+var _tmp_attack_ground := false
+var _tmp_attack_ground_pos := Vector2.ZERO
+var _tmp_attack_clear := false
+var _tmp_seq := 0
 
 
 func _ready() -> void:
@@ -28,6 +51,14 @@ func _ready() -> void:
 	var map_json = file.get_as_text()
 	file.close()
 
+	# Auto-create input layer nodes
+	input_event_queue = _ensure_node("InputEventQueue", &"res://scripts/input/input_event_queue.gd")
+	input_state_machine = _ensure_node("InputStateMachine", &"res://scripts/input/input_state_machine.gd")
+	command_buffer = _ensure_node("CommandBuffer", &"res://scripts/input/command_buffer.gd")
+	command_builder = _ensure_node("CommandBuilder", &"res://scripts/input/command_builder.gd")
+	cast_settings = _ensure_node("CastSettings", &"res://scripts/input/cast_settings.gd")
+	command_builder.setup(input_event_queue, input_state_machine, command_buffer, cast_settings)
+
 	_spawn_wall_visuals(map_json)
 
 	health_bar_manager.entity_manager = entity_manager
@@ -37,7 +68,6 @@ func _ready() -> void:
 	sim.initialize(map_json)
 	print("SimServer initialized")
 
-	# Auto-create SkillVFX if not in scene tree
 	_skill_vfx = $SkillVFX if has_node("SkillVFX") else Node3D.new()
 	_skill_vfx.name = "SkillVFX"
 	if not _skill_vfx.get_parent():
@@ -45,6 +75,16 @@ func _ready() -> void:
 	var vfx_script = preload("res://scripts/view/skill_vfx.gd")
 	if not _skill_vfx.get_script():
 		_skill_vfx.set_script(vfx_script)
+
+
+func _ensure_node(name: String, script_path: StringName) -> Node:
+	var n = get_node_or_null(name)
+	if not n:
+		n = Node.new()
+		n.name = name
+		n.set_script(load(script_path))
+		add_child(n)
+	return n
 
 
 func _spawn_wall_visuals(json_text: String) -> void:
@@ -70,51 +110,57 @@ func _spawn_wall_visuals(json_text: String) -> void:
 
 
 var _frame_tick_index := 0
-
 var _log_prev_cast_slot := -1
 var _log_prev_cast_state := 0
 
+
 func _physics_process(delta: float) -> void:
-	var tick_rate = 1.0 / 30.0
 	_frame_tick_index = 0
 	elapsed += delta
 	var ran_tick := false
-	while elapsed >= tick_rate:
+
+	# Consume and translate commands each tick
+	while elapsed >= TICK_RATE:
 		_frame_tick_index += 1
 		ran_tick = true
 		var first_tick := _frame_tick_index == 1
-		sim.set_local_input(
-			input_collector.move_input,
-			input_collector.aim_world,
-			input_collector.fire,
-			input_collector.input_seq
-		)
-		sim.set_cast_input(
-			input_collector.cast_slot,
-			input_collector.cast_confirm,
-			input_collector.cast_cancel and first_tick,
-			input_collector.cast_interrupt,
-			input_collector.cast_aim.x,
-			input_collector.cast_aim.y,
-			input_collector.cast_target_id
-		)
-		sim.set_move_command(
-			input_collector.move_cmd_target.x,
-			input_collector.move_cmd_target.y,
-			input_collector.move_cmd_issue and first_tick
-		)
-		sim.set_stop(
-			input_collector.stop and first_tick
-		)
-		sim.set_attack_command(
-			input_collector.attack_target_id
-		)
-		sim.tick(tick_rate)
+
 		if first_tick:
-			input_collector.stop = false
-			input_collector.move_cmd_issue = false
-			input_collector.cast_cancel = false
-		elapsed -= tick_rate
+			command_builder.process_frame()
+
+		var cmds := command_buffer.pop_all()
+		var merged := command_buffer.merge_commands(cmds)
+
+		for c in merged:
+			_apply_command(c)
+
+		# New Sim API
+		sim.set_skill_command(_tmp_cast_slot, _tmp_cast_confirm, _tmp_cast_aim.x, _tmp_cast_aim.y, _tmp_cast_target_id)
+		if _tmp_upgrade_slot >= 0:
+			sim.set_skill_upgrade_command(_tmp_upgrade_slot)
+		sim.set_attack_command_full(_tmp_attack_target_id, _tmp_attack_ground, _tmp_attack_ground_pos.x, _tmp_attack_ground_pos.y, _tmp_attack_clear)
+		if _tmp_cancel_skill:
+			sim.set_cancel_command(true, false)
+		if _tmp_cancel_attack:
+			sim.set_cancel_command(false, true)
+		sim.set_move_command(_tmp_move_target.x, _tmp_move_target.y, _tmp_move_issue and first_tick)
+		if _tmp_stop and first_tick:
+			sim.set_stop_command()
+		sim.tick(TICK_RATE)
+
+		# Clear pulse fields
+		if first_tick:
+			_tmp_move_issue = false
+			_tmp_stop = false
+		_tmp_cast_confirm = false
+		_tmp_upgrade_slot = -1
+		_tmp_cancel_skill = false
+		_tmp_cancel_attack = false
+		_tmp_attack_target_id = -1
+		_tmp_attack_ground = false
+		_tmp_attack_clear = false
+
+		elapsed -= TICK_RATE
 		if sim.is_game_over():
 			print("=== GAME OVER ===")
 			get_tree().paused = true
@@ -123,19 +169,48 @@ func _physics_process(delta: float) -> void:
 		if snap is SimSnapshot:
 			last_snapshot = snap
 
-	if ran_tick:
-		input_collector.attack_target_id = -1
-		input_collector.cast_cancel = false
-	input_collector.attack_target_id = -1
+	if ran_tick and last_snapshot and last_snapshot.players.size() > 0:
+		input_state_machine.sync_from_snapshot(last_snapshot.players[0])
+
+
+func _apply_command(c: Command) -> void:
+	match c.type:
+		Command.CmdType.MOVE:
+			_tmp_move_target = c.move_target
+			_tmp_move_issue = true
+		Command.CmdType.SKILL:
+			_tmp_cast_slot = c.skill_slot
+			_tmp_cast_aim = c.skill_aim
+			_tmp_cast_target_id = c.skill_target_id
+			if c.skill_confirm:
+				_tmp_cast_confirm = true
+		Command.CmdType.SKILL_UPGRADE:
+			_tmp_upgrade_slot = c.skill_slot
+		Command.CmdType.ATTACK:
+			_tmp_attack_target_id = c.attack_target_id
+			if c.attack_ground.length_squared() > 0.001:
+				_tmp_attack_ground = true
+				_tmp_attack_ground_pos = c.attack_ground
+		Command.CmdType.CANCEL:
+			if c.cancel_scope == 0:
+				_tmp_cancel_skill = true
+			elif c.cancel_scope == 1:
+				_tmp_cancel_attack = true
+			else:
+				_tmp_cancel_skill = true
+				_tmp_cancel_attack = true
+		Command.CmdType.STOP:
+			_tmp_stop = true
 
 
 func _process(_delta: float) -> void:
 	if not last_snapshot:
 		return
 
-	# ── 悬停检测 ──
+	var aim: Vector2 = input_event_queue.mouse_world
+
+	# Hover detection
 	var hover_id := -1
-	var aim: Vector2 = input_collector.aim_world
 	var hover_sq := HOVER_RADIUS * HOVER_RADIUS
 	for b in last_snapshot.bots:
 		if b.dead:
@@ -145,19 +220,16 @@ func _process(_delta: float) -> void:
 			hover_sq = d_sq
 			hover_id = b.id
 	entity_manager.set_hover_id(hover_id)
-	input_collector.hovered_entity_id = hover_id
 
 	if last_snapshot.seq != _last_snap_seq:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
 		health_bar_manager.sync_bars(last_snapshot)
 		if last_snapshot.players.size() > 0:
-			var p2 := last_snapshot.players[0] as SimPlayerSnap
-			if p2:
-				entity_manager.set_attack_target_id(p2.attack_target_id)
-		if last_snapshot.players.size() > 0:
 			var p := last_snapshot.players[0] as SimPlayerSnap
 			if p:
+				entity_manager.set_attack_target_id(p.attack_target_id)
+
 				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
 					if p.hit_target_id >= 0:
 						_trigger_c_slash(p.hit_target_id)
@@ -168,6 +240,9 @@ func _process(_delta: float) -> void:
 					if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
 						cast_error_layer.show_error(p.cast_error)
 				_prev_player_cast_error = p.cast_error
+
+				# Sync FSM from snapshot
+				input_state_machine.sync_from_snapshot(p)
 
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
@@ -180,11 +255,11 @@ func _process(_delta: float) -> void:
 			else:
 				cast_bar_layer.hide_cast()
 			var ev = entity_manager.get_entity(p.id)
+			_skill_vfx.set_skill_aiming(input_state_machine.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING)
 			_skill_vfx.sync(last_snapshot, ev)
 
-			# ── 施法流程日志 ──
 			if p.cast_slot != _log_prev_cast_slot:
-				print("[CAST] slot=%d state=%d err=%d hover=%d hov_ent=%d" % [p.cast_slot, p.cast_state, p.cast_error, input_collector.hovered_entity_id, input_collector.cast_target_id])
+				print("[CAST] slot=%d state=%d err=%d" % [p.cast_slot, p.cast_state, p.cast_error])
 				_log_prev_cast_slot = p.cast_slot
 			if p.cast_state != _log_prev_cast_state:
 				print("[CAST] state %d->%d slot=%d err=%d prog=%.2f" % [_log_prev_cast_state, p.cast_state, p.cast_slot, p.cast_error, p.cast_progress])

@@ -31,6 +31,11 @@ inline void wall_collision_system(entt::registry &reg, CommandBuffer &cb) {
             reg.get<CastState>(e).State == CastState::Phase::Dashing)
             continue;
 
+        // Skip wall collision during attack chase (直线穿墙追击)
+        if (reg.all_of<AttackTarget>(e) &&
+            reg.get<AttackTarget>(e).Chasing)
+            continue;
+
         float radius = reg.all_of<BotTag>(e) ? GameConfig::BotRadius
                                              : GameConfig::PlayerRadius;
         auto &pos = mover_view.get<Position2D>(e);

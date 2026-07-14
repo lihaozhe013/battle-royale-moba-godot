@@ -15,20 +15,26 @@ inline void local_input_injection_system(
         if (!tag.IsLocal)
             continue;
         auto &state = view.get<PlayerInputState>(e);
-        state.Move = input.Move;
-        state.Aim = input.Aim;
-        state.Fire = input.Fire;
-        state.Seq = input.Seq;
-        state.CastSlot = input.CastSlot;
-        state.CastConfirm = input.CastConfirm;
-        state.CastCancel = input.CastCancel;
-        state.CastInterrupt = input.CastInterrupt;
-        state.CastAim = input.CastAim;
-        state.CastTargetId = input.CastTargetId;
+        // 移动
         state.MoveTarget = input.MoveTarget;
         state.MoveIssue = input.MoveIssue;
         state.Stop = input.Stop;
+        // 技能
+        state.SkillSlot = input.SkillSlot;
+        state.SkillConfirm = input.SkillConfirm;
+        state.SkillAim = input.SkillAim;
+        state.SkillTargetId = input.SkillTargetId;
+        state.SkillUpgradeSlot = input.SkillUpgradeSlot;
+        // 取消
+        state.CancelSkill = input.CancelSkill;
+        state.CancelAttack = input.CancelAttack;
+        // 普攻
         state.AttackTargetId = input.AttackTargetId;
+        state.AttackGround = input.AttackGround;
+        state.AttackGroundPos = input.AttackGroundPos;
+        state.AttackClear = input.AttackClear;
+        // 序号
+        state.Seq = input.Seq;
     }
 }
 
