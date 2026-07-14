@@ -8,7 +8,6 @@ var _prev_player_cast_state := 0
 var _prev_player_cast_slot := -1
 var _prev_player_cast_error := 0
 
-@onready var input_collector = $InputCollector
 @onready var camera_controller = $CameraController
 @onready var entity_manager = $EntityManager
 @onready var health_bar_manager = $HealthBarManager

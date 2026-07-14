@@ -1,6 +1,8 @@
 class_name CommandBuilder
 extends Node
 
+signal move_issued(target: Vector2)
+
 const SKILL_KEYS := [KEY_Q, KEY_W, KEY_E, KEY_R]
 const ATTACK_KEY := KEY_A
 const SKILL_UPGRADE_KEYS := [KEY_Q, KEY_W, KEY_E, KEY_R]
@@ -189,6 +191,7 @@ func _make_move(target: Vector2) -> void:
 	c.type = Command.CmdType.MOVE
 	c.move_target = target
 	buffer.push(c)
+	move_issued.emit(target)
 
 func _make_skill(slot: int, confirm: bool, aim: Vector2) -> void:
 	var c := Command.new()
