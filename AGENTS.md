@@ -1,7 +1,7 @@
 # AGENTS.md — 项目上下文快照
 
 > 最后更新：2026-07-13
-> 当前阶段：MOBA 技能系统（指向性技能 + 悬停高亮 + 施法条 + 报错 + 真单位选取）已实施；输入系统重构方案待实施
+> 当前阶段：**输入系统 v2 已完整实施**（四层架构 / Chasing / Quick-Normal cast / 普攻独立模式 / 技能升级链路）
 > 引擎：Godot 4.7
 > 架构：C++ GDExtension ECS (Sim) + GDScript (View)
 
@@ -40,7 +40,15 @@ Docs/Reference/
 └── godot-editor-todo.md         ← 编辑器待办事项
 
 scripts/autoload/
-└── game_settings.gd             ← 操作模式/camera/全屏 autoload 单例（ConfigFile 持久化，含 smooth_pan / edge_pan_speed）
+├── game_settings.gd             ← 操作模式/camera/全屏 autoload 单例（ConfigFile 持久化，含 smooth_pan / edge_pan_speed）
+
+scripts/input/
+├── input_event_queue.gd         ← Layer 1: 事件队列（_unhandled_input 入口, 射线投影, echo 过滤）
+├── input_state_machine.gd       ← Layer 2: 双正交 FSM（MoveAxis × CommandAxis）
+├── command.gd                   ← Command 数据类（6 种命令类型）
+├── command_builder.gd           ← Layer 3: 事件→命令翻译（含 move_issued signal）
+├── command_buffer.gd            ← Layer 4: 跨 tick FIFO + 合并去重
+└── cast_settings.gd             ← Quick/Normal cast per-slot 偏好
 
 scripts/ui/
 ├── health_bar_ui.gd             ← 血条组件（已有）
@@ -87,7 +95,7 @@ src_cpp/sim/                     ← C++ Sim 层核心
 ├── snapshot_types.h             ← 快照数据类（暴露给 GDScript）
 ├── snapshot_builder.h/cpp       ← 快照构建
 ├── snapshot_bindings.cpp        ← 快照属性绑定
-└── systems/*.h                  ← 18 个 inline System
+└── systems/*.h                  ← 20 个 inline System
 ```
 
 ## 当前阶段（2026-07-08）
@@ -122,22 +130,23 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | **悬停高亮**                                                                       | `entity_view.gd`, `entity_manager.gd`, `sim_bridge.gd`                                            |
 | **施法条 + Channeling 字样**                                                       | `cast_bar.tscn`, `cast_bar.gd`                                                                    |
 | **施法错误报错 label**                                                             | `cast_bar.gd` + `cast_error` 快照字段                                                             |
-| **瞄准绿线（Aiming VFX）**                                                         | `skill_vfx.gd`（已有）                                                                            |
+| **瞄准绿线（Aiming VFX）** | `skill_vfx.gd`（已有） |
 
-### ❌ 待做（输入系统重构 — 唯一标准）
+### ✅ 已实施（输入系统 v2）
 
-> 完整方案见 `Docs/Reference/input_system_design.md`，按其阶段 A→F + E2 推进
-> 核心改进：四层架构（事件队列/状态机/命令翻译/命令缓冲）+ 双正交状态轴 + Sim Chasing 阶段（skill_cast 内加分支，无 1 tick 延迟）+ Quick/Normal cast 双模式 + 普攻独立模式（移除虚拟槽）+ 不丢指令 + 技能升级链路补齐（新增 SkillPoints 组件）
-
-| 阶段 | 模块                           | 关键产出                                                                                                                                                                                                    |
-| ---- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A    | View 侧四层框架                | `input_event_queue.gd` / `input_state_machine.gd` / `command_builder.gd` / `command_buffer.gd`                                                                                                              |
-| B    | Sim 命令 API 重构              | `set_*_command` 系列取代散落 `set_*_input`；`LocalInputSingleton` 重构（含 SkillUpgradeSlot）                                                                                                               |
-| C    | Sim CastState + Chasing        | `CastState` +Chasing 阶段（skill_cast 内加分支，**tick 顺序 skill_cast 提前到 player_pathfinding 之前，confirm 同 tick 算 A\*+移动无延迟**）；`player_pathfinding` +技能跟随 A\*；`is_moving` snapshot 字段 |
-| D    | Quick / Normal Cast 双模式     | per-slot `cast_settings.gd`；No target 报错保留 SkillAiming                                                                                                                                                 |
-| E    | 普攻命令模式                   | `AttackAiming` 独立分支 + homing 箭 + 直线穿墙追击（区别于技能 Chasing 的 A\* 绕墙）；**移除 v1 普攻虚拟槽**（SkillComponent.Slots[5]→[4]，删 skill_defs id=5）                                             |
-| E2   | 技能升级链路（补 v1 完全缺失） | **新增 `SkillPoints` 组件 + `SkillSlot::Level` 字段** + `skill_level.h` + `SKILL_UPGRADE` 命令；修正 `SimSkillSlotSnap.level` 语义 bug（char_level→slot.Level）                                             |
-| F    | 打磨与回归                     | refund 策略（Chasing/Casting 均退蓝退 CD，配置化）/ repath 死区 / ESC/S 语义 / 失焦恢复                                                                                                                     |
+| 事项                                                                               | 关联文档                                                                                          |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **View 四层框架**                                                                  | `input_event_queue.gd` / `input_state_machine.gd` / `command_builder.gd` / `command_buffer.gd`   |
+| **Sim 命令 API 重构**                                                              | `set_*_command` 系列；`LocalInputSingleton` 重构为命令式                                          |
+| **Sim CastState + Chasing（skill_cast 内分支，无 1 tick 延迟）**                   | `skill_cast.h` +Chasing 分支；tick 顺序重排（skill_cast 提前到 player_pathfinding 前）           |
+| **Quick / Normal Cast 双模式**                                                     | per-slot `cast_settings.gd`；绿线仅 normal cast 显示；No target 错误保留 SkillAiming              |
+| **普攻命令模式（独立分支 + 直线穿墙追击）**                                       | `AttackTarget.Chasing` + homing 箭 + `wall_collision` 跳过追击玩家                                |
+| **移除 v1 普攻虚拟槽**                                                             | `SkillComponent.Slots[5]→[4]`，删 `skill_defs.h` id=5 Attack                                     |
+| **技能升级链路（补 v1 完全缺失）**                                                 | 新增 `SkillPoints` 组件 + `SkillSlot::Level` + `systems/skill_level.h` + `SKILL_UPGRADE` 命令    |
+| **修正 SimSkillSlotSnap.level 语义 bug**                                           | snapshot 字段改为 `slot.Level`（之前误用 char_level）                                             |
+| **Snapshot 扩展**                                                                  | SimPlayerSnap 新增 `is_moving` / `cast_target_id` / `skill_points`                               |
+| **WASD 模式彻底移除**                                                             | `player_movement.h` 移除 WASD 分支；`sim_bridge.gd` 移除旧 InputCollector 引用                   |
+| **refund 配置化（v2 默认退蓝退 CD）**                                              | `GameConfig::RefundOnCastInterrupt = true` / `RefundOnChaseInterrupt = true`                      |
 
 ### ❌ 待做（后续 MOBA 模块，非本次范围）
 
@@ -160,7 +169,7 @@ src_cpp/sim/                     ← C++ Sim 层核心
 
 ```
 SimSnapshot.seq / t / players[] / bots[] / arrows[] / pickups[] / events[]
-SimPlayerSnap: id, x, y, ang, hp, max_hp, mana, max_mana, atk, asp, speed, kills, level, xp, xp_needed, skills[], cast_state, cast_slot, cast_progress, cast_aim_x/y, dash_sx/sy, dash_tx/ty, hit_target_id, cast_error
+SimPlayerSnap: id, x, y, ang, hp, max_hp, mana, max_mana, atk, asp, speed, kills, level, xp, xp_needed, skills[], cast_state, cast_slot, cast_progress, cast_aim_x/y, dash_sx/sy, dash_tx/ty, hit_target_id, cast_error, attack_target_id, cast_target_id, is_moving, skill_points
 SimBotSnap:    id, x, y, ang, hp, max_hp, dead, mana, max_mana, atk, asp, kills, level, xp, xp_needed, speed, tier, skills[]
 SimArrowSnap:  id, x, y, ang
 SimPickupSnap: id, x, y, type(0/1/2), value
@@ -170,16 +179,7 @@ SimAoESnap:    id, x, y, radius, remaining, duration
 
 ## tick 顺序
 
-**当前 v1（18 systems）：**
-
-```
-local_input_injection → player_pathfinding → player_movement → player_fire →
-skill_cast → bot_targeting → bot_ai → bot_combat → arrow_movement →
-wall_collision → combat → pickup → aoe → status_effect → mana_regen →
-skill_cooldown → progression → snapshot_export
-```
-
-**重构后 v2（20 systems，详见 `Docs/Reference/input_system_design.md` §13）：**
+**当前 v2（20 systems，详见 `Docs/Reference/input_system_design.md` §13）：**
 
 ```
 local_input_injection → player_attack_command → skill_cast → player_pathfinding →
@@ -188,7 +188,7 @@ arrow_movement → wall_collision → combat → pickup → aoe → status_effec
 mana_regen → skill_cooldown → skill_level → progression → snapshot_export
 ```
 
-> **关键**：v2 中 `skill_cast` 提前到 `player_pathfinding` 之前，保证 confirm 同 tick 设 Chasing + 算 A\* + 移动，**无 1 tick 延迟**。
+> **关键**：`skill_cast` 提前到 `player_pathfinding` 之前，保证 confirm 同 tick 设 Chasing + 算 A\* + 移动，**无 1 tick 延迟**。
 
 ## 新增字段（SimSnapshot）
 
