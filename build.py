@@ -82,7 +82,7 @@ def _require(raw, key, label):
 
 
 def _find_cmake(cfg):
-    """Find CMake executable. Checks config first, then PATH, then common VS paths."""
+    """Find CMake executable. Checks config first, then vs_install_dir, then PATH."""
     cmake_bin_dir = cfg.get("cmake_bin_dir", "")
     if cmake_bin_dir:
         candidate = os.path.join(_path(cmake_bin_dir), "cmake")
@@ -92,22 +92,16 @@ def _find_cmake(cfg):
             return candidate
         _panic(f"cmake not found at configured path: {candidate}")
 
+    vs_dir = cfg.get("msvc", {}).get("vs_install_dir", "")
+    if vs_dir:
+        candidate = os.path.join(_path(vs_dir), "Common7", "IDE", "CommonExtensions",
+                                 "Microsoft", "CMake", "CMake", "bin", "cmake.exe")
+        if os.path.isfile(candidate):
+            return candidate
+
     cmake = shutil.which("cmake")
     if cmake:
         return cmake
-
-    if sys.platform == "win32":
-        candidates = [
-            os.path.join(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)"),
-                         "Microsoft Visual Studio/2022/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"),
-            os.path.join(os.environ.get("ProgramFiles", "C:/Program Files"),
-                         "Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"),
-            os.path.join(os.environ.get("ProgramFiles", "C:/Program Files"),
-                         "CMake/bin/cmake.exe"),
-        ]
-        for c in candidates:
-            if os.path.isfile(c):
-                return c
 
     _panic("CMake not found. Install CMake or set 'cmake_bin_dir' in build_env.yaml")
 
