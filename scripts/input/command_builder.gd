@@ -31,10 +31,13 @@ func process_frame() -> void:
 	var events = queue.pop_all()
 	if events.is_empty():
 		_send_skill_aim_update()
+		_process_held_move()
 		return
 
 	for ev in events:
 		_process_event(ev)
+
+	_process_held_move()
 
 func _process_event(ev) -> void:
 	var k = ev.key
@@ -177,6 +180,19 @@ func _on_mb_release(b: int, ev) -> void:
 func _send_skill_aim_update() -> void:
 	if fsm.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING:
 		_make_skill(fsm.active_skill_slot, false, queue.mouse_world)
+
+func _process_held_move() -> void:
+	if not _prev_right:
+		return
+	if fsm.command_axis != InputStateMachine.CommandAxis.IDLE:
+		return
+	var hover_id = _get_hovered_enemy_id()
+	if hover_id >= 0:
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _last_move_time >= MOVE_REPEAT_INTERVAL:
+		_last_move_time = now
+		_make_move(queue.mouse_world)
 
 func _get_hovered_enemy_id() -> int:
 	var em = get_node_or_null("/root/Main/EntityManager")

@@ -28,7 +28,10 @@ func _ready() -> void:
 	add_child(_ring)
 	_ring.visible = false
 
-	# Listen for move commands from CommandBuilder
+	call_deferred("_connect_move_signal")
+
+
+func _connect_move_signal() -> void:
 	var parent = get_parent()
 	if parent and parent.has_node("CommandBuilder"):
 		parent.get_node("CommandBuilder").move_issued.connect(_on_move_issued)
