@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://cry0jayrxwnon"]
 
 [ext_resource type="Script" uid="uid://bwlalitrgnqls" path="res://scripts/sim_bridge.gd" id="1"]
-[ext_resource type="Script" uid="uid://bdppam86y7vha" path="res://scripts/input/input_collector.gd" id="2"]
 [ext_resource type="Script" uid="uid://b3thijxvorrs1" path="res://scripts/view/camera_controller.gd" id="3"]
 [ext_resource type="Script" uid="uid://bxqepavj2fq3s" path="res://scripts/view/entity_manager.gd" id="4"]
 [ext_resource type="Script" uid="uid://drplmxv7r2mk7" path="res://scripts/ui/health_bar_manager.gd" id="5_tefeu"]
@@ -24,9 +23,6 @@ ambient_light_color = Color(0.6416358, 0.6417704, 0.68589425, 1)
 
 [node name="Main" type="Node3D" unique_id=781733198]
 script = ExtResource("1")
-
-[node name="InputCollector" type="Node" parent="." unique_id=856764642]
-script = ExtResource("2")
 
 [node name="CameraController" type="Node3D" parent="." unique_id=527541811]
 script = ExtResource("3")

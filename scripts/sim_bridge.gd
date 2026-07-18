@@ -152,6 +152,9 @@ func _physics_process(delta: float) -> void:
 			_tmp_move_issue = false
 			_tmp_stop = false
 		_tmp_cast_confirm = false
+		_tmp_cast_slot = -1
+		_tmp_cast_aim = Vector2.ZERO
+		_tmp_cast_target_id = -1
 		_tmp_upgrade_slot = -1
 		_tmp_cancel_skill = false
 		_tmp_cancel_attack = false
@@ -232,16 +235,14 @@ func _process(_delta: float) -> void:
 				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
 					if p.hit_target_id >= 0:
 						_trigger_c_slash(p.hit_target_id)
-				var prev_state := _prev_player_cast_state
-				_prev_player_cast_state = p.cast_state
-				_prev_player_cast_slot = p.cast_slot
-				if prev_state >= 1 and p.cast_state == 0:
-					if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
-						cast_error_layer.show_error(p.cast_error)
-				_prev_player_cast_error = p.cast_error
+			_prev_player_cast_state = p.cast_state
+			_prev_player_cast_slot = p.cast_slot
+			if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
+				cast_error_layer.show_error(p.cast_error)
+			_prev_player_cast_error = p.cast_error
 
-				# Sync FSM from snapshot
-				input_state_machine.sync_from_snapshot(p)
+			# Sync FSM from snapshot
+			input_state_machine.sync_from_snapshot(p)
 
 	if last_snapshot.players.size() > 0:
 		var p = last_snapshot.players[0] as SimPlayerSnap
