@@ -151,27 +151,30 @@ func _on_mb_press(b: int, ev) -> void:
 		var right_edge := not _prev_right
 		_prev_right = true
 
+		var consumed := false
+
 		if fsm.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING:
 			_make_cancel(0)
 			fsm.command_axis = InputStateMachine.CommandAxis.IDLE
-			return
+			consumed = true
 
 		if fsm.command_axis == InputStateMachine.CommandAxis.ATTACK_AIMING:
 			_make_cancel(1)
 			fsm.command_axis = InputStateMachine.CommandAxis.IDLE
-			return
+			consumed = true
 
 		if fsm.is_in_cast_lock():
 			_make_cancel(0)
 			return
 
-		var hover_id = _get_hovered_enemy_id()
-		if hover_id >= 0:
-			_make_attack(hover_id)
-		elif right_edge:
-			if now - _last_move_time >= MIN_MOVE_INTERVAL:
-				_last_move_time = now
-				_make_move(queue.mouse_world)
+		if not consumed:
+			var hover_id = _get_hovered_enemy_id()
+			if hover_id >= 0:
+				_make_attack(hover_id)
+			elif right_edge:
+				if now - _last_move_time >= MIN_MOVE_INTERVAL:
+					_last_move_time = now
+					_make_move(queue.mouse_world)
 
 func _on_mb_release(b: int, ev) -> void:
 	if b == MOUSE_BUTTON_RIGHT:

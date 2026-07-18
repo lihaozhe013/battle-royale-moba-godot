@@ -197,14 +197,15 @@ inline void skill_cast_system(
                 break;
             }
 
-            // normal cast: confirm=false, just store slot/aim for next confirm
-            cs.ActiveSlot = cast_slot;
-            cs.SkillId = slot.SkillId;
-            cs.TargetEntity = resolve_target(input.SkillTargetId);
-            cs.TargetNetworkId = input.SkillTargetId;
-            cs.AimPos = cast_aim;
-            // State stays None (View maintains SkillAiming)
-            break;
+			// normal cast: confirm=false, just store slot/aim for next confirm
+			cs.ActiveSlot = cast_slot;
+			cs.SkillId = slot.SkillId;
+			cs.TargetEntity = resolve_target(input.SkillTargetId);
+			cs.TargetNetworkId = input.SkillTargetId;
+			cs.AimPos = cast_aim;
+			cs.CastError = 0;
+			// State stays None (View maintains SkillAiming)
+			break;
         }
 
         case CastState::Phase::Aiming: {
