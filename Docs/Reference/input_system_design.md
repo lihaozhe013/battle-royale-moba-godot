@@ -720,20 +720,20 @@ player_movement_system: 跟随 MovePath 移动
 player_attack_fire_system: 到 Range 内 → 射 homing 箭
 ```
 
-### 9.4 普攻穿墙
+### 9.4 弹道穿墙 / 角色不穿墙
 
-**用户明确**：普攻能穿墙，是 system 的逻辑。
+**规则**：弹道可以穿墙，角色无论如何都不能穿墙。角色所有移动都走 A\*。
 
 | 层                   | 穿墙规则                                                           |
 | -------------------- | ------------------------------------------------------------------ |
-| `player_pathfinding` | 追击目标时 **不用 A\***（A\* 会绕墙），改用 **直线朝目标方向移动** |
-| `player_movement`    | 追击中设 `AttackTarget.Chasing=true`                               |
-| `wall_collision`     | Mover 分支跳过 `AttackTarget.Chasing==true` 的玩家（穿墙追击）     |
-| `arrow_movement`     | homing 箭矢每 tick 修正速度朝目标当前位置                          |
-| `wall_collision`     | Arrow 分支跳过有 `Homing` 组件的箭（穿墙飞行）                     |
-| `combat`             | Homing 箭只检测锁定目标的碰撞（不误伤路过的敌人）                  |
+| `player_pathfinding` | 普攻追击用 A\* 寻路（不穿墙），与技能 Chasing 一致                   |
+| `player_movement`    | 跟随 MovePath（A\* 路径），不设 `Chasing` 标志                       |
+| `wall_collision`     | Mover 分支不跳过任何玩家（仅 Dashing 除外）                          |
+| `arrow_movement`     | homing 箭矢每 tick 修正速度朝目标当前位置                            |
+| `wall_collision`     | Arrow 分支跳过有 `Homing` 组件的箭（穿墙飞行）                       |
+| `combat`             | Homing 箭只检测锁定目标的碰撞（不误伤路过的敌人）                     |
 
-**注意**：这与 §7 的技能 Chasing 不同——**技能 Chasing 用 A\* 寻路（绕墙）**，**普攻追击用直线（穿墙）**。这是用户明确的两套不同规则。
+**注意**：弹道穿墙、角色不穿墙。技能 Chasing 与普攻追击都用 A\*（统一规则）。
 
 ### 9.5 取消普攻瞄准
 
@@ -754,32 +754,29 @@ player_attack_fire_system: 到 Range 内 → 射 homing 箭
 
 ### 10.1 三种移动来源
 
-| 来源           | 触发                           | 寻路方式         | 穿墙 |
-| -------------- | ------------------------------ | ---------------- | ---- |
-| 玩家右键点地板 | `MOVE` 命令                    | A\*（绕墙）      | 否   |
-| 技能跟随施法   | Sim `Chasing` 阶段             | A\*（绕墙）      | 否   |
-| 普攻追击       | `AttackTarget` 有效 + 超 Range | **直线**（穿墙） | 是   |
+| 来源           | 触发                           | 寻路方式  | 穿墙 |
+| -------------- | ------------------------------ | --------- | ---- |
+| 玩家右键点地板 | `MOVE` 命令                    | A\*（绕墙） | 否   |
+| 技能跟随施法   | Sim `Chasing` 阶段             | A\*（绕墙） | 否   |
+| 普攻追击       | `AttackTarget` 有效 + 超 Range | A\*（绕墙） | 否   |
 
 ### 10.2 player_pathfinding_system 职责扩展
 
 每 tick 顺序：
 
 1. **Sim Chasing 阶段**：若 `CastState.State == Chasing` → 用 A\* 朝 `CastState.TargetEntity`（MeleeSingle）或 `CastState.AimPos`（AoEField）寻路，写 `MovePath`。**优先级最高**（玩家已 confirm 施法，自动追随）。
-2. **普攻追击**：若 `AttackTarget.Target` 有效且超 Range → **不走 A\***，由 `player_movement` 直线移动 + 设 `Chasing=true` 穿墙。`player_pathfinding` **不处理此分支**。
+2. **普攻追击**：若 `AttackTarget.Target` 有效且超 Range → A\* 朝目标寻路，写 `MovePath`。`player_movement` 通过 MovePath 跟随移动。
 3. **玩家右键移动**：`input.MoveIssue == true` 且 `CastState == None` 且 `AttackTarget.Target == null` → A\* 朝 `input.MoveTarget` 寻路。
 
 ### 10.3 player_movement_system 优先级
 
 ```
 每 tick 顺序：
-1. 重置 AttackTarget.Chasing = false
-2. Status gate (Root/Stun) → continue
-3. CastState gate (Casting/Channeling/Dashing) → continue
+1. Status gate (Root/Stun) → continue
+2. CastState gate (Casting/Channeling/Dashing) → continue
    （Chasing 不 gate，允许移动）
-4. Stop 命令 → 清 MovePath, continue
-5. 技能 Chasing: MovePath.Following → 跟随（A* 路径）
-6. 普攻追击: AttackTarget 有效 + 超 Range → 直线移动 + Chasing=true, continue
-7. 玩家右键移动: MovePath.Following → 跟随（A* 路径）
+3. Stop 命令 → 清 MovePath, continue
+4. MovePath.Following → 跟随（A* 路径）：技能 Chasing / 普攻追击 / 右键移动 统一走此分支
 ```
 
 ### 10.4 转向速率

@@ -59,6 +59,31 @@ inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
             continue;
         }
 
+        // ── 2. 普攻追击：A* 朝目标移动 ──
+        if (cs.State == CastState::Phase::None) {
+            if (reg.all_of<AttackTarget>(e)) {
+                auto &at = reg.get<AttackTarget>(e);
+                if (at.Target != entt::null && reg.valid(at.Target)) {
+                    bool target_dead = reg.all_of<Dead>(at.Target) && reg.get<Dead>(at.Target).enabled;
+                    if (!target_dead) {
+                        Vec2 target_pos = reg.get<Position2D>(at.Target).Value;
+                        Vec2 delta = target_pos - pos.Value;
+                        float dist = vec2_length_sq(delta);
+                        if (dist > GameConfig::PlayerAttackRange * GameConfig::PlayerAttackRange) {
+                            auto waypoints = nav.find_path(pos.Value, target_pos);
+                            if (!waypoints.empty()) {
+                                path.Waypoints = std::move(waypoints);
+                                path.CurrentIndex = 0;
+                                path.FinalTarget = target_pos;
+                                path.Following = true;
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
+
         // ── Casting/Channeling/Dashing → 停走 ──
         if (cs.State == CastState::Phase::Casting ||
             cs.State == CastState::Phase::Channeling ||
@@ -86,7 +111,6 @@ inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
                 }
             }
         }
-        // AttackTarget A* 追击已移除（普攻改直线穿墙，由 player_movement 处理）
     }
 }
 
