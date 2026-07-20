@@ -16,10 +16,11 @@
 2. **代码默认无注释** — 不添加任何注释，除非被要求。代码自说明。
 3. **不动.git配置** — 不修改 git 配置、不应答交互、不 force-push。
 4. **仅应要求提交** — 不主动 commit/push/PR。commit 前检查 `git status` + `git diff`，只 stage 目标文件。
-5. **修改后验证** — 运行项目提供的 lint/typecheck/test 命令。若找不到，问用户。
-6. **C++ Build 禁用** — 不要擅自运行 C++ 层的构建。如需构建，必须用 `make build` 或 `make rebuild` 命令，不得使用 Python 或 CMake 直接调用。
-7. **用词精炼** — 直接回答问题，不加前/后叙、不加解释、不重复用户话。一句话能回答不用两句。杜绝 emoji。
-8. **文档跟随代码** — 任何架构变更必须同步更新 `CONTEXT.md` 和相关 `Docs/Reference/*.md`。推荐先用 `todowrite` 列清单再逐项推进。
+5. **优先 rg/fd** — 搜索文件和内容优先用 `rg`（ripgrep）和 `fd`（fd-find），远比 `grep` / `find` 快。系统找不到 `rg` / `fd` 时才用 `grep` / `find`。
+6. **修改后验证** — 运行项目提供的 lint/typecheck/test 命令。若找不到，问用户。
+7. **C++ Build 禁用** — 不要擅自运行 C++ 层的构建。如需构建，必须用 `make build` 或 `make rebuild` 命令，不得使用 Python 或 CMake 直接调用。
+8. **用词精炼** — 直接回答问题，不加前/后叙、不加解释、不重复用户话。一句话能回答不用两句。杜绝 emoji。
+9. **文档跟随代码** — 任何架构变更必须同步更新 `CONTEXT.md` 和相关 `Docs/Reference/*.md`。推荐先用 `todowrite` 列清单再逐项推进。
 
 ## 第三章：特别约定
 
