@@ -28,7 +28,7 @@ void SimServer::_bind_methods() {
         godot::D_METHOD("set_move_command", "target_x", "target_y", "issue"),
         &SimServer::set_move_command);
     godot::ClassDB::bind_method(
-        godot::D_METHOD("set_stop_command"),
+        godot::D_METHOD("set_stop_command", "stop"),
         &SimServer::set_stop_command);
 
     // ── v1 旧 API（deprecated，临时保留兼容） ──
@@ -79,8 +79,8 @@ void SimServer::set_move_command(float target_x, float target_y, bool issue) {
     _world.set_move_command(target_x, target_y, issue);
 }
 
-void SimServer::set_stop_command() {
-    _world.set_stop_command();
+void SimServer::set_stop_command(bool stop) {
+    _world.set_stop_command(stop);
 }
 
 // ── v1 旧 API（deprecated） ──

@@ -108,10 +108,10 @@ void World::set_move_command(float target_x, float target_y, bool issue) {
     }
 }
 
-void World::set_stop_command() {
+void World::set_stop_command(bool stop) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
-        li.Stop = true;
+        li.Stop = stop;
     }
 }
 

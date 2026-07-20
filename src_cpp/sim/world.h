@@ -45,7 +45,7 @@ class World {
 
     // ── 保留（已有，签名不变） ──
     void set_move_command(float target_x, float target_y, bool issue);
-    void set_stop_command();
+    void set_stop_command(bool stop);
 
     // ── 废弃（v1 API，逐步移除） ──
     void set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq);

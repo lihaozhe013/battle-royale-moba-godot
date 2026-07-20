@@ -25,7 +25,7 @@ public:
     void set_attack_command_full(int target_id, bool ground, float gx, float gy, bool clear);
     void set_cancel_command(bool skill, bool attack);
     void set_move_command(float target_x, float target_y, bool issue);
-    void set_stop_command();
+    void set_stop_command(bool stop);
 
     // ── v1 旧 API（deprecated，临时保留） ──
     void set_local_input(const godot::Vector2 &move, const godot::Vector2 &aim, bool fire, int seq);
