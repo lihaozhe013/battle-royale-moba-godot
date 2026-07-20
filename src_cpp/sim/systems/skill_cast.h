@@ -298,8 +298,9 @@ inline void skill_cast_system(
                 }
                 in_range = target_in_range(cs.TargetEntity, def);
             } else if (def.Kind == SkillKind::AoEField) {
-                // Re-evaluate AimPos (mouse may have moved); chase toward latest aim
-                cs.AimPos = cast_aim;
+                if (cast_slot >= 0) {
+                    cs.AimPos = cast_aim;
+                }
                 in_range = aim_in_range(cs.AimPos, def);
             } else {
                 // Dash/ChannelBurst shouldn't enter Chasing
