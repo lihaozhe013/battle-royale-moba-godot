@@ -506,8 +506,8 @@ struct CastState {
         Aiming     = 1,  // 仅 quick cast 同 tick 中转，或 normal cast confirm 后的瞬时阶段
         Chasing    = 2,  // 新：confirm 但超出范围，A* 追随目标
         Casting    = 3,  // 前摇
-        Channeling = 4,  // 引导（F）
-        Dashing    = 5,  // 位移（R）
+        Channeling = 4,  // 引导（R）
+        Dashing    = 5,  // 位移（E）
     };
     Phase State = Phase::None;
     int ActiveSlot = -1;
@@ -586,8 +586,8 @@ Phase::Dashing → 位移推进，到点/撞墙 → None
 | Aiming（Sim 内瞬时） | refund + None | 几乎不发生                                |
 | Chasing              | refund + None | **退蓝退 CD**（玩家主动取消，未触发效果） |
 | Casting              | refund + None | **退蓝退 CD**（前摇打断，v2 默认宽容）    |
-| Channeling           | **忽略**      | F 引导不可打断                            |
-| Dashing              | **忽略**      | R 位移不可打断                            |
+| Channeling           | **忽略**      | R 引导不可打断                            |
+| Dashing              | **忽略**      | E 位移不可打断                            |
 
 **refund 策略（已定）**：Chasing/Casting 取消都 **退蓝退 CD**（v2 默认，与 v1 的"前摇打断不退"不同——v1 是惩罚性设计，v2 改为宽容，符合现代 MOBA 趋势且原型阶段对新手友好）。**配置化保留口**：`GameConfig::RefundOnCastInterrupt = true` / `RefundOnChaseInterrupt = true`，后续可调为 false 启用惩罚。
 

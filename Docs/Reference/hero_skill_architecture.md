@@ -403,10 +403,10 @@ src_cpp/sim/skills/
 ├── skill_interface.h           # ISkill 纯虚接口
 ├── skill_registry.h            # SkillRegistry 声明
 ├── skill_registry.cpp          # 实现 + register_builtin_skills
-├── melee_strike.h              # SkillId=1, Kind=MeleeSingle, C 技能
-├── aoe_field.h                 # SkillId=2, Kind=AoEField, E 技能
-├── dash.h                      # SkillId=3, Kind=Dash, R 技能
-└── channel_burst.h             # SkillId=4, Kind=ChannelBurst, F 技能
+├── melee_strike.h              # SkillId=1, Kind=MeleeSingle, Q 技能
+├── aoe_field.h                 # SkillId=2, Kind=AoEField, W 技能
+├── dash.h                      # SkillId=3, Kind=Dash, E 技能
+└── channel_burst.h             # SkillId=4, Kind=ChannelBurst, R 技能
 ```
 
 ### 4.4 内置技能示例 (MeleeStrike)

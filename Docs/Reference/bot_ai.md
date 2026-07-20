@@ -600,7 +600,7 @@ bot_ai_system 复活分支（dead → respawn）:
 | Bot 技能选择 0.3s 决策延迟可能 miss 窗口 | 技能确认需等下一 DecisionCooldown 才发出 | MOBA 中 0.3s 可接受；若不够可缩短到 0.15s |
 | Bot 在 CastState 内时 Goal 切换 | Engage 中 Fugitive 决定取消技能，但已经在 CastState 内 | `bot_input_injection` 检测 Goal 切换 → 写 `CancelSkill=true`；`skill_cast` 按 refund 策略处理 |
 | 普攻与技能冲突 | Bot 同时设 SkillConfirm=true 和 AttackTargetId | `bot_input_injection` 中二选一：有技能时 AttackTargetId=-1；无技能时 SkillSlot=-1 |
-| Channeling 期间 Bot 不移动被击杀 | Channeling 不可打断 | 设计上 F 技能就是高风险高回报；Bot 应当在 HP 安全时用，`bot_skill_decider` P3 已过滤 hp_ratio |
+| Channeling 期间 Bot 不移动被击杀 | Channeling 不可打断 | 设计上 R 技能就是高风险高回报；Bot 应当在 HP 安全时用，`bot_skill_decider` P3 已过滤 hp_ratio |
 | 移动写入 HeroInputState 被 bot_input_injection 覆盖 | 同 bot 的 HeroInputState 只在一处写入 | bot_input_injection 是唯一写入点（不走 LocalInputInjection），无竞争 |
 | Pathfinding 无效目标 | Bot 可能 chasing 已死亡的敌人的位置 | `bot_targeting` 每次 decision 刷新 TargetEntity；death check 保护 |
 
