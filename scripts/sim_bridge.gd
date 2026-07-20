@@ -133,18 +133,20 @@ func _physics_process(delta: float) -> void:
 		for c in merged:
 			_apply_command(c)
 
-		# New Sim API
+		# New Sim API (unconditional, C++ side must always receive cleared values)
 		sim.set_skill_command(_tmp_cast_slot, _tmp_cast_confirm, _tmp_cast_aim.x, _tmp_cast_aim.y, _tmp_cast_target_id)
-		if _tmp_upgrade_slot >= 0:
-			sim.set_skill_upgrade_command(_tmp_upgrade_slot)
+		sim.set_skill_upgrade_command(_tmp_upgrade_slot)
 		sim.set_attack_command_full(_tmp_attack_target_id, _tmp_attack_ground, _tmp_attack_ground_pos.x, _tmp_attack_ground_pos.y, _tmp_attack_clear)
-		if _tmp_cancel_skill:
-			sim.set_cancel_command(true, false)
-		if _tmp_cancel_attack:
-			sim.set_cancel_command(false, true)
+		sim.set_cancel_command(_tmp_cancel_skill, _tmp_cancel_attack)
 		sim.set_move_command(_tmp_move_target.x, _tmp_move_target.y, _tmp_move_issue and first_tick)
-		if _tmp_stop and first_tick:
-			sim.set_stop_command()
+		sim.set_stop_command(_tmp_stop and first_tick)
+		print("[TICK] send: skill(slot=%d,confirm=%s) cancel(skill=%s,atk=%s) move(issue=%s,to=(%.1f,%.1f)) atk(id=%d) stop=%s" % [
+			_tmp_cast_slot, _tmp_cast_confirm,
+			_tmp_cancel_skill, _tmp_cancel_attack,
+			_tmp_move_issue and first_tick, _tmp_move_target.x, _tmp_move_target.y,
+			_tmp_attack_target_id,
+			_tmp_stop and first_tick
+		])
 		sim.tick(TICK_RATE)
 
 		# Clear pulse fields
@@ -153,8 +155,6 @@ func _physics_process(delta: float) -> void:
 			_tmp_stop = false
 		_tmp_cast_confirm = false
 		_tmp_cast_slot = -1
-		_tmp_cast_aim = Vector2.ZERO
-		_tmp_cast_target_id = -1
 		_tmp_upgrade_slot = -1
 		_tmp_cancel_skill = false
 		_tmp_cancel_attack = false
@@ -176,6 +176,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _apply_command(c: Command) -> void:
+	print("[APPLY] %s" % c.get_type_name())
 	match c.type:
 		Command.CmdType.MOVE:
 			_tmp_move_target = c.move_target
@@ -250,7 +251,7 @@ func _process(_delta: float) -> void:
 			camera_controller.follow_target(p.x, p.y)
 			bottom_hud.sync_player(p)
 			bottom_hud.sync_skills(p.skills)
-			if p.cast_state >= 2:
+			if p.cast_state >= 3:
 				cast_bar_layer.sync_cast(p.cast_progress)
 			else:
 				cast_bar_layer.hide_cast()
