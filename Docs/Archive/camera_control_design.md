@@ -453,4 +453,4 @@ fullscreen=0         # 新增  0=WINDOWED 1=BORDERLESS 2=EXCLUSIVE
 - **风险：低**。最大变数为 setings_panel 在多分辨率下的布局，纯 UI 调参。
 - **推荐执行顺序**：A → B → C → D，且每个阶段都可独立提交验收。
 
-> 实施完成后把本文件归入 `Docs/Archive/`，并在 `AGENTS.md` 「已完成」表里追加一行。
+> 实施完成后把本文件归入 `Docs/Archive/`，并在 `CONTEXT.md` 「已完成」表里追加一行。
