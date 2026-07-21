@@ -1,13 +1,15 @@
-.PHONY: build clean distclean rebuild package package-windows package-macos run format format-sim format-table edit-map help
+.PHONY: build clean godot rebuild package package-windows package-macos run format format-sim format-table edit-map help
+
+default: build
 
 # ---- GDExtension build ----
 build:
 	uv run build.py build
 
-clean:
-	uv run build.py clean
+godot:
+	godot -e
 
-distclean:
+clean:
 	uv run build.py distclean
 
 rebuild:
