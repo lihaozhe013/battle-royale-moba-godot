@@ -21,7 +21,7 @@ add_library(battle_royale_sim SHARED
     sim/skills/skill_registry.cpp
 )
 
-target_compile_features(battle_royale_sim PRIVATE cxx_std_17)
+target_compile_features(battle_royale_sim PRIVATE cxx_std_20)
 
 target_include_directories(battle_royale_sim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
