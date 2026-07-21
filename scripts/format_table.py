@@ -159,7 +159,7 @@ def process_table_block(lines: list[str], start: int, end: int, indent: str) -> 
 
 def process_file(file_path: Path, check_only: bool = False) -> bool:
     """Process one file. Returns True if modified (or would be modified in check mode)."""
-    original = file_path.read_text()
+    original = file_path.read_text(encoding='utf-8')
     lines = original.split("\n")
     new_lines = list(lines)
     modified = False
@@ -197,7 +197,7 @@ def process_file(file_path: Path, check_only: bool = False) -> bool:
         result = "\n".join(new_lines)
         if not result.endswith("\n"):
             result += "\n"
-        file_path.write_text(result)
+        file_path.write_text(result, encoding='utf-8')
         return True
     return False
 

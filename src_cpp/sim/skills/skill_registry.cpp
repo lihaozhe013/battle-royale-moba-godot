@@ -1,8 +1,8 @@
 #include "skill_registry.h"
-#include "melee_strike.h"
 #include "aoe_field.h"
-#include "dash.h"
 #include "channel_burst.h"
+#include "dash.h"
+#include "melee_strike.h"
 
 namespace sim {
 
@@ -20,7 +20,9 @@ ISkill *SkillRegistry::get(int id) const {
     return it != _skills.end() ? it->second.get() : nullptr;
 }
 
-bool SkillRegistry::has(int id) const { return _skills.find(id) != _skills.end(); }
+bool SkillRegistry::has(int id) const {
+    return _skills.find(id) != _skills.end();
+}
 
 void register_builtin_skills() {
     auto &r = SkillRegistry::instance();

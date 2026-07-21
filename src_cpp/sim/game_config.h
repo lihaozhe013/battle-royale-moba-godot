@@ -127,7 +127,8 @@ struct GameConfig {
 
     // ── 指向性普攻 ──
     static constexpr float PlayerAttackRange = 8.0f;
-    static constexpr float PlayerAttackRangeSq = PlayerAttackRange * PlayerAttackRange;
+    static constexpr float PlayerAttackRangeSq =
+        PlayerAttackRange * PlayerAttackRange;
     static constexpr float AttackAcquisitionRange = 15.0f;
 
     // ── 技能索引 ──

@@ -7,14 +7,14 @@
 namespace sim {
 
 class SkillRegistry {
-public:
+  public:
     static SkillRegistry &instance();
 
     void register_skill(int id, std::unique_ptr<ISkill> skill);
     ISkill *get(int id) const;
     bool has(int id) const;
 
-private:
+  private:
     SkillRegistry() = default;
     std::unordered_map<int, std::unique_ptr<ISkill>> _skills;
 };

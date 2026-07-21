@@ -8,13 +8,13 @@
 
 namespace sim {
 
-inline entt::entity resolve_target_by_netid(
-    entt::registry &reg, int net_id
-) {
-    if (net_id < 0) return entt::null;
+inline entt::entity resolve_target_by_netid(entt::registry &reg, int net_id) {
+    if (net_id < 0)
+        return entt::null;
     auto view = reg.view<NetworkId, Damageable>();
     for (auto e : view) {
-        if (view.get<NetworkId>(e).Value == net_id) return e;
+        if (view.get<NetworkId>(e).Value == net_id)
+            return e;
     }
     return entt::null;
 }
@@ -26,8 +26,10 @@ inline entt::entity find_nearest_enemy(
     float best_sq = max_radius * max_radius;
     auto view = reg.view<Damageable, Position2D>();
     for (auto e : view) {
-        if (e == exclude) continue;
-        if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled) continue;
+        if (e == exclude)
+            continue;
+        if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled)
+            continue;
         Vec2 delta = view.get<Position2D>(e).Value - pos;
         float dist_sq = vec2_length_sq(delta);
         if (dist_sq < best_sq) {
@@ -39,11 +41,12 @@ inline entt::entity find_nearest_enemy(
 }
 
 inline void player_attack_command_system(entt::registry &reg, float dt) {
-    auto view = reg.view<
-        PlayerTag, PlayerInputState, Position2D, AttackTarget>();
+    auto view =
+        reg.view<PlayerTag, PlayerInputState, Position2D, AttackTarget>();
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
-        if (!tag.IsLocal) continue;
+        if (!tag.IsLocal)
+            continue;
         auto &input = view.get<PlayerInputState>(e);
         auto &pos = view.get<Position2D>(e);
         auto &at = view.get<AttackTarget>(e);
@@ -58,15 +61,20 @@ inline void player_attack_command_system(entt::registry &reg, float dt) {
         // 2. 清锁信号：移动 / Stop / AttackClear
         if (input.Stop || input.MoveIssue || input.AttackClear) {
             if (at.Target != entt::null)
-                printf("[ATK] clear target (stop=%d move=%d clear=%d)\n",
-                       input.Stop, input.MoveIssue, input.AttackClear);
+                printf(
+                    "[ATK] clear target (stop=%d move=%d clear=%d)\n",
+                    input.Stop,
+                    input.MoveIssue,
+                    input.AttackClear
+                );
             at.Target = entt::null;
             at.TargetNetworkId = -1;
         }
 
         // 3. 直接设目标（右键点敌 / A+左键点敌）
         if (input.AttackTargetId >= 0) {
-            entt::entity tgt = resolve_target_by_netid(reg, input.AttackTargetId);
+            entt::entity tgt =
+                resolve_target_by_netid(reg, input.AttackTargetId);
             if (tgt != entt::null) {
                 bool dead = reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled;
                 if (!dead) {
@@ -82,9 +90,15 @@ inline void player_attack_command_system(entt::registry &reg, float dt) {
         // 4. 空地攻击（A+左键点空地 → 找最近敌人）
         if (input.AttackGround) {
             entt::entity tgt = find_nearest_enemy(
-                reg, input.AttackGroundPos, GameConfig::AttackAcquisitionRange, e);
+                reg,
+                input.AttackGroundPos,
+                GameConfig::AttackAcquisitionRange,
+                e
+            );
             if (tgt != entt::null) {
-                int net_id = reg.all_of<NetworkId>(tgt) ? reg.get<NetworkId>(tgt).Value : -1;
+                int net_id = reg.all_of<NetworkId>(tgt)
+                                 ? reg.get<NetworkId>(tgt).Value
+                                 : -1;
                 bool new_target = (tgt != at.Target);
                 at.Target = tgt;
                 at.TargetNetworkId = net_id;
@@ -95,8 +109,8 @@ inline void player_attack_command_system(entt::registry &reg, float dt) {
 
         // 5. 验证当前 Target
         if (at.Target != entt::null) {
-            if (!reg.valid(at.Target) ||
-                (reg.all_of<Dead>(at.Target) && reg.get<Dead>(at.Target).enabled)) {
+            if (!reg.valid(at.Target) || (reg.all_of<Dead>(at.Target) &&
+                                          reg.get<Dead>(at.Target).enabled)) {
                 printf("[ATK] target invalidated\n");
                 at.Target = entt::null;
                 at.TargetNetworkId = -1;

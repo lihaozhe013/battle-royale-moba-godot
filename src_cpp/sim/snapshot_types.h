@@ -204,7 +204,9 @@ class SimHeroSnap : public godot::RefCounted {
     int get_status() const { return status; }
     void set_status(int v) { status = v; }
     godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
-    void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) { skills = v; }
+    void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) {
+        skills = v;
+    }
     int get_cast_state() const { return cast_state; }
     void set_cast_state(int v) { cast_state = v; }
     int get_cast_slot() const { return cast_slot; }
@@ -409,7 +411,8 @@ class SimSnapshot : public godot::RefCounted {
     int get_local_hero_index() const {
         for (int i = 0; i < heroes.size(); ++i) {
             auto h = Object::cast_to<SimHeroSnap>(heroes[i]);
-            if (h && h->is_local) return i;
+            if (h && h->is_local)
+                return i;
         }
         return -1;
     }

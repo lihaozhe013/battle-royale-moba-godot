@@ -18,8 +18,8 @@ struct ArrowSpawnContext {
     entt::entity owner_entity;
     float dmg;
     float lifesteal_ratio = 0.0f;
-    entt::entity homing_target       = entt::null;
-    int            homing_target_net_id = -1;
+    entt::entity homing_target = entt::null;
+    int homing_target_net_id = -1;
 };
 
 inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
@@ -35,7 +35,8 @@ inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
         auto e = reg.create();
         Vec2 vel{
             std::cos(ctx.angle) * GameConfig::ArrowSpeed,
-            std::sin(ctx.angle) * GameConfig::ArrowSpeed};
+            std::sin(ctx.angle) * GameConfig::ArrowSpeed
+        };
         reg.emplace<Position2D>(e, ctx.spawn_pos);
         reg.emplace<Velocity2D>(e, vel);
         reg.emplace<FacingAngle>(e, ctx.angle);

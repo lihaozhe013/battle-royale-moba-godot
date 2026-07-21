@@ -1,16 +1,16 @@
 #pragma once
 
-#include "skill_interface.h"
 #include "../game_config.h"
 #include "../vec2.h"
+#include "skill_interface.h"
+#include <algorithm>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
-#include <algorithm>
 
 namespace sim {
 
 class MeleeStrikeSkill : public ISkill {
-public:
+  public:
     int id() const override { return 1; }
     SkillKind kind() const override { return SkillKind::MeleeSingle; }
 
@@ -29,8 +29,9 @@ public:
         return 40.0f + (level - 1) * 15.0f + atk * 0.9f;
     }
 
-    int validate_cast(entt::registry &reg, entt::entity caster,
-                      const CastContext &ctx) override {
+    int validate_cast(
+        entt::registry &reg, entt::entity caster, const CastContext &ctx
+    ) override {
         if (ctx.target_entity == entt::null || !reg.valid(ctx.target_entity))
             return 4;
         if (reg.all_of<Dead>(ctx.target_entity) &&
@@ -39,26 +40,35 @@ public:
         return 0;
     }
 
-    bool can_enter_casting(entt::registry &reg, entt::entity caster,
-                           const CastState &cs, int level) override {
+    bool can_enter_casting(
+        entt::registry &reg, entt::entity caster, const CastState &cs, int level
+    ) override {
         if (cs.TargetEntity == entt::null || !reg.valid(cs.TargetEntity))
             return false;
         bool dead = reg.all_of<Dead>(cs.TargetEntity) &&
                     reg.get<Dead>(cs.TargetEntity).enabled;
-        if (dead) return false;
+        if (dead)
+            return false;
         Vec2 delta = reg.get<Position2D>(cs.TargetEntity).Value -
                      reg.get<Position2D>(caster).Value;
         return vec2_length_sq(delta) <= range(level) * range(level);
     }
 
-    void on_cast_complete(entt::registry &reg, entt::entity caster,
-                          CastState &cs, CommandBuffer &cb, IdState &ids,
-                          int level) override {
+    void on_cast_complete(
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        CommandBuffer &cb,
+        IdState &ids,
+        int level
+    ) override {
         entt::entity tgt = cs.TargetEntity;
-        if (!reg.valid(tgt)) return;
+        if (!reg.valid(tgt))
+            return;
         float dmg = damage(level, reg.get<CombatStats>(caster).Atk);
         bool is_bot = reg.all_of<BotTag>(caster);
-        if (is_bot) dmg *= GameConfig::BotSkillDmgMul;
+        if (is_bot)
+            dmg *= GameConfig::BotSkillDmgMul;
 
         auto &hp = reg.get<Health>(tgt);
         hp.Cur -= static_cast<int>(dmg);
@@ -71,12 +81,15 @@ public:
             if (reg.all_of<Dead>(tgt))
                 reg.get<Dead>(tgt).enabled = true;
             if (reg.all_of<BotAIState>(tgt))
-                reg.get<BotAIState>(tgt).RespawnTimer = GameConfig::BotRespawnTime;
-            int victim_id = reg.all_of<NetworkId>(tgt) ? reg.get<NetworkId>(tgt).Value : 0;
+                reg.get<BotAIState>(tgt).RespawnTimer =
+                    GameConfig::BotRespawnTime;
+            int victim_id =
+                reg.all_of<NetworkId>(tgt) ? reg.get<NetworkId>(tgt).Value : 0;
             auto kill_view = reg.view<KillEventBuffer>();
             for (auto k : kill_view)
                 kill_view.get<KillEventBuffer>(k).events.push_back(
-                    {reg.get<NetworkId>(caster).Value, victim_id});
+                    {reg.get<NetworkId>(caster).Value, victim_id}
+                );
             if (reg.all_of<Kills>(caster))
                 reg.get<Kills>(caster).Value += 1;
         }

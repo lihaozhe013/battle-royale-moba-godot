@@ -55,8 +55,16 @@ inline void bot_ai_system(
     entt::registry &reg, float dt, float map_half, std::mt19937 &rng
 ) {
     auto view = reg.view<
-        BotTag, Position2D, BotAIState, BotBehaviorState,
-        MoveSpeed, Health, CombatStats, Level, Experience, BotVisionRange>();
+        BotTag,
+        Position2D,
+        BotAIState,
+        BotBehaviorState,
+        MoveSpeed,
+        Health,
+        CombatStats,
+        Level,
+        Experience,
+        BotVisionRange>();
     auto target_view = reg.view<Damageable, Position2D, Health>();
 
     detail::_PickupVec heal_pickups, xp_pickups, small_heal_pickups;
@@ -116,9 +124,8 @@ inline void bot_ai_system(
                 }
                 int new_lv;
                 if (high_count < 3) {
-                    new_lv = std::uniform_int_distribution<int>(
-                        25, GameConfig::MaxHeroLevel
-                    )(rng);
+                    new_lv = std::uniform_int_distribution<
+                        int>(25, GameConfig::MaxHeroLevel)(rng);
                 } else {
                     int offset = std::uniform_int_distribution<int>(-3, 3)(rng);
                     new_lv =
@@ -153,10 +160,12 @@ inline void bot_ai_system(
                 float half = map_half - GameConfig::BotRadius;
                 pos.Value = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)};
+                    std::uniform_real_distribution<float>(-half, half)(rng)
+                };
                 ai.MoveTarget = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)};
+                    std::uniform_real_distribution<float>(-half, half)(rng)
+                };
                 ai.RespawnTimer = 0.0f;
                 ai.TargetEntity = entt::null;
                 ai.WanderTimer =
@@ -178,8 +187,12 @@ inline void bot_ai_system(
         }
 
         if (can_decide) {
-            detail::_scan_pickups(reg, pos.Value, PickupType::Heal, heal_pickups);
-            detail::_scan_pickups(reg, pos.Value, PickupType::SmallHeal, small_heal_pickups);
+            detail::_scan_pickups(
+                reg, pos.Value, PickupType::Heal, heal_pickups
+            );
+            detail::_scan_pickups(
+                reg, pos.Value, PickupType::SmallHeal, small_heal_pickups
+            );
             detail::_scan_pickups(reg, pos.Value, PickupType::Xp, xp_pickups);
 
             heal_pickups.insert(
@@ -202,8 +215,10 @@ inline void bot_ai_system(
 
             float nearest_enemy_dist_sq = std::numeric_limits<float>::max();
             for (auto tgt : target_view) {
-                if (tgt == e) continue;
-                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled) continue;
+                if (tgt == e)
+                    continue;
+                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled)
+                    continue;
                 Vec2 delta = target_view.get<Position2D>(tgt).Value - pos.Value;
                 float d_sq = vec2_length_sq(delta);
                 if (d_sq < nearest_enemy_dist_sq) {
@@ -232,7 +247,9 @@ inline void bot_ai_system(
                     new_goal = BotBehaviorState::Goal::SeekHeal;
                     new_pickup = detail::_pick_top3_random(heal_pickups, rng);
                     goal_changed = true;
-                } else if ((!has_target || !enemy_in_vision) && !xp_pickups.empty()) {
+                } else if (
+                    (!has_target || !enemy_in_vision) && !xp_pickups.empty()
+                ) {
                     new_goal = BotBehaviorState::Goal::SeekXp;
                     new_pickup = detail::_pick_top3_random(xp_pickups, rng);
                     goal_changed = true;
@@ -265,8 +282,10 @@ inline void bot_ai_system(
             float nearest_dist = std::numeric_limits<float>::max();
             Vec2 flee_from{0, 0};
             for (auto tgt : target_view) {
-                if (tgt == e) continue;
-                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled) continue;
+                if (tgt == e)
+                    continue;
+                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled)
+                    continue;
                 Vec2 delta = target_view.get<Position2D>(tgt).Value - pos.Value;
                 float d_sq = vec2_length_sq(delta);
                 if (d_sq < nearest_dist) {
@@ -296,7 +315,9 @@ inline void bot_ai_system(
                 reg.all_of<Position2D>(beh.PickupTarget)) {
                 target_pos = reg.get<Position2D>(beh.PickupTarget).Value;
             } else {
-                detail::_scan_pickups(reg, pos.Value, PickupType::Xp, xp_pickups);
+                detail::_scan_pickups(
+                    reg, pos.Value, PickupType::Xp, xp_pickups
+                );
                 if (!xp_pickups.empty()) {
                     target_pos =
                         reg.get<Position2D>(xp_pickups[0].entity).Value;
@@ -367,7 +388,8 @@ inline void bot_ai_system(
                 float half = map_half - GameConfig::BotRadius;
                 ai.MoveTarget = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)};
+                    std::uniform_real_distribution<float>(-half, half)(rng)
+                };
                 ai.WanderTimer =
                     GameConfig::BotWanderIntervalMin +
                     std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
@@ -387,7 +409,8 @@ inline void bot_ai_system(
                 float half = map_half - GameConfig::BotRadius;
                 ai.MoveTarget = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)};
+                    std::uniform_real_distribution<float>(-half, half)(rng)
+                };
                 ai.WanderTimer =
                     GameConfig::BotWanderIntervalMin +
                     std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *

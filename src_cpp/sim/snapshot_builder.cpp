@@ -89,7 +89,9 @@ void SnapshotBuilder::_build_players(
         s->xp_needed = view.get<Experience>(e).Needed;
         s->speed = view.get<MoveSpeed>(e).Value;
         if (reg.all_of<SkillComponent>(e)) {
-            _build_skills(s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value);
+            _build_skills(
+                s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
+            );
         }
 
         // StatusEffect
@@ -129,32 +131,34 @@ void SnapshotBuilder::_build_players(
                 (max_timer > 0.0f) ? (1.0f - cs.Timer / max_timer) : 0.0f;
         }
 
-    s->attack_target_id = -1;
-    if (reg.all_of<AttackTarget>(e)) {
-        s->attack_target_id = reg.get<AttackTarget>(e).TargetNetworkId;
-    }
+        s->attack_target_id = -1;
+        if (reg.all_of<AttackTarget>(e)) {
+            s->attack_target_id = reg.get<AttackTarget>(e).TargetNetworkId;
+        }
 
-    // ── 新增 snapshot 字段 ──
-    s->cast_target_id = -1;
-    s->is_moving = false;
-    s->skill_points = 0;
-    if (reg.all_of<CastState>(e)) {
-        auto &cs = reg.get<CastState>(e);
-        s->cast_target_id = cs.TargetNetworkId;
-    }
-    if (reg.all_of<MovePath>(e)) {
-        auto &path = reg.get<MovePath>(e);
-        if (path.Following) s->is_moving = true;
-    }
-    if (reg.all_of<AttackTarget>(e)) {
-        auto &at = reg.get<AttackTarget>(e);
-        if (at.Chasing) s->is_moving = true;
-    }
-    if (reg.all_of<SkillPoints>(e)) {
-        s->skill_points = reg.get<SkillPoints>(e).Available;
-    }
+        // ── 新增 snapshot 字段 ──
+        s->cast_target_id = -1;
+        s->is_moving = false;
+        s->skill_points = 0;
+        if (reg.all_of<CastState>(e)) {
+            auto &cs = reg.get<CastState>(e);
+            s->cast_target_id = cs.TargetNetworkId;
+        }
+        if (reg.all_of<MovePath>(e)) {
+            auto &path = reg.get<MovePath>(e);
+            if (path.Following)
+                s->is_moving = true;
+        }
+        if (reg.all_of<AttackTarget>(e)) {
+            auto &at = reg.get<AttackTarget>(e);
+            if (at.Chasing)
+                s->is_moving = true;
+        }
+        if (reg.all_of<SkillPoints>(e)) {
+            s->skill_points = reg.get<SkillPoints>(e).Available;
+        }
 
-    snap->players.push_back(s);
+        snap->players.push_back(s);
     }
 }
 
@@ -195,7 +199,9 @@ void SnapshotBuilder::_build_bots(
         s->speed = view.get<MoveSpeed>(e).Value;
         s->tier = static_cast<int>(reg.get<BotTier>(e));
         if (reg.all_of<SkillComponent>(e)) {
-            _build_skills(s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value);
+            _build_skills(
+                s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
+            );
         }
 
         // StatusEffect
@@ -274,9 +280,18 @@ void SnapshotBuilder::_build_aoes(
 void SnapshotBuilder::_build_heroes(
     entt::registry &reg, const godot::Ref<SimSnapshot> &snap
 ) {
-    auto view = reg.view<HeroTag, Position2D, FacingAngle, Health,
-                         Mana, Level, MoveSpeed, CombatStats,
-                         NetworkId, Kills, Experience>();
+    auto view = reg.view<
+        HeroTag,
+        Position2D,
+        FacingAngle,
+        Health,
+        Mana,
+        Level,
+        MoveSpeed,
+        CombatStats,
+        NetworkId,
+        Kills,
+        Experience>();
     for (auto e : view) {
         auto s = godot::Ref<SimHeroSnap>(memnew(SimHeroSnap));
         s->id = view.get<NetworkId>(e).Value;
@@ -296,13 +311,15 @@ void SnapshotBuilder::_build_heroes(
         s->xp_needed = view.get<Experience>(e).Needed;
         s->speed = view.get<MoveSpeed>(e).Value;
         s->is_local = view.get<HeroTag>(e).IsLocal;
-        s->hero_def_id = reg.all_of<HeroDefId>(e)
-            ? reg.get<HeroDefId>(e).Value : 0;
-        s->tier = reg.all_of<BotTier>(e)
-            ? static_cast<int>(reg.get<BotTier>(e)) : 0;
+        s->hero_def_id =
+            reg.all_of<HeroDefId>(e) ? reg.get<HeroDefId>(e).Value : 0;
+        s->tier =
+            reg.all_of<BotTier>(e) ? static_cast<int>(reg.get<BotTier>(e)) : 0;
 
         if (reg.all_of<SkillComponent>(e)) {
-            _build_skills(s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value);
+            _build_skills(
+                s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
+            );
         }
 
         s->status = 0;
@@ -328,7 +345,8 @@ void SnapshotBuilder::_build_heroes(
             if (reg.all_of<SkillComponent>(e)) {
                 auto &skills = reg.get<SkillComponent>(e);
                 if (cs.ActiveSlot >= 0 && cs.ActiveSlot < 4) {
-                    const ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
+                    const ISkill *sk =
+                        SkillRegistry::instance().get(cs.SkillId);
                     if (sk) {
                         auto &slot = skills.Slots[cs.ActiveSlot];
                         if (cs.State == CastState::Phase::Casting)
@@ -358,11 +376,13 @@ void SnapshotBuilder::_build_heroes(
         }
         if (reg.all_of<MovePath>(e)) {
             auto &path = reg.get<MovePath>(e);
-            if (path.Following) s->is_moving = true;
+            if (path.Following)
+                s->is_moving = true;
         }
         if (reg.all_of<AttackTarget>(e)) {
             auto &at = reg.get<AttackTarget>(e);
-            if (at.Chasing) s->is_moving = true;
+            if (at.Chasing)
+                s->is_moving = true;
         }
         if (reg.all_of<SkillPoints>(e)) {
             s->skill_points = reg.get<SkillPoints>(e).Available;

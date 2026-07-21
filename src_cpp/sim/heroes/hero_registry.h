@@ -6,12 +6,12 @@
 namespace sim {
 
 class HeroRegistry {
-public:
+  public:
     static HeroRegistry &instance();
     const HeroDef &get(int id) const;
     void register_hero(const HeroDef &def);
 
-private:
+  private:
     std::unordered_map<int, HeroDef> _heroes;
 };
 
