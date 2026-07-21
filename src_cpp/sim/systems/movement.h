@@ -27,6 +27,9 @@ inline void movement_system(entt::registry &reg, float dt, float map_half) {
         if (!tag.IsLocal && !is_bot)
             continue;
 
+        if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled)
+            continue;
+
         auto &pos = view.get<Position2D>(e);
         auto &angle = view.get<FacingAngle>(e);
         auto &input = view.get<PlayerInputState>(e);

@@ -47,6 +47,8 @@ inline void attack_command_system(entt::registry &reg, float dt) {
         bool is_bot = reg.all_of<BotTag>(e);
         if (!tag.IsLocal && !is_bot)
             continue;
+        if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled)
+            continue;
         auto &input = view.get<PlayerInputState>(e);
         auto &pos = view.get<Position2D>(e);
         auto &at = view.get<AttackTarget>(e);
