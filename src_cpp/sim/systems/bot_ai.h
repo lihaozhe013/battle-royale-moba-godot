@@ -47,7 +47,6 @@ inline entt::entity _pick_top3_random(_PickupVec &vec, std::mt19937 &rng) {
     return vec[dist(rng)].entity;
 }
 
-// perpendicular vector (left)
 inline Vec2 _perp_left(const Vec2 &v) { return Vec2{-v.y, v.x}; }
 
 } // namespace detail
@@ -56,24 +55,14 @@ inline void bot_ai_system(
     entt::registry &reg, float dt, float map_half, std::mt19937 &rng
 ) {
     auto view = reg.view<
-        BotTag,
-        Position2D,
-        FacingAngle,
-        BotAIState,
-        BotBehaviorState,
-        MoveSpeed,
-        Health,
-        CombatStats,
-        Level,
-        Experience,
-        BotVisionRange>();
+        BotTag, Position2D, BotAIState, BotBehaviorState,
+        MoveSpeed, Health, CombatStats, Level, Experience, BotVisionRange>();
     auto target_view = reg.view<Damageable, Position2D, Health>();
 
     detail::_PickupVec heal_pickups, xp_pickups, small_heal_pickups;
 
     for (auto e : view) {
         auto &pos = view.get<Position2D>(e);
-        auto &angle = view.get<FacingAngle>(e);
         auto &ai = view.get<BotAIState>(e);
         auto &beh = view.get<BotBehaviorState>(e);
         auto &speed = view.get<MoveSpeed>(e);
@@ -90,14 +79,12 @@ inline void bot_ai_system(
             if (ai.RespawnTimer <= 0.0f) {
                 reg.get<Dead>(e).enabled = false;
 
-                // step 1: scan alive bot role distribution
                 int counts[3] = {0, 0, 0};
                 auto role_view = reg.view<BotTag, BotRole>(entt::exclude<Dead>);
                 for (auto b : role_view) {
                     counts[static_cast<int>(role_view.get<BotRole>(b))]++;
                 }
 
-                // step 2: select least dense role
                 float density[3] = {
                     counts[0] / (float)GameConfig::FodderWeight,
                     counts[1] / (float)GameConfig::StalkerWeight,
@@ -113,8 +100,6 @@ inline void bot_ai_system(
 
                 reg.get_or_emplace<BotRole>(e) = role;
 
-                // step 3: determine level — ensure 3 bots >= 25, rest at player
-                // ±3
                 int plv = 1;
                 auto pv = reg.view<PlayerTag, Level>();
                 for (auto p : pv) {
@@ -140,11 +125,9 @@ inline void bot_ai_system(
                         std::clamp(plv + offset, 1, GameConfig::MaxHeroLevel);
                 }
 
-                // step 4: roll tier by role
                 BotTier tier = detail::roll_bot_tier_for_role(role, rng);
                 auto mult = detail::tier_mult(tier);
 
-                // step 5: apply stats
                 reg.get_or_emplace<BotTier>(e) = tier;
                 lv.Value = new_lv;
                 int base_hp =
@@ -167,7 +150,6 @@ inline void bot_ai_system(
                 exp.Cur = 0;
                 exp.Needed = new_lv * GameConfig::XpPerLevelBase;
 
-                // step 6: respawn position + wander reset
                 float half = map_half - GameConfig::BotRadius;
                 pos.Value = Vec2{
                     std::uniform_real_distribution<float>(-half, half)(rng),
@@ -195,21 +177,11 @@ inline void bot_ai_system(
             beh.DecisionCooldown = GameConfig::BotDecisionCooldown;
         }
 
-        // ── Find nearest visible alive target (from bot_targeting, already set
-        // ai.TargetEntity) ── bot_targeting_system runs before us, so
-        // ai.TargetEntity is already populated. We just read it.
-
-        // ── Scan pickups once per decision cycle ──
         if (can_decide) {
-            detail::_scan_pickups(
-                reg, pos.Value, PickupType::Heal, heal_pickups
-            );
-            detail::_scan_pickups(
-                reg, pos.Value, PickupType::SmallHeal, small_heal_pickups
-            );
+            detail::_scan_pickups(reg, pos.Value, PickupType::Heal, heal_pickups);
+            detail::_scan_pickups(reg, pos.Value, PickupType::SmallHeal, small_heal_pickups);
             detail::_scan_pickups(reg, pos.Value, PickupType::Xp, xp_pickups);
 
-            // Merge heal pickups: Heal (big) first, then SmallHeal
             heal_pickups.insert(
                 heal_pickups.end(),
                 small_heal_pickups.begin(),
@@ -223,25 +195,19 @@ inline void bot_ai_system(
                 );
             }
 
-            // Check if current target is still valid
             bool has_target = ai.TargetEntity != entt::null &&
                               reg.valid(ai.TargetEntity) &&
                               (!reg.all_of<Dead>(ai.TargetEntity) ||
                                !reg.get<Dead>(ai.TargetEntity).enabled);
 
-            // Find nearest alive enemy distance
             float nearest_enemy_dist_sq = std::numeric_limits<float>::max();
-            Vec2 nearest_enemy_pos{0, 0};
             for (auto tgt : target_view) {
-                if (tgt == e)
-                    continue;
-                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled)
-                    continue;
+                if (tgt == e) continue;
+                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled) continue;
                 Vec2 delta = target_view.get<Position2D>(tgt).Value - pos.Value;
                 float d_sq = vec2_length_sq(delta);
                 if (d_sq < nearest_enemy_dist_sq) {
                     nearest_enemy_dist_sq = d_sq;
-                    nearest_enemy_pos = target_view.get<Position2D>(tgt).Value;
                 }
             }
             bool enemy_in_vision =
@@ -249,16 +215,13 @@ inline void bot_ai_system(
             float hp_ratio =
                 static_cast<float>(hp.Cur) / static_cast<float>(hp.Max);
 
-            // ── Fix D: Goal 承诺计时器 ──
             beh.GoalCommitTimer -= dt;
             bool can_change_goal = beh.GoalCommitTimer <= 0.0f;
 
-            // ── Goal selection (priority high → low) ──
             BotBehaviorState::Goal new_goal = beh.Current;
             entt::entity new_pickup = entt::null;
             bool goal_changed = false;
 
-            // 紧急条件（永远可以打断承诺）
             bool emergency = hp_ratio < 0.3f && enemy_in_vision;
 
             if (emergency) {
@@ -280,7 +243,7 @@ inline void bot_ai_system(
                     new_goal = BotBehaviorState::Goal::Wander;
                     goal_changed = true;
                 }
-            } // else: 承诺期内保持当前 Goal
+            }
 
             if (goal_changed) {
                 beh.Current = new_goal;
@@ -288,26 +251,22 @@ inline void bot_ai_system(
             }
             beh.PickupTarget = new_pickup;
 
-            // ── Fix A: strafe 方向在决策段决定 ──
             if (beh.Current == BotBehaviorState::Goal::Engage) {
                 std::bernoulli_distribution coin(0.5);
                 beh.StrafeDir = coin(rng) ? 1 : -1;
             }
         }
 
-        // ── Movement ──
-        Vec2 target_pos = ai.MoveTarget; // default: wander target
+        // ── Compute MoveTarget (no direct pos writes) ──
+        Vec2 target_pos = ai.MoveTarget;
 
         switch (beh.Current) {
         case BotBehaviorState::Goal::Flee: {
-            // Run away from nearest enemy
             float nearest_dist = std::numeric_limits<float>::max();
             Vec2 flee_from{0, 0};
             for (auto tgt : target_view) {
-                if (tgt == e)
-                    continue;
-                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled)
-                    continue;
+                if (tgt == e) continue;
+                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled) continue;
                 Vec2 delta = target_view.get<Position2D>(tgt).Value - pos.Value;
                 float d_sq = vec2_length_sq(delta);
                 if (d_sq < nearest_dist) {
@@ -337,9 +296,7 @@ inline void bot_ai_system(
                 reg.all_of<Position2D>(beh.PickupTarget)) {
                 target_pos = reg.get<Position2D>(beh.PickupTarget).Value;
             } else {
-                detail::_scan_pickups(
-                    reg, pos.Value, PickupType::Xp, xp_pickups
-                );
+                detail::_scan_pickups(reg, pos.Value, PickupType::Xp, xp_pickups);
                 if (!xp_pickups.empty()) {
                     target_pos =
                         reg.get<Position2D>(xp_pickups[0].entity).Value;
@@ -348,7 +305,6 @@ inline void bot_ai_system(
             break;
         }
         case BotBehaviorState::Goal::Engage: {
-            // ── Fix C: Kiting 滞回状态机 ──
             if (ai.TargetEntity != entt::null && reg.valid(ai.TargetEntity) &&
                 reg.all_of<Position2D>(ai.TargetEntity)) {
                 Vec2 tgt_pos = reg.get<Position2D>(ai.TargetEntity).Value;
@@ -365,7 +321,6 @@ inline void bot_ai_system(
                     float retreat_enter =
                         vision.Value * GameConfig::BotKiteRetreatEnter;
 
-                    // 滞回状态转移
                     switch (beh.Kite) {
                     case BotBehaviorState::KiteSub::Chase:
                         if (dist < chase_exit)
@@ -383,7 +338,6 @@ inline void bot_ai_system(
                         break;
                     }
 
-                    // 执行子状态
                     switch (beh.Kite) {
                     case BotBehaviorState::KiteSub::Chase:
                         target_pos = tgt_pos;
@@ -407,7 +361,6 @@ inline void bot_ai_system(
         }
         case BotBehaviorState::Goal::Wander:
         default: {
-            // Wander: pick new target when close enough or timer expires
             ai.WanderTimer -= dt;
             Vec2 diff = ai.MoveTarget - pos.Value;
             if (ai.WanderTimer <= 0.0f || vec2_length_sq(diff) < 0.25f) {
@@ -426,27 +379,8 @@ inline void bot_ai_system(
         }
         }
 
-        // ── Status gate (Root=禁锢=不移动但可射击, Stun=眩晕=不移动) ──
-        bool blocked = reg.all_of<StatusEffect>(e) &&
-                       reg.get<StatusEffect>(e).Timer > 0.0f &&
-                       (reg.get<StatusEffect>(e).Type == StatusType::Root ||
-                        reg.get<StatusEffect>(e).Type == StatusType::Stun);
+        ai.MoveTarget = target_pos;
 
-        if (!blocked) {
-            // ── Execute movement ──
-            Vec2 move_dir = target_pos - pos.Value;
-            float move_dist = glm::length(move_dir);
-            if (move_dist > 0.01f) {
-                Vec2 dir = move_dir / move_dist;
-                float step_len = std::min(move_dist, speed.Value * dt);
-                pos.Value =
-                    vec2_clamp_to_map(pos.Value + dir * step_len, map_half);
-                angle.Radians = std::atan2(dir.y, dir.x);
-            }
-        }
-
-        // ── Wander timer decay (even when not in Wander state) ──
-        // So that when we switch back to Wander, timer has progressed.
         if (beh.Current != BotBehaviorState::Goal::Wander) {
             ai.WanderTimer -= dt;
             if (ai.WanderTimer <= 0.0f) {

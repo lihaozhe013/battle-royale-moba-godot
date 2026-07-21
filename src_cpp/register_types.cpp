@@ -14,6 +14,7 @@ void initialize_battle_royale_sim_types(godot::ModuleInitializationLevel p_level
     godot::ClassDB::register_class<sim::SimSkillSlotSnap>();
     godot::ClassDB::register_class<sim::SimPlayerSnap>();
     godot::ClassDB::register_class<sim::SimBotSnap>();
+    godot::ClassDB::register_class<sim::SimHeroSnap>();
     godot::ClassDB::register_class<sim::SimArrowSnap>();
     godot::ClassDB::register_class<sim::SimPickupSnap>();
     godot::ClassDB::register_class<sim::SimEventSnap>();

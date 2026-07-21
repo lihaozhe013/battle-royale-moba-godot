@@ -32,29 +32,33 @@ func _ready() -> void:
 
 
 func sync(snap: SimSnapshot, _player_view = null) -> void:
-	if snap.players.size() == 0:
+	var p = null
+
+	if snap.heroes.size() > 0:
+		var local_idx = -1
+		if snap.has_method("get_local_hero_index"):
+			local_idx = snap.get_local_hero_index()
+		if local_idx >= 0 and local_idx < snap.heroes.size():
+			p = snap.heroes[local_idx]
+	elif snap.players.size() > 0:
+		p = snap.players[0]
+
+	if not p:
 		_clear_cast_line()
 		_clear_dash_line()
 		_clear_aoes()
 		return
 
-	var p := snap.players[0] as SimPlayerSnap
-	if not p:
-		return
-
-	# 1. 绿线：Normal cast 瞄准（View SkillAiming）或 Sim Aiming（quick cast 瞬态）
 	if view_skill_aiming or p.cast_state == 1:
 		_draw_cast_line(p.x, p.y, p.cast_aim_x, p.cast_aim_y)
 	else:
 		_clear_cast_line()
 
-	# 2. Dash 路径（Dashing）
-	if p.cast_state == 4:  # Dashing
+	if p.cast_state == 4:
 		_draw_dash_path(p.dash_sx, p.dash_sy, p.x, p.y)
 	else:
 		_clear_dash_line()
 
-	# 3. AoE 灰圈
 	_sync_aoes(snap.aoes)
 
 

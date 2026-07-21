@@ -25,27 +25,41 @@ func _ready() -> void:
 func sync_bars(snap: SimSnapshot) -> void:
 	var seen := {}
 
-	for p in snap.players:
-		seen[p.id] = true
-		var bar := _get_or_create(p.id)
-		bar.update_hp(p.hp, p.max_hp)
-		bar.update_mana(p.mana, p.max_mana)
-		bar.update_level(p.level, 0)
-		bar.update_status(p.status)
-		bar.set_team(0)
+	if snap.heroes.size() > 0:
+		for h in snap.heroes:
+			seen[h.id] = true
+			var bar := _get_or_create(h.id)
+			if h.dead:
+				bar.visible = false
+			else:
+				bar.visible = true
+				bar.update_hp(h.hp, h.max_hp)
+				bar.update_mana(h.mana, h.max_mana)
+				bar.update_level(h.level, h.tier)
+				bar.update_status(h.status)
+				bar.set_team(0 if h.is_local else 2)
+	else:
+		for p in snap.players:
+			seen[p.id] = true
+			var bar := _get_or_create(p.id)
+			bar.update_hp(p.hp, p.max_hp)
+			bar.update_mana(p.mana, p.max_mana)
+			bar.update_level(p.level, 0)
+			bar.update_status(p.status)
+			bar.set_team(0)
 
-	for b in snap.bots:
-		seen[b.id] = true
-		var bar := _get_or_create(b.id)
-		if b.dead:
-			bar.visible = false
-		else:
-			bar.visible = true
-			bar.update_hp(b.hp, b.max_hp)
-			bar.update_mana(b.mana, b.max_mana)
-			bar.update_level(b.level, b.tier)
-			bar.update_status(b.status)
-			bar.set_team(2)
+		for b in snap.bots:
+			seen[b.id] = true
+			var bar := _get_or_create(b.id)
+			if b.dead:
+				bar.visible = false
+			else:
+				bar.visible = true
+				bar.update_hp(b.hp, b.max_hp)
+				bar.update_mana(b.mana, b.max_mana)
+				bar.update_level(b.level, b.tier)
+				bar.update_status(b.status)
+				bar.set_team(2)
 
 	var to_release := []
 	for id in _active_bars:

@@ -63,38 +63,43 @@ struct NetworkId {
 
 struct Damageable {};
 
-// ── PlayerComponents.cs ──────────────────────────────────────────────────
+// ── HeroComponents ──
 
-struct PlayerTag {
+struct HeroTag {
     bool IsLocal = false;
 };
 
-struct PlayerInputState {
-    // ── 移动 ──
+struct HeroInputState {
     Vec2 MoveTarget{0.0f};
     bool MoveIssue = false;
     bool Stop = false;
 
-    // ── 技能 ──
-    int  SkillSlot = -1;        // 当前 Aiming 槽，-1=无（0-3 QWER, 10-15 装备预留）
-    bool SkillConfirm = false;  // 本 tick 是否确认
+    int  SkillSlot = -1;
+    bool SkillConfirm = false;
     Vec2 SkillAim{0.0f};
     int  SkillTargetId = -1;
-    int  SkillUpgradeSlot = -1; // 技能升级脉冲（Ctrl+QWER），-1=无
+    int  SkillUpgradeSlot = -1;
 
-    // ── 施法取消 ──
     bool CancelSkill = false;
     bool CancelAttack = false;
 
-    // ── 普攻 ──
     int  AttackTargetId = -1;
     bool AttackGround = false;
     Vec2 AttackGroundPos{0.0f};
     bool AttackClear = false;
 
-    // ── 序号 ──
     int Seq = 0;
 };
+
+struct HeroDefId {
+    int Value = 0;
+};
+
+// ── 过渡期别名（v2 → v3 过渡，全部完成迁移后删除） ──
+using PlayerTag = HeroTag;
+using PlayerInputState = HeroInputState;
+
+// ── PlayerComponents.cs（过渡，删除中） ──
 
 struct CombatStats {
     float Atk = 0.0f;
@@ -109,6 +114,13 @@ struct Kills {
 // ── BotComponents.cs ─────────────────────────────────────────────────────
 
 struct BotTag {};
+
+struct BotCastRequest {
+    int TargetSlot = -1;
+    Vec2 AimPos{0.0f};
+    int TargetNetworkId = -1;
+    bool Valid = false;
+};
 
 enum class BotTier : uint8_t {
     Normal = 0,

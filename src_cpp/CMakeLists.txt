@@ -17,6 +17,8 @@ add_library(battle_royale_sim SHARED
     sim/world.cpp
     sim/snapshot_builder.cpp
     sim/snapshot_bindings.cpp
+    sim/heroes/hero_registry.cpp
+    sim/skills/skill_registry.cpp
 )
 
 target_compile_features(battle_royale_sim PRIVATE cxx_std_17)
