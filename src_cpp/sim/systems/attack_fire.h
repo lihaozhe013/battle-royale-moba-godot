@@ -19,6 +19,9 @@ inline void attack_fire_system(
         if (!tag.IsLocal && !reg.all_of<BotTag>(e))
             continue;
 
+        if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled)
+            continue;
+
         if (reg.all_of<StatusEffect>(e)) {
             auto &st = reg.get<StatusEffect>(e);
             if (st.Type == StatusType::Stun && st.Timer > 0.0f)

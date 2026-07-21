@@ -49,6 +49,16 @@ inline void skill_cast_system(
         Level>();
 
     for (auto e : view) {
+        if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled) {
+            if (reg.all_of<CastState>(e)) {
+                auto &cs = reg.get<CastState>(e);
+                cs.State = CastState::Phase::None;
+                cs.ActiveSlot = -1;
+                cs.SkillId = 0;
+            }
+            continue;
+        }
+
         auto &input = view.get<PlayerInputState>(e);
         auto &cs = reg.get_or_emplace<CastState>(e);
         auto &skills = view.get<SkillComponent>(e);
