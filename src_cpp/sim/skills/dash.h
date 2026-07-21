@@ -59,7 +59,25 @@ class DashSkill : public ISkill {
         cs.Timer = range(level) / 20.0f;
     }
 
-    bool can_interrupt(CastState::Phase phase) const override { return false; }
+    void on_dash_update(
+        entt::registry &reg, entt::entity caster, CastState &cs, int level, float dt
+    ) override {
+        auto &pos = reg.get<Position2D>(caster);
+        float total_dist = glm::length(cs.DashTarget - cs.DashStart);
+        if (total_dist < 0.001f)
+            return;
+        Vec2 dir = (cs.DashTarget - cs.DashStart) / total_dist;
+        float speed = 20.0f;
+        float step = speed * dt;
+        pos.Value = pos.Value + dir * step;
+        cs.Timer -= dt;
+    }
+
+    bool can_interrupt(CastState::Phase phase) const override {
+        return phase == CastState::Phase::Chasing ||
+               phase == CastState::Phase::Casting ||
+               phase == CastState::Phase::Dashing;
+    }
 };
 
 } // namespace sim
