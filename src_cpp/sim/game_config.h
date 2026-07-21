@@ -25,9 +25,9 @@ struct GameConfig {
     static constexpr int BotCount = 20;
     static constexpr float BotRadius = 0.5f;
     static constexpr float BotSpeed = 2.0f;
-    static constexpr int BotHp = 50;
-    static constexpr float BotBaseAttack = 5.0f;
-    static constexpr float BotBaseAttackSpeed = 0.8f;
+    static constexpr int BotHp = 30;
+    static constexpr float BotBaseAttack = 3.0f;
+    static constexpr float BotBaseAttackSpeed = 0.5f;
     static constexpr float BotRespawnTime = 8.0f;
     static constexpr float BotVisionRange = 20.0f;
     static constexpr float BotWanderIntervalMin = 2.0f;
