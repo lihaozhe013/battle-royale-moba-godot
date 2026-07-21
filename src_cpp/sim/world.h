@@ -5,19 +5,19 @@
 #include "nav_grid.h"
 #include "systems/aoe.h"
 #include "systems/arrow_movement.h"
+#include "systems/attack_command.h"
+#include "systems/attack_fire.h"
 #include "systems/bot_ai.h"
 #include "systems/bot_input_injection.h"
-#include "systems/bot_skill_decider.h"
 #include "systems/bot_role_rules.h"
+#include "systems/bot_skill_decider.h"
 #include "systems/bot_targeting.h"
 #include "systems/combat.h"
 #include "systems/local_input_injection.h"
 #include "systems/mana_regen.h"
-#include "systems/pickup.h"
-#include "systems/attack_command.h"
-#include "systems/attack_fire.h"
 #include "systems/movement.h"
 #include "systems/pathfinding.h"
+#include "systems/pickup.h"
 #include "systems/progression.h"
 #include "systems/skill_cast.h"
 #include "systems/skill_cooldown.h"
@@ -39,9 +39,13 @@ class World {
     void initialize(const std::string &map_json);
 
     // ── 新命令 API ──
-    void set_skill_command(int slot, bool confirm, float ax, float ay, int target_id);
+    void set_skill_command(
+        int slot, bool confirm, float ax, float ay, int target_id
+    );
     void set_skill_upgrade_command(int slot);
-    void set_attack_command(int target_id, bool ground, float gx, float gy, bool clear);
+    void set_attack_command(
+        int target_id, bool ground, float gx, float gy, bool clear
+    );
     void set_cancel_command(bool skill, bool attack);
 
     // ── 保留（已有，签名不变） ──
@@ -50,7 +54,15 @@ class World {
 
     // ── 废弃（v1 API，逐步移除） ──
     void set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq);
-    void set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y, int target_id = -1);
+    void set_cast_input(
+        int cast_slot,
+        bool confirm,
+        bool cancel,
+        bool interrupt,
+        float aim_x,
+        float aim_y,
+        int target_id = -1
+    );
 
     void tick(double dt);
     bool is_game_over() const { return _game_over; }

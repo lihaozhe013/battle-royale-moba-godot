@@ -46,7 +46,8 @@ inline void wall_collision_system(entt::registry &reg, CommandBuffer &cb) {
     auto arrow_view = reg.view<ArrowTag, Position2D>();
     for (auto e : arrow_view) {
         // Skip Homing arrows (穿墙飞行)
-        if (reg.all_of<Homing>(e)) continue;
+        if (reg.all_of<Homing>(e))
+            continue;
 
         auto &pos = arrow_view.get<Position2D>(e);
         for (auto &w : walls) {

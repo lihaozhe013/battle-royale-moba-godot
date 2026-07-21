@@ -7,10 +7,12 @@
 namespace sim {
 
 inline void skill_level_system(entt::registry &reg) {
-    auto view = reg.view<PlayerTag, PlayerInputState, SkillComponent, SkillPoints>();
+    auto view =
+        reg.view<PlayerTag, PlayerInputState, SkillComponent, SkillPoints>();
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
-        if (!tag.IsLocal) continue;
+        if (!tag.IsLocal)
+            continue;
         auto &input = view.get<PlayerInputState>(e);
         auto &skills = view.get<SkillComponent>(e);
         auto &sp = view.get<SkillPoints>(e);

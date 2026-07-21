@@ -89,7 +89,8 @@ struct NavGrid {
 
     Vec2 cell_to_world(int cx, int cy) const {
         return Vec2{
-            OriginX + (cx + 0.5f) * CellSize, OriginY + (cy + 0.5f) * CellSize};
+            OriginX + (cx + 0.5f) * CellSize, OriginY + (cy + 0.5f) * CellSize
+        };
     }
 
     bool is_blocked(int cx, int cy) const {
@@ -170,14 +171,8 @@ struct NavGrid {
         open.push({F[start_idx], start_idx});
 
         const int dirs[8][2] = {
-            {1, 0},
-            {-1, 0},
-            {0, 1},
-            {0, -1},
-            {1, 1},
-            {-1, 1},
-            {1, -1},
-            {-1, -1}};
+            {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}
+        };
         const float move_cost[8] = {
             1.0f,
             1.0f,
@@ -186,7 +181,8 @@ struct NavGrid {
             std::sqrt(2.0f),
             std::sqrt(2.0f),
             std::sqrt(2.0f),
-            std::sqrt(2.0f)};
+            std::sqrt(2.0f)
+        };
 
         while (!open.empty()) {
             auto [f, idx] = open.top();

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../components.h"
 #include "../command_buffer.h"
+#include "../components.h"
 #include <entt/entt.hpp>
 
 namespace sim {
@@ -17,7 +17,7 @@ struct CastContext {
 };
 
 class ISkill {
-public:
+  public:
     virtual ~ISkill() = default;
     virtual int id() const = 0;
     virtual SkillKind kind() const = 0;
@@ -35,45 +35,58 @@ public:
     virtual float effect_value(int level) const { return 0.0f; }
 
     virtual int validate_cast(
-        entt::registry &reg, entt::entity caster,
-        const CastContext &ctx
+        entt::registry &reg, entt::entity caster, const CastContext &ctx
     ) = 0;
 
     virtual void on_cast_start(
-        entt::registry &reg, entt::entity caster,
-        CastState &cs, CommandBuffer &cb, IdState &ids,
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        CommandBuffer &cb,
+        IdState &ids,
         const CastContext &ctx
     ) {}
 
     virtual void on_chase_tick(
-        entt::registry &reg, entt::entity caster,
-        CastState &cs, int level, float dt
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        int level,
+        float dt
     ) {}
 
     virtual bool can_enter_casting(
-        entt::registry &reg, entt::entity caster,
-        const CastState &cs, int level
+        entt::registry &reg, entt::entity caster, const CastState &cs, int level
     ) = 0;
 
     virtual void on_cast_complete(
-        entt::registry &reg, entt::entity caster,
-        CastState &cs, CommandBuffer &cb, IdState &ids,
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        CommandBuffer &cb,
+        IdState &ids,
         int level
     ) = 0;
 
     virtual void on_channel_tick(
-        entt::registry &reg, entt::entity caster,
-        CastState &cs, CommandBuffer &cb, IdState &ids,
-        int level, float dt
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        CommandBuffer &cb,
+        IdState &ids,
+        int level,
+        float dt
     ) {}
 
     virtual void on_dash_start(
-        entt::registry &reg, entt::entity caster,
-        CastState &cs, int level
+        entt::registry &reg, entt::entity caster, CastState &cs, int level
     ) {}
     virtual void on_dash_update(
-        entt::registry &reg, entt::entity caster,
-        CastState &cs, int level, float dt
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        int level,
+        float dt
     ) {}
 
     virtual bool can_interrupt(CastState::Phase phase) const {

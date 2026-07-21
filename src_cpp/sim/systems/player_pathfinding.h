@@ -11,8 +11,12 @@
 namespace sim {
 
 inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
-    auto view =
-        reg.view<PlayerTag, Position2D, PlayerInputState, CastState, MovePath>();
+    auto view = reg.view<
+        PlayerTag,
+        Position2D,
+        PlayerInputState,
+        CastState,
+        MovePath>();
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
         if (!tag.IsLocal)
@@ -29,7 +33,8 @@ inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
 
             if (def.Kind == SkillKind::MeleeSingle) {
                 // 指向性技能：朝锁定目标寻路
-                if (!reg.valid(cs.TargetEntity)) continue;
+                if (!reg.valid(cs.TargetEntity))
+                    continue;
                 chase_target = reg.get<Position2D>(cs.TargetEntity).Value;
             } else if (def.Kind == SkillKind::AoEField) {
                 // 非指向性 AoE：朝鼠标落点寻路
@@ -41,7 +46,8 @@ inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
             bool need_repath = true;
             if (path.Following) {
                 Vec2 d = chase_target - path.FinalTarget;
-                if (vec2_length_sq(d) < GameConfig::SkillChaseRepathDeadzoneSq) {
+                if (vec2_length_sq(d) <
+                    GameConfig::SkillChaseRepathDeadzoneSq) {
                     need_repath = false;
                 }
             }
@@ -64,13 +70,16 @@ inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
             if (reg.all_of<AttackTarget>(e)) {
                 auto &at = reg.get<AttackTarget>(e);
                 if (at.Target != entt::null && reg.valid(at.Target)) {
-                    bool target_dead = reg.all_of<Dead>(at.Target) && reg.get<Dead>(at.Target).enabled;
+                    bool target_dead = reg.all_of<Dead>(at.Target) &&
+                                       reg.get<Dead>(at.Target).enabled;
                     if (!target_dead) {
                         Vec2 target_pos = reg.get<Position2D>(at.Target).Value;
                         Vec2 delta = target_pos - pos.Value;
                         float dist = vec2_length_sq(delta);
-                        if (dist > GameConfig::PlayerAttackRange * GameConfig::PlayerAttackRange) {
-                            auto waypoints = nav.find_path(pos.Value, target_pos);
+                        if (dist > GameConfig::PlayerAttackRange *
+                                       GameConfig::PlayerAttackRange) {
+                            auto waypoints =
+                                nav.find_path(pos.Value, target_pos);
                             if (!waypoints.empty()) {
                                 path.Waypoints = std::move(waypoints);
                                 path.CurrentIndex = 0;

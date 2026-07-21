@@ -67,7 +67,11 @@ inline void pickup_system(
             // Apply pickup effect
             if (p_tag.Type == PickupType::Xp) {
                 apply_xp(reg, mover, p_tag.Value);
-            } else if ((p_tag.Type == PickupType::Heal || p_tag.Type == PickupType::SmallHeal) && reg.all_of<Health>(mover)) {
+            } else if (
+                (p_tag.Type == PickupType::Heal ||
+                 p_tag.Type == PickupType::SmallHeal) &&
+                reg.all_of<Health>(mover)
+            ) {
                 auto &hp = reg.get<Health>(mover);
                 float fraction =
                     (p_tag.Type == PickupType::Heal)

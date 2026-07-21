@@ -1,17 +1,17 @@
 #pragma once
 
-#include "skill_interface.h"
+#include "../arrow_spawner.h"
 #include "../game_config.h"
 #include "../vec2.h"
-#include "../arrow_spawner.h"
+#include "skill_interface.h"
+#include <cmath>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
-#include <cmath>
 
 namespace sim {
 
 class ChannelBurstSkill : public ISkill {
-public:
+  public:
     int id() const override { return 4; }
     SkillKind kind() const override { return SkillKind::ChannelBurst; }
 
@@ -33,35 +33,50 @@ public:
         return 0.0f + atk * 0.9f;
     }
 
-    int validate_cast(entt::registry &reg, entt::entity caster,
-                      const CastContext &ctx) override {
+    int validate_cast(
+        entt::registry &reg, entt::entity caster, const CastContext &ctx
+    ) override {
         return 0;
     }
 
-    bool can_enter_casting(entt::registry &reg, entt::entity caster,
-                           const CastState &cs, int level) override {
+    bool can_enter_casting(
+        entt::registry &reg, entt::entity caster, const CastState &cs, int level
+    ) override {
         return true;
     }
 
-    void on_cast_complete(entt::registry &reg, entt::entity caster,
-                          CastState &cs, CommandBuffer &cb, IdState &ids,
-                          int level) override {
+    void on_cast_complete(
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        CommandBuffer &cb,
+        IdState &ids,
+        int level
+    ) override {
         cs.Timer = effect_value(level);
         cs.SubTimer = 0.0f;
     }
 
-    void on_channel_tick(entt::registry &reg, entt::entity caster,
-                         CastState &cs, CommandBuffer &cb, IdState &ids,
-                         int level, float dt) override {
+    void on_channel_tick(
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        CommandBuffer &cb,
+        IdState &ids,
+        int level,
+        float dt
+    ) override {
         cs.SubTimer -= dt;
-        if (cs.SubTimer > 0.0f) return;
+        if (cs.SubTimer > 0.0f)
+            return;
 
         float interval = 0.5f;
         cs.SubTimer = interval;
 
         bool is_bot = reg.all_of<BotTag>(caster);
         float dmg = damage(level, reg.get<CombatStats>(caster).Atk);
-        if (is_bot) dmg *= GameConfig::BotSkillDmgMul;
+        if (is_bot)
+            dmg *= GameConfig::BotSkillDmgMul;
 
         int count = 16;
         auto &pos = reg.get<Position2D>(caster);
@@ -73,7 +88,9 @@ public:
             Vec2 dir{std::cos(angle), std::sin(angle)};
             Vec2 spawn_pos = pos.Value + dir * 0.5f;
             int arrow_id = ids.NextArrowId++;
-            cb.push([arrow_id, spawn_pos, angle, net_id, owner, dmg](entt::registry &r) {
+            cb.push([arrow_id, spawn_pos, angle, net_id, owner, dmg](
+                        entt::registry &r
+                    ) {
                 auto a = r.create();
                 Vec2 vel{std::cos(angle), std::sin(angle)};
                 vel *= GameConfig::ArrowSpeed;

@@ -1,15 +1,15 @@
 #pragma once
 
-#include "skill_interface.h"
 #include "../game_config.h"
 #include "../vec2.h"
+#include "skill_interface.h"
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
 namespace sim {
 
 class DashSkill : public ISkill {
-public:
+  public:
     int id() const override { return 3; }
     SkillKind kind() const override { return SkillKind::Dash; }
 
@@ -28,20 +28,28 @@ public:
         return base_range(level) + (level - 1) * 1.0f;
     }
 
-    int validate_cast(entt::registry &reg, entt::entity caster,
-                      const CastContext &ctx) override {
-        if (glm::length(ctx.aim_pos) < 0.001f) return 4;
+    int validate_cast(
+        entt::registry &reg, entt::entity caster, const CastContext &ctx
+    ) override {
+        if (glm::length(ctx.aim_pos) < 0.001f)
+            return 4;
         return 0;
     }
 
-    bool can_enter_casting(entt::registry &reg, entt::entity caster,
-                           const CastState &cs, int level) override {
+    bool can_enter_casting(
+        entt::registry &reg, entt::entity caster, const CastState &cs, int level
+    ) override {
         return true;
     }
 
-    void on_cast_complete(entt::registry &reg, entt::entity caster,
-                          CastState &cs, CommandBuffer &cb, IdState &ids,
-                          int level) override {
+    void on_cast_complete(
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        CommandBuffer &cb,
+        IdState &ids,
+        int level
+    ) override {
         Vec2 dir{1.0f, 0.0f};
         auto &pos = reg.get<Position2D>(caster);
         if (glm::length(cs.AimPos - pos.Value) > 0.001f)
@@ -51,9 +59,7 @@ public:
         cs.Timer = range(level) / 20.0f;
     }
 
-    bool can_interrupt(CastState::Phase phase) const override {
-        return false;
-    }
+    bool can_interrupt(CastState::Phase phase) const override { return false; }
 };
 
 } // namespace sim

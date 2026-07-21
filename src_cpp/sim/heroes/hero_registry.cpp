@@ -13,9 +13,7 @@ const HeroDef &HeroRegistry::get(int id) const {
     return it != _heroes.end() ? it->second : fallback;
 }
 
-void HeroRegistry::register_hero(const HeroDef &def) {
-    _heroes[def.Id] = def;
-}
+void HeroRegistry::register_hero(const HeroDef &def) { _heroes[def.Id] = def; }
 
 void register_builtin_heroes() {
     auto &r = HeroRegistry::instance();

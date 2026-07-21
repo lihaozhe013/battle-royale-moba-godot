@@ -69,7 +69,9 @@ void World::initialize(const std::string &map_json) {
     _spawn_pickup_spawners();
 }
 
-void World::set_skill_command(int slot, bool confirm, float ax, float ay, int target_id) {
+void World::set_skill_command(
+    int slot, bool confirm, float ax, float ay, int target_id
+) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
         li.SkillSlot = slot;
@@ -86,7 +88,9 @@ void World::set_skill_upgrade_command(int slot) {
     }
 }
 
-void World::set_attack_command(int target_id, bool ground, float gx, float gy, bool clear) {
+void World::set_attack_command(
+    int target_id, bool ground, float gx, float gy, bool clear
+) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
         li.AttackTargetId = target_id;
@@ -119,16 +123,28 @@ void World::set_stop_command(bool stop) {
     }
 }
 
-void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq) {
-}
+void World::set_local_input(
+    const Vec2 &move, const Vec2 &aim, bool fire, int seq
+) {}
 
-void World::set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y, int target_id) {
+void World::set_cast_input(
+    int cast_slot,
+    bool confirm,
+    bool cancel,
+    bool interrupt,
+    float aim_x,
+    float aim_y,
+    int target_id
+) {
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
         li.SkillSlot = cast_slot;
-        if (confirm) li.SkillConfirm = true;
-        if (cancel) li.CancelSkill = true;
-        if (interrupt) li.CancelSkill = true;
+        if (confirm)
+            li.SkillConfirm = true;
+        if (cancel)
+            li.CancelSkill = true;
+        if (interrupt)
+            li.CancelSkill = true;
         li.SkillAim = Vec2{aim_x, aim_y};
         li.SkillTargetId = target_id;
     }
@@ -200,12 +216,14 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<FacingAngle>(e, 0.0f);
     _reg.emplace<Health>(e, def.BaseHp, def.BaseHp);
     _reg.emplace<Mana>(
-        e, def.BaseMana, def.BaseMana,
-        GameConfig::PlayerManaRegen, GameConfig::ManaRegenDelay, 0.0f
+        e,
+        def.BaseMana,
+        def.BaseMana,
+        GameConfig::PlayerManaRegen,
+        GameConfig::ManaRegenDelay,
+        0.0f
     );
-    _reg.emplace<CombatStats>(
-        e, def.BaseAtk, def.BaseAsp, -999.0
-    );
+    _reg.emplace<CombatStats>(e, def.BaseAtk, def.BaseAsp, -999.0);
     _reg.emplace<Kills>(e, 0);
     _reg.emplace<HeroInputState>(e);
     _reg.emplace<SkillPoints>(e, 0);
@@ -245,9 +263,10 @@ void World::_spawn_bot() {
 
     int new_lv;
     if (_count_high_level_bots() < 3) {
-        new_lv = std::uniform_int_distribution<int>(
-            25, GameConfig::MaxHeroLevel
-        )(_rng);
+        new_lv =
+            std::uniform_int_distribution<int>(25, GameConfig::MaxHeroLevel)(
+                _rng
+            );
     } else {
         int plv = _get_player_level();
         int offset = std::uniform_int_distribution<int>(-3, 3)(_rng);
@@ -269,8 +288,9 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
         (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::AtkPerLevel) *
         mult.AtkMul;
     float asp = std::min(
-        (GameConfig::BotBaseAttackSpeed + (new_lv - 1) * GameConfig::AspPerLevel
-        ) * mult.AspMul,
+        (GameConfig::BotBaseAttackSpeed +
+         (new_lv - 1) * GameConfig::AspPerLevel) *
+            mult.AspMul,
         GameConfig::AspMax
     );
     float spd =
@@ -328,7 +348,8 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
         const ISkill *sk = SkillRegistry::instance().get(sid);
         sc.Slots[i].SkillId = sid;
         sc.Slots[i].Level = 1;
-        sc.Slots[i].MaxCooldown = sk ? sk->base_cooldown() * GameConfig::BotSkillCooldownMul : 0.0f;
+        sc.Slots[i].MaxCooldown =
+            sk ? sk->base_cooldown() * GameConfig::BotSkillCooldownMul : 0.0f;
         sc.Slots[i].ManaCost = sk ? sk->base_mana_cost() : 0.0f;
     }
     _reg.emplace<SkillComponent>(e, sc);

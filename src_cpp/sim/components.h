@@ -74,16 +74,16 @@ struct HeroInputState {
     bool MoveIssue = false;
     bool Stop = false;
 
-    int  SkillSlot = -1;
+    int SkillSlot = -1;
     bool SkillConfirm = false;
     Vec2 SkillAim{0.0f};
-    int  SkillTargetId = -1;
-    int  SkillUpgradeSlot = -1;
+    int SkillTargetId = -1;
+    int SkillUpgradeSlot = -1;
 
     bool CancelSkill = false;
     bool CancelAttack = false;
 
-    int  AttackTargetId = -1;
+    int AttackTargetId = -1;
     bool AttackGround = false;
     Vec2 AttackGroundPos{0.0f};
     bool AttackClear = false;
@@ -173,12 +173,12 @@ struct StatusEffect {
 
 struct CastState {
     enum class Phase : uint8_t {
-        None       = 0,
-        Aiming     = 1,  // 仅 quick cast 同 tick 中转
-        Chasing    = 2,  // 跟随施法：confirm 超范围，A* 朝目标移动
-        Casting    = 3,  // 前摇
-        Channeling = 4,  // 引导（F）
-        Dashing    = 5,  // 位移（R）
+        None = 0,
+        Aiming = 1,     // 仅 quick cast 同 tick 中转
+        Chasing = 2,    // 跟随施法：confirm 超范围，A* 朝目标移动
+        Casting = 3,    // 前摇
+        Channeling = 4, // 引导（F）
+        Dashing = 5,    // 位移（R）
     };
     Phase State = Phase::None;
     int ActiveSlot = -1;
@@ -192,8 +192,8 @@ struct CastState {
     int HitTargetId = -1;
     int CastError = 0;
     entt::entity TargetEntity = entt::null;
-    int TargetNetworkId = -1;   // 指向性技能锁定目标 NetworkId
-    bool QuickCast = false;     // 标记本次施法来源（View 触发 quick vs normal）
+    int TargetNetworkId = -1; // 指向性技能锁定目标 NetworkId
+    bool QuickCast = false;   // 标记本次施法来源（View 触发 quick vs normal）
 };
 
 // ── AoE components ──
@@ -218,7 +218,8 @@ struct ArrowTag {
 struct AttackTarget {
     entt::entity Target = entt::null;
     int TargetNetworkId = -1;
-    bool Chasing = false;   // 每 tick 由 player_movement 设置，wall_collision 跳过
+    bool Chasing =
+        false; // 每 tick 由 player_movement 设置，wall_collision 跳过
 };
 
 struct Homing {
@@ -282,7 +283,8 @@ struct SkillSlot {
 };
 
 struct SkillComponent {
-    SkillSlot Slots[4]; // [0-3] QWER 技能, 普攻虚拟槽已移除（走独立 ATTACK 命令）
+    SkillSlot
+        Slots[4]; // [0-3] QWER 技能, 普攻虚拟槽已移除（走独立 ATTACK 命令）
 };
 
 // ── SkillPoints (新增, v1 完全缺失) ──
@@ -308,18 +310,18 @@ struct LocalInputSingleton {
     bool Stop = false;
 
     // ── 技能 ──
-    int  SkillSlot = -1;        // 当前 Aiming 槽，-1=无（0-3 QWER, 10-15 装备预留）
-    bool SkillConfirm = false;  // 本 tick 是否确认
+    int SkillSlot = -1; // 当前 Aiming 槽，-1=无（0-3 QWER, 10-15 装备预留）
+    bool SkillConfirm = false; // 本 tick 是否确认
     Vec2 SkillAim{0.0f};
-    int  SkillTargetId = -1;
-    int  SkillUpgradeSlot = -1; // 技能升级脉冲（Ctrl+QWER），-1=无
+    int SkillTargetId = -1;
+    int SkillUpgradeSlot = -1; // 技能升级脉冲（Ctrl+QWER），-1=无
 
     // ── 施法取消 ──
     bool CancelSkill = false;
     bool CancelAttack = false;
 
     // ── 普攻 ──
-    int  AttackTargetId = -1;
+    int AttackTargetId = -1;
     bool AttackGround = false;
     Vec2 AttackGroundPos{0.0f};
     bool AttackClear = false;

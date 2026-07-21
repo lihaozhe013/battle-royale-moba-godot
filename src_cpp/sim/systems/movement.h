@@ -16,11 +16,16 @@ inline float pm_angle_diff(float target, float current) {
 
 inline void movement_system(entt::registry &reg, float dt, float map_half) {
     auto view = reg.view<
-        PlayerTag, Position2D, FacingAngle, PlayerInputState, MoveSpeed>();
+        PlayerTag,
+        Position2D,
+        FacingAngle,
+        PlayerInputState,
+        MoveSpeed>();
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
         bool is_bot = reg.all_of<BotTag>(e);
-        if (!tag.IsLocal && !is_bot) continue;
+        if (!tag.IsLocal && !is_bot)
+            continue;
 
         auto &pos = view.get<Position2D>(e);
         auto &angle = view.get<FacingAngle>(e);

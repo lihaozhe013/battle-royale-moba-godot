@@ -11,11 +11,12 @@ namespace sim {
 inline void player_attack_fire_system(
     entt::registry &reg, double now, CommandBuffer &cb, IdState &ids
 ) {
-    auto view = reg.view<
-        PlayerTag, Position2D, CombatStats, NetworkId, AttackTarget>();
+    auto view =
+        reg.view<PlayerTag, Position2D, CombatStats, NetworkId, AttackTarget>();
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
-        if (!tag.IsLocal) continue;
+        if (!tag.IsLocal)
+            continue;
 
         // Stun gate
         if (reg.all_of<StatusEffect>(e)) {
@@ -44,7 +45,8 @@ inline void player_attack_fire_system(
             printf("[ATK] skip invalid target\n");
             continue;
         }
-        bool target_dead = reg.all_of<Dead>(at.Target) && reg.get<Dead>(at.Target).enabled;
+        bool target_dead =
+            reg.all_of<Dead>(at.Target) && reg.get<Dead>(at.Target).enabled;
         if (target_dead) {
             printf("[ATK] skip target dead\n");
             continue;
@@ -55,7 +57,11 @@ inline void player_attack_fire_system(
         Vec2 delta = target_pos - pos.Value;
         float dist = glm::length(delta);
         if (dist > GameConfig::PlayerAttackRange) {
-            printf("[ATK] skip out of range dist=%.2f range=%.2f\n", dist, GameConfig::PlayerAttackRange);
+            printf(
+                "[ATK] skip out of range dist=%.2f range=%.2f\n",
+                dist,
+                GameConfig::PlayerAttackRange
+            );
             continue;
         }
 

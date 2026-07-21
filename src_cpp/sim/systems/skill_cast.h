@@ -2,8 +2,8 @@
 
 #include "../components.h"
 #include "../game_config.h"
-#include "../skills/skill_registry.h"
 #include "../skills/skill_interface.h"
+#include "../skills/skill_registry.h"
 #include "../vec2.h"
 #include "attack_command.h"
 #include <entt/entt.hpp>
@@ -12,16 +12,26 @@
 namespace sim {
 
 inline void skill_cast_player_system(
-    entt::registry &reg, entt::entity e,
-    PlayerInputState &input, CastState &cs,
-    SkillComponent &skills, Mana &mana, float dt, CommandBuffer &cb,
+    entt::registry &reg,
+    entt::entity e,
+    PlayerInputState &input,
+    CastState &cs,
+    SkillComponent &skills,
+    Mana &mana,
+    float dt,
+    CommandBuffer &cb,
     IdState &ids
 );
 
 inline void skill_cast_aisystem(
-    entt::registry &reg, entt::entity e,
-    PlayerInputState &input, CastState &cs,
-    SkillComponent &skills, Mana &mana, float dt, CommandBuffer &cb,
+    entt::registry &reg,
+    entt::entity e,
+    PlayerInputState &input,
+    CastState &cs,
+    SkillComponent &skills,
+    Mana &mana,
+    float dt,
+    CommandBuffer &cb,
     IdState &ids
 );
 
@@ -29,8 +39,14 @@ inline void skill_cast_system(
     entt::registry &reg, float dt, CommandBuffer &cb, IdState &ids, double now
 ) {
     auto view = reg.view<
-        PlayerTag, PlayerInputState, SkillComponent, Mana,
-        Position2D, CombatStats, NetworkId, Level>();
+        PlayerTag,
+        PlayerInputState,
+        SkillComponent,
+        Mana,
+        Position2D,
+        CombatStats,
+        NetworkId,
+        Level>();
 
     for (auto e : view) {
         auto &input = view.get<PlayerInputState>(e);
@@ -41,7 +57,8 @@ inline void skill_cast_system(
         if (reg.all_of<StatusEffect>(e)) {
             auto &st = reg.get<StatusEffect>(e);
             if (st.Type == StatusType::Stun && st.Timer > 0.0f) {
-                if (input.SkillSlot >= 0) cs.CastError = 3;
+                if (input.SkillSlot >= 0)
+                    cs.CastError = 3;
                 continue;
             }
         }
@@ -59,13 +76,19 @@ inline void skill_cast_system(
 }
 
 inline void skill_cast_player_system(
-    entt::registry &reg, entt::entity e,
-    PlayerInputState &input, CastState &cs,
-    SkillComponent &skills, Mana &mana, float dt, CommandBuffer &cb,
+    entt::registry &reg,
+    entt::entity e,
+    PlayerInputState &input,
+    CastState &cs,
+    SkillComponent &skills,
+    Mana &mana,
+    float dt,
+    CommandBuffer &cb,
     IdState &ids
 ) {
     auto &tag = reg.get<PlayerTag>(e);
-    if (!tag.IsLocal) return;
+    if (!tag.IsLocal)
+        return;
 
     if (cs.RejectTimer > 0.0f)
         cs.RejectTimer -= dt;
@@ -79,10 +102,12 @@ inline void skill_cast_player_system(
     auto refund_cast = [&](int slot_idx, int skill_id) {
         auto &s = skills.Slots[slot_idx];
         ISkill *sk = SkillRegistry::instance().get(skill_id);
-        if (!sk) return;
+        if (!sk)
+            return;
         float mc = sk->mana_cost(s.Level);
         mana.Cur += mc;
-        if (mana.Cur > mana.Max) mana.Cur = mana.Max;
+        if (mana.Cur > mana.Max)
+            mana.Cur = mana.Max;
         s.CooldownTimer = 0.0f;
     };
 
@@ -92,7 +117,8 @@ inline void skill_cast_player_system(
             break;
         auto &slot = skills.Slots[cast_slot];
         ISkill *sk = SkillRegistry::instance().get(slot.SkillId);
-        if (!sk) break;
+        if (!sk)
+            break;
 
         if (!cast_confirm) {
             cs.ActiveSlot = cast_slot;
@@ -104,16 +130,26 @@ inline void skill_cast_player_system(
         }
 
         if (slot.CooldownTimer > 0.0f) {
-            cs.CastError = 1; cs.RejectTimer = 0.3f; break;
+            cs.CastError = 1;
+            cs.RejectTimer = 0.3f;
+            break;
         }
 
-        CastContext ctx{e, slot, slot.Level, cast_aim,
+        CastContext ctx{
+            e,
+            slot,
+            slot.Level,
+            cast_aim,
             resolve_target_by_netid(reg, input.SkillTargetId),
-            input.SkillTargetId, false};
+            input.SkillTargetId,
+            false
+        };
 
         int err = sk->validate_cast(reg, e, ctx);
         if (err != 0) {
-            cs.CastError = err; cs.RejectTimer = 0.3f; break;
+            cs.CastError = err;
+            cs.RejectTimer = 0.3f;
+            break;
         }
 
         float cd = sk->cooldown(slot.Level);
@@ -142,19 +178,25 @@ inline void skill_cast_player_system(
 
     case CastState::Phase::Chasing: {
         ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
-        if (!sk) { cs.State = CastState::Phase::None; break; }
+        if (!sk) {
+            cs.State = CastState::Phase::None;
+            break;
+        }
 
         if (cancel_skill && sk->can_interrupt(cs.State)) {
             if (GameConfig::RefundOnChaseInterrupt)
                 refund_cast(cs.ActiveSlot, cs.SkillId);
             cs.State = CastState::Phase::None;
-            cs.ActiveSlot = -1; cs.SkillId = 0;
+            cs.ActiveSlot = -1;
+            cs.SkillId = 0;
             break;
         }
 
         sk->on_chase_tick(reg, e, cs, skills.Slots[cs.ActiveSlot].Level, dt);
 
-        if (sk->can_enter_casting(reg, e, cs, skills.Slots[cs.ActiveSlot].Level)) {
+        if (sk->can_enter_casting(
+                reg, e, cs, skills.Slots[cs.ActiveSlot].Level
+            )) {
             cs.State = CastState::Phase::Casting;
             cs.Timer = sk->cast_time(skills.Slots[cs.ActiveSlot].Level);
             cs.CastError = 0;
@@ -164,22 +206,31 @@ inline void skill_cast_player_system(
 
     case CastState::Phase::Casting: {
         ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
-        if (!sk) { cs.State = CastState::Phase::None; break; }
+        if (!sk) {
+            cs.State = CastState::Phase::None;
+            break;
+        }
 
         if (cancel_skill && sk->can_interrupt(cs.State)) {
             if (GameConfig::RefundOnCastInterrupt)
                 refund_cast(cs.ActiveSlot, cs.SkillId);
-            cs.State = CastState::Phase::None; break;
+            cs.State = CastState::Phase::None;
+            break;
         }
 
         cs.Timer -= dt;
-        if (cs.Timer > 0.0f) break;
+        if (cs.Timer > 0.0f)
+            break;
 
-        sk->on_cast_complete(reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level);
+        sk->on_cast_complete(
+            reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level
+        );
 
-        if (sk->kind() == SkillKind::MeleeSingle || sk->kind() == SkillKind::AoEField) {
+        if (sk->kind() == SkillKind::MeleeSingle ||
+            sk->kind() == SkillKind::AoEField) {
             cs.State = CastState::Phase::None;
-            cs.ActiveSlot = -1; cs.SkillId = 0;
+            cs.ActiveSlot = -1;
+            cs.SkillId = 0;
         } else if (sk->kind() == SkillKind::Dash) {
             sk->on_dash_start(reg, e, cs, skills.Slots[cs.ActiveSlot].Level);
             cs.State = CastState::Phase::Dashing;
@@ -193,11 +244,15 @@ inline void skill_cast_player_system(
 
     case CastState::Phase::Dashing: {
         ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
-        if (sk) sk->on_dash_update(reg, e, cs, skills.Slots[cs.ActiveSlot].Level, dt);
+        if (sk)
+            sk->on_dash_update(
+                reg, e, cs, skills.Slots[cs.ActiveSlot].Level, dt
+            );
         Vec2 delta = cs.DashTarget - reg.get<Position2D>(e).Value;
         if (glm::length(delta) < 0.1f || cs.Timer <= 0.0f) {
             cs.State = CastState::Phase::None;
-            cs.ActiveSlot = -1; cs.SkillId = 0;
+            cs.ActiveSlot = -1;
+            cs.SkillId = 0;
         }
         break;
     }
@@ -205,11 +260,14 @@ inline void skill_cast_player_system(
     case CastState::Phase::Channeling: {
         ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
         cs.Timer -= dt;
-        if (sk) sk->on_channel_tick(reg, e, cs, cb, ids,
-            skills.Slots[cs.ActiveSlot].Level, dt);
+        if (sk)
+            sk->on_channel_tick(
+                reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level, dt
+            );
         if (cs.Timer <= 0.0f) {
             cs.State = CastState::Phase::None;
-            cs.ActiveSlot = -1; cs.SkillId = 0;
+            cs.ActiveSlot = -1;
+            cs.SkillId = 0;
         }
         break;
     }
@@ -219,28 +277,44 @@ inline void skill_cast_player_system(
 }
 
 inline void skill_cast_aisystem(
-    entt::registry &reg, entt::entity e,
-    PlayerInputState &input, CastState &cs,
-    SkillComponent &skills, Mana &mana, float dt, CommandBuffer &cb,
+    entt::registry &reg,
+    entt::entity e,
+    PlayerInputState &input,
+    CastState &cs,
+    SkillComponent &skills,
+    Mana &mana,
+    float dt,
+    CommandBuffer &cb,
     IdState &ids
 ) {
     switch (cs.State) {
     case CastState::Phase::None: {
         int cast_slot = input.SkillSlot;
-        if (cast_slot < 0 || cast_slot >= 4) break;
-        if (!input.SkillConfirm) break;
+        if (cast_slot < 0 || cast_slot >= 4)
+            break;
+        if (!input.SkillConfirm)
+            break;
 
         auto &slot = skills.Slots[cast_slot];
         ISkill *sk = SkillRegistry::instance().get(slot.SkillId);
-        if (!sk) break;
-        if (slot.CooldownTimer > 0.0f) break;
+        if (!sk)
+            break;
+        if (slot.CooldownTimer > 0.0f)
+            break;
 
-        CastContext ctx{e, slot, slot.Level, input.SkillAim,
+        CastContext ctx{
+            e,
+            slot,
+            slot.Level,
+            input.SkillAim,
             resolve_target_by_netid(reg, input.SkillTargetId),
-            input.SkillTargetId, false};
+            input.SkillTargetId,
+            false
+        };
 
         int err = sk->validate_cast(reg, e, ctx);
-        if (err != 0) break;
+        if (err != 0)
+            break;
 
         float mc = sk->mana_cost(slot.Level);
         mc *= GameConfig::BotManaCostMul;
@@ -270,11 +344,16 @@ inline void skill_cast_aisystem(
 
     case CastState::Phase::Chasing: {
         ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
-        if (!sk) { cs.State = CastState::Phase::None; break; }
+        if (!sk) {
+            cs.State = CastState::Phase::None;
+            break;
+        }
 
         sk->on_chase_tick(reg, e, cs, skills.Slots[cs.ActiveSlot].Level, dt);
 
-        if (sk->can_enter_casting(reg, e, cs, skills.Slots[cs.ActiveSlot].Level)) {
+        if (sk->can_enter_casting(
+                reg, e, cs, skills.Slots[cs.ActiveSlot].Level
+            )) {
             cs.State = CastState::Phase::Casting;
             cs.Timer = sk->cast_time(skills.Slots[cs.ActiveSlot].Level);
             cs.CastError = 0;
@@ -284,16 +363,24 @@ inline void skill_cast_aisystem(
 
     case CastState::Phase::Casting: {
         ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
-        if (!sk) { cs.State = CastState::Phase::None; break; }
+        if (!sk) {
+            cs.State = CastState::Phase::None;
+            break;
+        }
 
         cs.Timer -= dt;
-        if (cs.Timer > 0.0f) break;
+        if (cs.Timer > 0.0f)
+            break;
 
-        sk->on_cast_complete(reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level);
+        sk->on_cast_complete(
+            reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level
+        );
 
-        if (sk->kind() == SkillKind::MeleeSingle || sk->kind() == SkillKind::AoEField) {
+        if (sk->kind() == SkillKind::MeleeSingle ||
+            sk->kind() == SkillKind::AoEField) {
             cs.State = CastState::Phase::None;
-            cs.ActiveSlot = -1; cs.SkillId = 0;
+            cs.ActiveSlot = -1;
+            cs.SkillId = 0;
         } else if (sk->kind() == SkillKind::Dash) {
             sk->on_dash_start(reg, e, cs, skills.Slots[cs.ActiveSlot].Level);
             cs.State = CastState::Phase::Dashing;
@@ -307,11 +394,15 @@ inline void skill_cast_aisystem(
 
     case CastState::Phase::Dashing: {
         ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
-        if (sk) sk->on_dash_update(reg, e, cs, skills.Slots[cs.ActiveSlot].Level, dt);
+        if (sk)
+            sk->on_dash_update(
+                reg, e, cs, skills.Slots[cs.ActiveSlot].Level, dt
+            );
         Vec2 delta = cs.DashTarget - reg.get<Position2D>(e).Value;
         if (glm::length(delta) < 0.1f || cs.Timer <= 0.0f) {
             cs.State = CastState::Phase::None;
-            cs.ActiveSlot = -1; cs.SkillId = 0;
+            cs.ActiveSlot = -1;
+            cs.SkillId = 0;
         }
         break;
     }
@@ -319,11 +410,14 @@ inline void skill_cast_aisystem(
     case CastState::Phase::Channeling: {
         ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
         cs.Timer -= dt;
-        if (sk) sk->on_channel_tick(reg, e, cs, cb, ids,
-            skills.Slots[cs.ActiveSlot].Level, dt);
+        if (sk)
+            sk->on_channel_tick(
+                reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level, dt
+            );
         if (cs.Timer <= 0.0f) {
             cs.State = CastState::Phase::None;
-            cs.ActiveSlot = -1; cs.SkillId = 0;
+            cs.ActiveSlot = -1;
+            cs.SkillId = 0;
         }
         break;
     }
