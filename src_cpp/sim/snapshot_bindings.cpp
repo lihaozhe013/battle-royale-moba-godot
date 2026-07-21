@@ -114,6 +114,85 @@ void SimPlayerSnap::_bind_methods() {
     );
 }
 
+void SimHeroSnap::_bind_methods() {
+    BIND(SimHeroSnap, id);
+    BIND(SimHeroSnap, x);
+    BIND(SimHeroSnap, y);
+    BIND(SimHeroSnap, ang);
+    BIND(SimHeroSnap, hp);
+    BIND(SimHeroSnap, max_hp);
+    BIND(SimHeroSnap, dead);
+    BIND(SimHeroSnap, mana);
+    BIND(SimHeroSnap, max_mana);
+    BIND(SimHeroSnap, atk);
+    BIND(SimHeroSnap, asp);
+    BIND(SimHeroSnap, speed);
+    BIND(SimHeroSnap, kills);
+    BIND(SimHeroSnap, level);
+    BIND(SimHeroSnap, xp);
+    BIND(SimHeroSnap, xp_needed);
+    BIND(SimHeroSnap, status);
+    BIND(SimHeroSnap, cast_state);
+    BIND(SimHeroSnap, cast_slot);
+    BIND(SimHeroSnap, cast_progress);
+    BIND(SimHeroSnap, cast_aim_x);
+    BIND(SimHeroSnap, cast_aim_y);
+    BIND(SimHeroSnap, dash_sx);
+    BIND(SimHeroSnap, dash_sy);
+    BIND(SimHeroSnap, dash_tx);
+    BIND(SimHeroSnap, dash_ty);
+    BIND(SimHeroSnap, hit_target_id);
+    BIND(SimHeroSnap, cast_error);
+    BIND(SimHeroSnap, attack_target_id);
+    BIND(SimHeroSnap, cast_target_id);
+    BIND(SimHeroSnap, is_moving);
+    BIND(SimHeroSnap, skill_points);
+    BIND(SimHeroSnap, tier);
+    BIND(SimHeroSnap, is_local);
+    BIND(SimHeroSnap, hero_def_id);
+    ClassDB::bind_method(D_METHOD("get_skills"), &SimHeroSnap::get_skills);
+    ClassDB::bind_method(D_METHOD("set_skills", "v"), &SimHeroSnap::set_skills);
+    PROP(SimHeroSnap, Variant::INT, id);
+    PROP(SimHeroSnap, Variant::FLOAT, x);
+    PROP(SimHeroSnap, Variant::FLOAT, y);
+    PROP(SimHeroSnap, Variant::FLOAT, ang);
+    PROP(SimHeroSnap, Variant::INT, hp);
+    PROP(SimHeroSnap, Variant::INT, max_hp);
+    PROP(SimHeroSnap, Variant::BOOL, dead);
+    PROP(SimHeroSnap, Variant::FLOAT, mana);
+    PROP(SimHeroSnap, Variant::FLOAT, max_mana);
+    PROP(SimHeroSnap, Variant::FLOAT, atk);
+    PROP(SimHeroSnap, Variant::FLOAT, asp);
+    PROP(SimHeroSnap, Variant::FLOAT, speed);
+    PROP(SimHeroSnap, Variant::INT, kills);
+    PROP(SimHeroSnap, Variant::INT, level);
+    PROP(SimHeroSnap, Variant::INT, xp);
+    PROP(SimHeroSnap, Variant::INT, xp_needed);
+    PROP(SimHeroSnap, Variant::INT, status);
+    PROP(SimHeroSnap, Variant::INT, cast_state);
+    PROP(SimHeroSnap, Variant::INT, cast_slot);
+    PROP(SimHeroSnap, Variant::FLOAT, cast_progress);
+    PROP(SimHeroSnap, Variant::FLOAT, cast_aim_x);
+    PROP(SimHeroSnap, Variant::FLOAT, cast_aim_y);
+    PROP(SimHeroSnap, Variant::FLOAT, dash_sx);
+    PROP(SimHeroSnap, Variant::FLOAT, dash_sy);
+    PROP(SimHeroSnap, Variant::FLOAT, dash_tx);
+    PROP(SimHeroSnap, Variant::FLOAT, dash_ty);
+    PROP(SimHeroSnap, Variant::INT, hit_target_id);
+    PROP(SimHeroSnap, Variant::INT, cast_error);
+    PROP(SimHeroSnap, Variant::INT, attack_target_id);
+    PROP(SimHeroSnap, Variant::INT, cast_target_id);
+    PROP(SimHeroSnap, Variant::BOOL, is_moving);
+    PROP(SimHeroSnap, Variant::INT, skill_points);
+    PROP(SimHeroSnap, Variant::INT, tier);
+    PROP(SimHeroSnap, Variant::BOOL, is_local);
+    PROP(SimHeroSnap, Variant::INT, hero_def_id);
+    ADD_PROPERTY(
+        PropertyInfo(Variant::ARRAY, "skills", PROPERTY_HINT_ARRAY_TYPE, "SimSkillSlotSnap"),
+        "set_skills", "get_skills"
+    );
+}
+
 void SimBotSnap::_bind_methods() {
     BIND(SimBotSnap, id);
     BIND(SimBotSnap, x);
@@ -209,66 +288,30 @@ void SimSnapshot::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_t"), &SimSnapshot::get_t);
     ClassDB::bind_method(D_METHOD("set_t", "v"), &SimSnapshot::set_t);
     ClassDB::bind_method(D_METHOD("get_players"), &SimSnapshot::get_players);
-    ClassDB::bind_method(
-        D_METHOD("set_players", "v"), &SimSnapshot::set_players
-    );
+    ClassDB::bind_method(D_METHOD("set_players", "v"), &SimSnapshot::set_players);
     ClassDB::bind_method(D_METHOD("get_bots"), &SimSnapshot::get_bots);
     ClassDB::bind_method(D_METHOD("set_bots", "v"), &SimSnapshot::set_bots);
+    ClassDB::bind_method(D_METHOD("get_heroes"), &SimSnapshot::get_heroes);
+    ClassDB::bind_method(D_METHOD("set_heroes", "v"), &SimSnapshot::set_heroes);
     ClassDB::bind_method(D_METHOD("get_arrows"), &SimSnapshot::get_arrows);
     ClassDB::bind_method(D_METHOD("set_arrows", "v"), &SimSnapshot::set_arrows);
     ClassDB::bind_method(D_METHOD("get_pickups"), &SimSnapshot::get_pickups);
-    ClassDB::bind_method(
-        D_METHOD("set_pickups", "v"), &SimSnapshot::set_pickups
-    );
+    ClassDB::bind_method(D_METHOD("set_pickups", "v"), &SimSnapshot::set_pickups);
     ClassDB::bind_method(D_METHOD("get_events"), &SimSnapshot::get_events);
     ClassDB::bind_method(D_METHOD("set_events", "v"), &SimSnapshot::set_events);
     ClassDB::bind_method(D_METHOD("get_aoes"), &SimSnapshot::get_aoes);
     ClassDB::bind_method(D_METHOD("set_aoes", "v"), &SimSnapshot::set_aoes);
+    ClassDB::bind_method(D_METHOD("get_local_hero_index"), &SimSnapshot::get_local_hero_index);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "seq"), "set_seq", "get_seq");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "t"), "set_t", "get_t");
-    ADD_PROPERTY(
-        PropertyInfo(
-            Variant::ARRAY, "players", PROPERTY_HINT_ARRAY_TYPE, "SimPlayerSnap"
-        ),
-        "set_players",
-        "get_players"
-    );
-    ADD_PROPERTY(
-        PropertyInfo(
-            Variant::ARRAY, "bots", PROPERTY_HINT_ARRAY_TYPE, "SimBotSnap"
-        ),
-        "set_bots",
-        "get_bots"
-    );
-    ADD_PROPERTY(
-        PropertyInfo(
-            Variant::ARRAY, "arrows", PROPERTY_HINT_ARRAY_TYPE, "SimArrowSnap"
-        ),
-        "set_arrows",
-        "get_arrows"
-    );
-    ADD_PROPERTY(
-        PropertyInfo(
-            Variant::ARRAY, "pickups", PROPERTY_HINT_ARRAY_TYPE, "SimPickupSnap"
-        ),
-        "set_pickups",
-        "get_pickups"
-    );
-    ADD_PROPERTY(
-        PropertyInfo(
-            Variant::ARRAY, "events", PROPERTY_HINT_ARRAY_TYPE, "SimEventSnap"
-        ),
-        "set_events",
-        "get_events"
-    );
-    ADD_PROPERTY(
-        PropertyInfo(
-            Variant::ARRAY, "aoes", PROPERTY_HINT_ARRAY_TYPE, "SimAoESnap"
-        ),
-        "set_aoes",
-        "get_aoes"
-    );
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "players", PROPERTY_HINT_ARRAY_TYPE, "SimPlayerSnap"), "set_players", "get_players");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "bots", PROPERTY_HINT_ARRAY_TYPE, "SimBotSnap"), "set_bots", "get_bots");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "heroes", PROPERTY_HINT_ARRAY_TYPE, "SimHeroSnap"), "set_heroes", "get_heroes");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "arrows", PROPERTY_HINT_ARRAY_TYPE, "SimArrowSnap"), "set_arrows", "get_arrows");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "pickups", PROPERTY_HINT_ARRAY_TYPE, "SimPickupSnap"), "set_pickups", "get_pickups");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "events", PROPERTY_HINT_ARRAY_TYPE, "SimEventSnap"), "set_events", "get_events");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "aoes", PROPERTY_HINT_ARRAY_TYPE, "SimAoESnap"), "set_aoes", "get_aoes");
 }
 
 } // namespace sim

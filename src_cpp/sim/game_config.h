@@ -144,6 +144,11 @@ struct GameConfig {
     // ── refund 配置（v2 默认宽容，退蓝退 CD） ──
     static constexpr bool RefundOnCastInterrupt = true;
     static constexpr bool RefundOnChaseInterrupt = true;
+
+    // ── Bot 技能系数（与 HeroDef 中的基础值乘算） ──
+    static constexpr float BotSkillDmgMul = 0.7f;
+    static constexpr float BotSkillCooldownMul = 1.3f;
+    static constexpr float BotManaCostMul = 0.6f;
 };
 
 } // namespace sim

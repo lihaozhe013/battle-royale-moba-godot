@@ -20,15 +20,22 @@ var _attack_target_id := -1
 func sync_entities(snap: SimSnapshot) -> void:
 	var seen = {}
 
-	for p in snap.players:
-		seen[p.id] = true
-		var view = _get_or_spawn(p.id, 0, 0)
-		view.apply_snapshot(p.x, p.y, p.ang, p.hp, p.max_hp, false)
+	if snap.heroes.size() > 0:
+		for h in snap.heroes:
+			seen[h.id] = true
+			var entity_type := 0 if h.is_local else 1
+			var view = _get_or_spawn(h.id, entity_type, 0)
+			view.apply_snapshot(h.x, h.y, h.ang, h.hp, h.max_hp, h.dead)
+	else:
+		for p in snap.players:
+			seen[p.id] = true
+			var view = _get_or_spawn(p.id, 0, 0)
+			view.apply_snapshot(p.x, p.y, p.ang, p.hp, p.max_hp, false)
 
-	for b in snap.bots:
-		seen[b.id] = true
-		var view = _get_or_spawn(b.id, 1, 0)
-		view.apply_snapshot(b.x, b.y, b.ang, b.hp, b.max_hp, b.dead)
+		for b in snap.bots:
+			seen[b.id] = true
+			var view = _get_or_spawn(b.id, 1, 0)
+			view.apply_snapshot(b.x, b.y, b.ang, b.hp, b.max_hp, b.dead)
 
 	for a in snap.arrows:
 		seen[a.id] = true

@@ -171,8 +171,14 @@ func _physics_process(delta: float) -> void:
 		if snap is SimSnapshot:
 			last_snapshot = snap
 
-	if ran_tick and last_snapshot and last_snapshot.players.size() > 0:
-		input_state_machine.sync_from_snapshot(last_snapshot.players[0])
+	if ran_tick and last_snapshot:
+		var local_idx = -1
+		if last_snapshot.has_method("get_local_hero_index"):
+			local_idx = last_snapshot.get_local_hero_index()
+		if local_idx >= 0 and last_snapshot.heroes.size() > 0:
+			input_state_machine.sync_from_snapshot(last_snapshot.heroes[local_idx])
+		elif last_snapshot.players.size() > 0:
+			input_state_machine.sync_from_snapshot(last_snapshot.players[0])
 
 
 func _apply_command(c: Command) -> void:
@@ -215,20 +221,46 @@ func _process(_delta: float) -> void:
 	# Hover detection
 	var hover_id := -1
 	var hover_sq := HOVER_RADIUS * HOVER_RADIUS
-	for b in last_snapshot.bots:
-		if b.dead:
-			continue
-		var d_sq := Vector2(b.x, b.y).distance_squared_to(aim)
-		if d_sq < hover_sq:
-			hover_sq = d_sq
-			hover_id = b.id
+	if last_snapshot.heroes.size() > 0:
+		for h in last_snapshot.heroes:
+			if not h.is_local and not h.dead:
+				var d_sq := Vector2(h.x, h.y).distance_squared_to(aim)
+				if d_sq < hover_sq:
+					hover_sq = d_sq
+					hover_id = h.id
+	else:
+		for b in last_snapshot.bots:
+			if b.dead:
+				continue
+			var d_sq := Vector2(b.x, b.y).distance_squared_to(aim)
+			if d_sq < hover_sq:
+				hover_sq = d_sq
+				hover_id = b.id
 	entity_manager.set_hover_id(hover_id)
 
 	if last_snapshot.seq != _last_snap_seq:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
 		health_bar_manager.sync_bars(last_snapshot)
-		if last_snapshot.players.size() > 0:
+		var local_idx = last_snapshot.get_local_hero_index() if last_snapshot.has_method("get_local_hero_index") else -1
+		if local_idx == -1 and last_snapshot.players.size() > 0:
+			local_idx = 0
+		if local_idx >= 0 and last_snapshot.heroes.size() > 0:
+			var p := last_snapshot.heroes[local_idx] as SimHeroSnap
+			if p:
+				entity_manager.set_attack_target_id(p.attack_target_id)
+
+				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
+					if p.hit_target_id >= 0:
+						_trigger_c_slash(p.hit_target_id)
+			_prev_player_cast_state = p.cast_state
+			_prev_player_cast_slot = p.cast_slot
+			if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
+				cast_error_layer.show_error(p.cast_error)
+			_prev_player_cast_error = p.cast_error
+
+			input_state_machine.sync_from_snapshot(p)
+		elif last_snapshot.players.size() > 0:
 			var p := last_snapshot.players[0] as SimPlayerSnap
 			if p:
 				entity_manager.set_attack_target_id(p.attack_target_id)
@@ -242,7 +274,6 @@ func _process(_delta: float) -> void:
 				cast_error_layer.show_error(p.cast_error)
 			_prev_player_cast_error = p.cast_error
 
-			# Sync FSM from snapshot
 			input_state_machine.sync_from_snapshot(p)
 
 	if last_snapshot.players.size() > 0:
@@ -269,6 +300,32 @@ func _process(_delta: float) -> void:
 				print("[CAST] ERROR=%d" % p.cast_error)
 			if p.hit_target_id >= 0:
 				print("[CAST] HIT target=%d" % p.hit_target_id)
+	elif last_snapshot.heroes.size() > 0:
+		var local_idx = last_snapshot.get_local_hero_index() if last_snapshot.has_method("get_local_hero_index") else 0
+		if local_idx >= 0 and local_idx < last_snapshot.heroes.size():
+			var p = last_snapshot.heroes[local_idx] as SimHeroSnap
+			if p:
+				camera_controller.follow_target(p.x, p.y)
+				bottom_hud.sync_player(p)
+				bottom_hud.sync_skills(p.skills)
+				if p.cast_state >= 3:
+					cast_bar_layer.sync_cast(p.cast_progress)
+				else:
+					cast_bar_layer.hide_cast()
+				var ev = entity_manager.get_entity(p.id)
+				_skill_vfx.set_skill_aiming(input_state_machine.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING)
+				_skill_vfx.sync(last_snapshot, ev)
+
+				if p.cast_slot != _log_prev_cast_slot:
+					print("[CAST] slot=%d state=%d err=%d" % [p.cast_slot, p.cast_state, p.cast_error])
+					_log_prev_cast_slot = p.cast_slot
+				if p.cast_state != _log_prev_cast_state:
+					print("[CAST] state %d->%d slot=%d err=%d prog=%.2f" % [_log_prev_cast_state, p.cast_state, p.cast_slot, p.cast_error, p.cast_progress])
+					_log_prev_cast_state = p.cast_state
+				if p.cast_error > 0:
+					print("[CAST] ERROR=%d" % p.cast_error)
+				if p.hit_target_id >= 0:
+					print("[CAST] HIT target=%d" % p.hit_target_id)
 
 
 func _trigger_c_slash(target_id: int) -> void:

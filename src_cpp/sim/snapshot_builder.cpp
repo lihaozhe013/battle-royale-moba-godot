@@ -1,7 +1,7 @@
 #include "snapshot_builder.h"
 #include "components.h"
 #include "game_config.h"
-#include "skill_defs.h"
+#include "skills/skill_registry.h"
 #include <chrono>
 
 namespace sim {
@@ -16,6 +16,7 @@ godot::Ref<SimSnapshot> SnapshotBuilder::build(entt::registry &reg, int seq) {
 
     _build_players(reg, snap);
     _build_bots(reg, snap);
+    _build_heroes(reg, snap);
     _build_arrows(reg, snap);
     _build_pickups(reg, snap);
     _build_events(reg, snap);
@@ -33,12 +34,12 @@ _build_skill_slot(const SkillSlot &slot, int char_level) {
     s->level = slot.Level;
     s->cooldown = slot.CooldownTimer;
     s->max_cooldown = slot.MaxCooldown;
-    const auto &def = get_skill_def(slot.SkillId);
-    float mana_mult = std::max(
-        GameConfig::SkillManaReductionMin,
-        1.0f - (char_level - 1) * def.ManaReductionPerLevel
-    );
-    s->mana_cost = def.ManaCost * mana_mult;
+    const ISkill *sk = SkillRegistry::instance().get(slot.SkillId);
+    if (sk) {
+        s->mana_cost = sk->mana_cost(slot.Level);
+    } else {
+        s->mana_cost = 0.0f;
+    }
     return s;
 }
 
@@ -113,16 +114,17 @@ void SnapshotBuilder::_build_players(
             s->cast_error = cs.CastError;
 
             // Calculate progress
-            const auto &def = get_skill_def(cs.SkillId);
             float max_timer = 0.0f;
-            if (cs.State == CastState::Phase::Casting)
-                max_timer = def.CastTime;
-            else if (cs.State == CastState::Phase::Channeling)
-                max_timer = def.EffectValue;
-            else if (cs.State == CastState::Phase::Dashing)
-                max_timer =
-                    def.Range /
-                    (def.ProjectileSpeed > 0 ? def.ProjectileSpeed : 20.0f);
+            const ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
+            if (sk) {
+                auto &slot = reg.get<SkillComponent>(e).Slots[cs.ActiveSlot];
+                if (cs.State == CastState::Phase::Casting)
+                    max_timer = sk->cast_time(slot.Level);
+                else if (cs.State == CastState::Phase::Channeling)
+                    max_timer = sk->effect_value(slot.Level);
+                else if (cs.State == CastState::Phase::Dashing)
+                    max_timer = sk->range(slot.Level) / 20.0f;
+            }
             s->cast_progress =
                 (max_timer > 0.0f) ? (1.0f - cs.Timer / max_timer) : 0.0f;
         }
@@ -266,6 +268,107 @@ void SnapshotBuilder::_build_aoes(
         s->remaining = aoe.Timer;
         s->duration = aoe.Duration;
         snap->aoes.push_back(s);
+    }
+}
+
+void SnapshotBuilder::_build_heroes(
+    entt::registry &reg, const godot::Ref<SimSnapshot> &snap
+) {
+    auto view = reg.view<HeroTag, Position2D, FacingAngle, Health,
+                         Mana, Level, MoveSpeed, CombatStats,
+                         NetworkId, Kills, Experience>();
+    for (auto e : view) {
+        auto s = godot::Ref<SimHeroSnap>(memnew(SimHeroSnap));
+        s->id = view.get<NetworkId>(e).Value;
+        s->x = view.get<Position2D>(e).Value.x;
+        s->y = view.get<Position2D>(e).Value.y;
+        s->ang = view.get<FacingAngle>(e).Radians;
+        s->hp = view.get<Health>(e).Cur;
+        s->max_hp = view.get<Health>(e).Max;
+        s->dead = reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled;
+        s->mana = view.get<Mana>(e).Cur;
+        s->max_mana = view.get<Mana>(e).Max;
+        s->atk = view.get<CombatStats>(e).Atk;
+        s->asp = view.get<CombatStats>(e).Asp;
+        s->kills = view.get<Kills>(e).Value;
+        s->level = view.get<Level>(e).Value;
+        s->xp = view.get<Experience>(e).Cur;
+        s->xp_needed = view.get<Experience>(e).Needed;
+        s->speed = view.get<MoveSpeed>(e).Value;
+        s->is_local = view.get<HeroTag>(e).IsLocal;
+        s->hero_def_id = reg.all_of<HeroDefId>(e)
+            ? reg.get<HeroDefId>(e).Value : 0;
+        s->tier = reg.all_of<BotTier>(e)
+            ? static_cast<int>(reg.get<BotTier>(e)) : 0;
+
+        if (reg.all_of<SkillComponent>(e)) {
+            _build_skills(s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value);
+        }
+
+        s->status = 0;
+        if (reg.all_of<StatusEffect>(e)) {
+            auto &st = reg.get<StatusEffect>(e);
+            s->status = static_cast<int>(st.Type);
+        }
+
+        if (reg.all_of<CastState>(e)) {
+            auto &cs = reg.get<CastState>(e);
+            s->cast_state = static_cast<int>(cs.State);
+            s->cast_slot = cs.ActiveSlot;
+            s->cast_aim_x = cs.AimPos.x;
+            s->cast_aim_y = cs.AimPos.y;
+            s->dash_sx = cs.DashStart.x;
+            s->dash_sy = cs.DashStart.y;
+            s->dash_tx = cs.DashTarget.x;
+            s->dash_ty = cs.DashTarget.y;
+            s->hit_target_id = cs.HitTargetId;
+            s->cast_error = cs.CastError;
+
+            float max_timer = 0.0f;
+            if (reg.all_of<SkillComponent>(e)) {
+                auto &skills = reg.get<SkillComponent>(e);
+                if (cs.ActiveSlot >= 0 && cs.ActiveSlot < 4) {
+                    const ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
+                    if (sk) {
+                        auto &slot = skills.Slots[cs.ActiveSlot];
+                        if (cs.State == CastState::Phase::Casting)
+                            max_timer = sk->cast_time(slot.Level);
+                        else if (cs.State == CastState::Phase::Channeling)
+                            max_timer = sk->effect_value(slot.Level);
+                        else if (cs.State == CastState::Phase::Dashing)
+                            max_timer = sk->range(slot.Level) / 20.0f;
+                    }
+                }
+            }
+            s->cast_progress =
+                (max_timer > 0.0f) ? (1.0f - cs.Timer / max_timer) : 0.0f;
+        }
+
+        s->attack_target_id = -1;
+        if (reg.all_of<AttackTarget>(e)) {
+            s->attack_target_id = reg.get<AttackTarget>(e).TargetNetworkId;
+        }
+
+        s->cast_target_id = -1;
+        s->is_moving = false;
+        s->skill_points = 0;
+        if (reg.all_of<CastState>(e)) {
+            auto &cs = reg.get<CastState>(e);
+            s->cast_target_id = cs.TargetNetworkId;
+        }
+        if (reg.all_of<MovePath>(e)) {
+            auto &path = reg.get<MovePath>(e);
+            if (path.Following) s->is_moving = true;
+        }
+        if (reg.all_of<AttackTarget>(e)) {
+            auto &at = reg.get<AttackTarget>(e);
+            if (at.Chasing) s->is_moving = true;
+        }
+        if (reg.all_of<SkillPoints>(e)) {
+            s->skill_points = reg.get<SkillPoints>(e).Available;
+        }
+
+        snap->heroes.push_back(s);
     }
 }
 

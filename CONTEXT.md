@@ -1,7 +1,7 @@
 # AGENTS.md — 项目上下文快照
 
-> 最后更新：2026-07-20
-> 当前阶段：**Hero + Skill 系统重构设计完成**（方案文档已就绪，待实施）
+> 最后更新：2026-07-21
+> 当前阶段：**Hero + Skill 系统重构已实施**（P1-P6 全部完成）
 > 引擎：Godot 4.7
 > 架构：C++ GDExtension ECS (Sim) + GDScript (View)
 
@@ -160,18 +160,23 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | **WASD 模式彻底移除**                                                             | `player_movement.h` 移除 WASD 分支；`sim_bridge.gd` 移除旧 InputCollector 引用                   |
 | **refund 配置化（v2 默认退蓝退 CD）**                                              | `GameConfig::RefundOnCastInterrupt = true` / `RefundOnChaseInterrupt = true`                      |
 
-### 📋 已规划（Hero + Skill 系统重构，待实施）
+### 📋 已实施（Hero + Skill 系统重构，P1-P5）
 
-参照 `Docs/Reference/hero_skill_architecture.md` 分阶段推进：
+参照 `Docs/Reference/hero_skill_architecture.md`：
 
-| # | 阶段 | 内容 | 风险 |
+| # | 阶段 | 内容 | 状态 |
 |---|------|------|------|
-| P1 | 组件重构 | 新增 `HeroTag` / `HeroInputState` / `HeroDefId`；Player/Bot spawn 统一 | 低 |
-| P2 | HeroDef | 搭建 `heroes/` 注册表，英雄属性集中管理 | 低 |
-| P3 | Skill 接口化 | `ISkill` + `SkillRegistry`；5 个技能类独立；退化工 `skill_cast` 为调度器 | **高** |
-| P4 | System 泛化 | `player_*`→通用名 + 泛化；`bot_combat` 删除；新增 `bot_skill_decider` / `bot_input_injection` | 中 |
-| P5 | Snapshot + View 迁移 | `SimHeroSnap` 替代 `players`+`bots`；View 层全部改用单数组 | 中 |
-| P6 | Bot 技能决策 | Bot AI 写入 `HeroInputState`；技能优先级选择；Bot 技能系数落地 | 中 |
+| P1 | 组件重构 | `HeroTag` / `HeroInputState` / `HeroDefId` / `BotCastRequest` 新增；`PlayerTag`=`HeroTag` 别名过渡 | ✅ |
+| P2 | HeroDef | `heroes/` 目录 + `HeroDef` + `HeroRegistry`（Swordsman） | ✅ |
+| P3 | Skill 接口化 | `skills/` 目录 + `ISkill` + `SkillRegistry` + 4 技能类；`skill_cast.h` 退化为调度器 | ✅ |
+| P4 | System 泛化 | `player_*` → `attack_command`/`attack_fire`/`pathfinding`/`movement`；`bot_combat` 删除；`bot_skill_decider`/`bot_input_injection` 新增；`bot_ai` 移除直接 pos 写 | ✅ |
+| P5 | Snapshot + View | `SimHeroSnap` 实现；`snap.heroes` 新增；View 层支持双格式（heroes + players/bots 兼容） | ✅ |
+
+### 📋 待实施（P6: Bot 行为树补完）
+
+| # | 任务 | 内容 |
+|---|------|------|
+| P6 | Bot 技能决策验证 | 验证 Bot 通过 `HeroInputState` 的技能使用全链路正确性 |
 
 ### ❌ 待做（后续 MOBA 模块）
 
@@ -192,31 +197,26 @@ src_cpp/sim/                     ← C++ Sim 层核心
 ## SimSnapshot 快照字段速查
 
 ```
-SimSnapshot.seq / t / players[] / bots[] / arrows[] / pickups[] / events[]
-SimPlayerSnap: id, x, y, ang, hp, max_hp, mana, max_mana, atk, asp, speed, kills, level, xp, xp_needed, skills[], cast_state, cast_slot, cast_progress, cast_aim_x/y, dash_sx/sy, dash_tx/ty, hit_target_id, cast_error, attack_target_id, cast_target_id, is_moving, skill_points
-SimBotSnap:    id, x, y, ang, hp, max_hp, dead, mana, max_mana, atk, asp, kills, level, xp, xp_needed, speed, tier, skills[]
-SimArrowSnap:  id, x, y, ang
-SimPickupSnap: id, x, y, type(0/1/2), value
-SimEventSnap:  killer_id, victim_id
-SimAoESnap:    id, x, y, radius, remaining, duration
+SimSnapshot.seq / t / players[] / bots[] / heroes[] / arrows[] / pickups[] / events[] / aoes[]
+SimHeroSnap:    id, x, y, ang, hp, max_hp, dead, mana, max_mana, atk, asp, speed, kills, level, xp, xp_needed, status, skills[], cast_state, cast_slot, cast_progress, cast_aim_x/y, dash_sx/sy, dash_tx/ty, hit_target_id, cast_error, attack_target_id, cast_target_id, is_moving, skill_points, tier, is_local, hero_def_id
+SimPlayerSnap:  id, x, y, ang, hp, max_hp, mana, max_mana, atk, asp, speed, kills, level, xp, xp_needed, skills[], cast_state, cast_slot, cast_progress, cast_aim_x/y, dash_sx/sy, dash_tx/ty, hit_target_id, cast_error, attack_target_id, cast_target_id, is_moving, skill_points
+SimBotSnap:     id, x, y, ang, hp, max_hp, dead, mana, max_mana, atk, asp, kills, level, xp, xp_needed, speed, tier, status, skills[]
+SimArrowSnap:   id, x, y, ang
+SimPickupSnap:  id, x, y, type(0/1/2), value
+SimEventSnap:   killer_id, victim_id
+SimAoESnap:     id, x, y, radius, remaining, duration
 ```
-
-> 🏗 规划：`SimPlayerSnap` + `SimBotSnap` 合并为 `SimHeroSnap`，见 `Docs/Reference/hero_skill_architecture.md` §6。
 
 ## tick 顺序
 
-**当前 v2（20 systems，详见 `Docs/Reference/input_system_design.md` §13）：**
+**当前 v3（Hero 统一后，22 systems）：**
 
 ```
-local_input_injection → player_attack_command → skill_cast → player_pathfinding →
-player_movement → player_attack_fire → bot_targeting → bot_ai → bot_combat →
-arrow_movement → wall_collision → combat → pickup → aoe → status_effect →
-mana_regen → skill_cooldown → skill_level → progression → snapshot_export
+local_input_injection → bot_targeting → bot_ai → bot_skill_decider → bot_input_injection →
+attack_command → skill_cast → pathfinding → movement → attack_fire →
+arrow_movement → wall_collision → combat →
+pickup → aoe → status_effect → mana_regen → skill_cooldown → skill_level → progression → snapshot_export
 ```
-
-> **关键**：`skill_cast` 提前到 `player_pathfinding` 之前，保证 confirm 同 tick 设 Chasing + 算 A\* + 移动，**无 1 tick 延迟**。
-
-> 🏗 规划 v3 tick 顺序（Hero 统一后）：见 `Docs/Reference/hero_skill_architecture.md` §9。
 
 ## 新增字段（SimSnapshot）
 
@@ -230,22 +230,22 @@ mana_regen → skill_cooldown → skill_level → progression → snapshot_expor
 
 ## 新增组件（components.h — 重构后目标，部分 v1 已有部分待新增）
 
-| 组件                                             | 字段                                                                                                                                                                                          | v1 状态                                             |
+| 组件                                             | 字段                                                                                                                                                                                          | 状态                                                |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | `Mana`                                           | `Cur, Max, RegenRate, RegenDelay, RegenTimer`                                                                                                                                                 | ✅ 已有                                             |
-| `SkillSlot`                                      | `SkillId, Level, CooldownTimer, MaxCooldown, ManaCost`                                                                                                                                        | ⚠️ **Level 字段待新增**                             |
-| `SkillComponent`                                 | `Slots[4]`                                                                                                                                                                                    | ⚠️ v1 是 `Slots[5]`（含普攻虚拟槽），重构后改 `[4]` |
-| `SkillPoints`                                    | `Available`                                                                                                                                                                                   | ❌ **待新增**（v1 完全缺失）                        |
-| `CastState`                                      | `State(Phase 枚举含 Chasing), ActiveSlot, SkillId, Timer, SubTimer, AimPos, DashStart, DashTarget, HitTargetId, CastError, TargetEntity, TargetNetworkId, QuickCast`                          | ⚠️ v1 无 Chasing/TargetNetworkId/QuickCast          |
-| `StatusEffect`                                   | `Type(StatusType 枚举), Timer`                                                                                                                                                                | ✅ 已有                                             |
+| `SkillSlot`                                      | `SkillId, Level, CooldownTimer, MaxCooldown, ManaCost`                                                                                                                                        | ✅ 已有                                             |
+| `SkillComponent`                                 | `Slots[4]`                                                                                                                                                                                    | ✅ 已有                                             |
+| `SkillPoints`                                    | `Available`                                                                                                                                                                                   | ✅ 已有                                             |
+| `CastState`                                      | `State(Phase), ActiveSlot, SkillId, Timer, SubTimer, AimPos, DashStart, DashTarget, HitTargetId, CastError, TargetEntity, TargetNetworkId, QuickCast, RejectTimer`                           | ✅ 已有                                             |
+| `StatusEffect`                                   | `Type(StatusType), Timer`                                                                                                                                                                     | ✅ 已有                                             |
 | `AoETag`                                         | `OwnerId, SkillId, Radius, Duration, Timer`                                                                                                                                                   | ✅ 已有                                             |
 | `MovePath`                                       | `Waypoints[], CurrentIndex, Following, FinalTarget`                                                                                                                                           | ✅ 已有                                             |
-| `AttackTarget`                                   | `Target, TargetNetworkId, Chasing`                                                                                                                                                            | ⚠️ v1 无 Chasing 字段                               |
+| `AttackTarget`                                   | `Target, TargetNetworkId, Chasing`                                                                                                                                                            | ✅ 已有                                             |
 | `Homing`                                         | `Target, TargetNetId`                                                                                                                                                                         | ✅ 已有                                             |
-| `LocalInputSingleton`/`PlayerInputState`（重构） | `MoveTarget, MoveIssue, Stop, SkillSlot, SkillConfirm, SkillAim, SkillTargetId, SkillUpgradeSlot, CancelSkill, CancelAttack, AttackTargetId, AttackGround, AttackGroundPos, AttackClear, Seq` | ❌ **完全重构**（v1 是 Move/Aim/Fire/Cast* 旧字段） |
-| `ArrowTag`（扩展）                               | `+LifestealRatio`                                                                                                                                                                             | ✅ 已有                                             |
-| `HeroTag` / `HeroInputState` / `HeroDefId`       | **规划中**                                                                                                                                                                                    | ❌ **待新增**P1 （替代 PlayerTag/BotTag）            |
-| `BotCastRequest`                                 | `TargetSlot, AimPos, TargetNetworkId, Valid`                                                                                                                                                  | ❌ **待新增**P4 （Bot 技能选择意图）                |
+| `LocalInputSingleton`/`PlayerInputState`（重构） | `MoveTarget, MoveIssue, Stop, SkillSlot, SkillConfirm, SkillAim, SkillTargetId, SkillUpgradeSlot, CancelSkill, CancelAttack, AttackTargetId, AttackGround, AttackGroundPos, AttackClear, Seq` | ✅ 已有                                             |
+| `ArrowTag`                                       | `OwnerId, OwnerEntity, Dmg, LifestealRatio`                                                                                                                                                   | ✅ 已有                                             |
+| `HeroTag` / `HeroInputState` / `HeroDefId` | — | ✅ v3 已实施（`PlayerTag`=别名，`PlayerInputState`=别名） |
+| `BotCastRequest`                                 | `TargetSlot, AimPos, TargetNetworkId, Valid`                                                                                                                              | ✅ v3 新增（P4）                                     |
 
 ## 新增 System（src_cpp/sim/systems/）
 
@@ -253,12 +253,13 @@ mana_regen → skill_cooldown → skill_level → progression → snapshot_expor
 | ------------------------------ | ------------------------- | -------------------------------------------------------------- |
 | `mana_regen_system`            | `mana_regen.h`            | Mana 每 tick 回复 ✅                                           |
 | `skill_cooldown_system`        | `skill_cooldown.h`        | 冷却计时递减 ✅                                                |
-| `skill_cast_system`            | `skill_cast.h`            | 施法状态机（v2 +Chasing 分支，无 1 tick 延迟） ⚠️              |
+| `skill_cast_system`            | `skill_cast.h`            | ISkill 调度器（v3 泛化，Player + Bot 共用） ✅                  |
 | `status_effect_system`         | `status_effect.h`         | Root/Stun timer 递减 ✅                                        |
 | `aoe_system`                   | `aoe.h`                   | AoE 实体生命周期 ✅                                            |
-| `player_pathfinding_system`    | `player_pathfinding.h`    | 读 MoveIssue → A* → 写 MovePath（v2 +技能 Chasing A\*） ⚠️     |
-| `player_attack_command_system` | `player_attack_command.h` | 处理 ATTACK 命令 + 目标验证 + 清锁 ✅                          |
-| `player_attack_fire_system`    | `player_attack_fire.h`    | 锁定目标射 homing 箭 ✅                                        |
-| `skill_level_system`           | `skill_level.h`           | **新增**：消费 SKILL_UPGRADE → SkillPoints-- + slot.Level++ ❌ |
-| `bot_skill_decider_system`     | `bot_skill_decider.h`     | **规划中**P3：Engage 技能优先级选择 → BotCastRequest           |
-| `bot_input_injection_system`   | `bot_input_injection.h`   | **规划中**P3：Bot AI 状态 → HeroInputState                     |
+| `pathfinding_system`           | `pathfinding.h`           | 读 MoveIssue → A* → 写 MovePath（v3 泛化） ✅                   |
+| `movement_system`              | `movement.h`              | MovePath + AttackTarget Chase → pos（v3 泛化） ✅               |
+| `attack_command_system`        | `attack_command.h`        | 处理 ATTACK 命令 + 目标验证 + 清锁 ✅                          |
+| `attack_fire_system`           | `attack_fire.h`           | 锁定目标射 homing 箭（v3 泛化，替代 bot_combat） ✅             |
+| `skill_level_system`           | `skill_level.h`           | 消费 SKILL_UPGRADE → SkillPoints-- + slot.Level++ ✅           |
+| `bot_skill_decider_system`     | `bot_skill_decider.h`     | **新增** P4：Engage 技能优先级选择 → BotCastRequest ✅           |
+| `bot_input_injection_system`   | `bot_input_injection.h`   | **新增** P4：Bot AI 状态 → HeroInputState ✅                    |

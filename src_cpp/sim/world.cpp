@@ -1,12 +1,16 @@
 #include "world.h"
 #include "game_config.h"
+#include "heroes/hero_registry.h"
 #include "json_util.h"
-#include "skill_defs.h"
+#include "skills/skill_registry.h"
 #include <cmath>
 
 namespace sim {
 
-World::World() : _rng(42) {}
+World::World() : _rng(42) {
+    register_builtin_heroes();
+    register_builtin_skills();
+}
 
 void World::initialize(const std::string &map_json) {
     auto map = parse_map_json(map_json);
@@ -17,21 +21,21 @@ void World::initialize(const std::string &map_json) {
     _local_input_entity = _reg.create();
     _reg.emplace<LocalInputSingleton>(
         _local_input_entity,
-        Vec2{0.0f},   // MoveTarget
-        false,         // MoveIssue
-        false,         // Stop
-        -1,            // SkillSlot
-        false,         // SkillConfirm
-        Vec2{0.0f},   // SkillAim
-        -1,            // SkillTargetId
-        -1,            // SkillUpgradeSlot
-        false,         // CancelSkill
-        false,         // CancelAttack
-        -1,            // AttackTargetId
-        false,         // AttackGround
-        Vec2{0.0f},   // AttackGroundPos
-        false,         // AttackClear
-        0              // Seq
+        Vec2{0.0f},
+        false,
+        false,
+        -1,
+        false,
+        Vec2{0.0f},
+        -1,
+        -1,
+        false,
+        false,
+        -1,
+        false,
+        Vec2{0.0f},
+        false,
+        0
     );
 
     _id_state_entity = _reg.create();
@@ -115,13 +119,10 @@ void World::set_stop_command(bool stop) {
     }
 }
 
-// ── 废弃 v1 API（临时保留，视图中 sim_bridge 临时适配后逐步移除） ──
 void World::set_local_input(const Vec2 &move, const Vec2 &aim, bool fire, int seq) {
-    // Deprecated: no-op in v2
 }
 
 void World::set_cast_input(int cast_slot, bool confirm, bool cancel, bool interrupt, float aim_x, float aim_y, int target_id) {
-    // Deprecated: maps to new API for backward compat
     if (_local_input_entity != entt::null) {
         auto &li = _reg.get<LocalInputSingleton>(_local_input_entity);
         li.SkillSlot = cast_slot;
@@ -143,31 +144,23 @@ void World::tick(double dt) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
     float map_half = _reg.get<MapBounds>(_map_bounds_entity).Half;
 
-    // ── Phase 1-2: Input injection + attack command ──
     local_input_injection_system(_reg, _local_input_entity);
-    player_attack_command_system(_reg, fdt);
 
-    // ── Phase 3: skill_cast (提前到 pathfinding 之前，同 tick 设 Chasing/Chasing → Casting) ──
-    skill_cast_system(_reg, fdt, _cb, ids, _time);
-
-    // ── Phase 4-5: 寻路 + 移动 ──
-    player_pathfinding_system(_reg, _nav_grid);
-    player_movement_system(_reg, fdt, map_half);
-
-    // ── Phase 6: 普攻射击 ──
-    player_attack_fire_system(_reg, _time, _cb, ids);
-
-    // ── Bot ──
     bot_targeting_system(_reg, _rng, fdt);
     bot_ai_system(_reg, fdt, map_half, _rng);
-    bot_combat_system(_reg, _time, _cb, ids);
+    bot_skill_decider_system(_reg, _rng);
+    bot_input_injection_system(_reg);
 
-    // ── 物理 ──
+    attack_command_system(_reg, fdt);
+    skill_cast_system(_reg, fdt, _cb, ids, _time);
+    pathfinding_system(_reg, _nav_grid);
+    movement_system(_reg, fdt, map_half);
+    attack_fire_system(_reg, _time, _cb, ids);
+
     arrow_movement_system(_reg, fdt);
     wall_collision_system(_reg, _cb);
     combat_system(_reg, _cb);
 
-    // Check if local player died → stop game loop
     {
         auto pv = _reg.view<PlayerTag, Dead>();
         for (auto p : pv) {
@@ -178,13 +171,12 @@ void World::tick(double dt) {
         }
     }
 
-    // ── 游戏系统 ──
     pickup_system(_reg, fdt, _cb, ids);
     aoe_system(_reg, fdt, _cb);
     status_effect_system(_reg, fdt);
     mana_regen_system(_reg, fdt);
     skill_cooldown_system(_reg, fdt);
-    skill_level_system(_reg);                          // ← 新增
+    skill_level_system(_reg);
     progression_system(_reg);
     snapshot_export_system(_reg, _tick_counter, _latest_snapshot);
 
@@ -195,34 +187,33 @@ void World::_spawn_player(int player_id, bool is_local) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
     ids.NextPlayerId = player_id + 1;
 
+    const auto &def = HeroRegistry::instance().get(1);
+
     float half = GameConfig::MapHalf - GameConfig::PlayerRadius;
     Vec2 pos = _random_map_pos(half, GameConfig::PlayerRadius);
 
     auto e = _reg.create();
-    _reg.emplace<PlayerTag>(e, is_local);
+    _reg.emplace<HeroTag>(e, is_local);
+    _reg.emplace<HeroDefId>(e, def.Id);
     _reg.emplace<NetworkId>(e, player_id);
     _reg.emplace<Position2D>(e, pos);
     _reg.emplace<FacingAngle>(e, 0.0f);
-    _reg.emplace<Health>(e, GameConfig::PlayerBaseHp, GameConfig::PlayerBaseHp);
+    _reg.emplace<Health>(e, def.BaseHp, def.BaseHp);
     _reg.emplace<Mana>(
-        e,
-        GameConfig::PlayerBaseMana,
-        GameConfig::PlayerBaseMana,
-        GameConfig::PlayerManaRegen,
-        GameConfig::ManaRegenDelay,
-        0.0f
+        e, def.BaseMana, def.BaseMana,
+        GameConfig::PlayerManaRegen, GameConfig::ManaRegenDelay, 0.0f
     );
     _reg.emplace<CombatStats>(
-        e, GameConfig::BaseAttack, GameConfig::BaseAttackSpeed, -999.0
+        e, def.BaseAtk, def.BaseAsp, -999.0
     );
     _reg.emplace<Kills>(e, 0);
-    _reg.emplace<PlayerInputState>(e);
-    _reg.emplace<SkillPoints>(e, 0); // 初始 0 点
+    _reg.emplace<HeroInputState>(e);
+    _reg.emplace<SkillPoints>(e, 0);
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, 1);
     _reg.emplace<Experience>(e, 0, GameConfig::XpPerLevelBase);
-    _reg.emplace<MoveSpeed>(e, GameConfig::PlayerSpeed);
+    _reg.emplace<MoveSpeed>(e, def.BaseMoveSpeed);
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
     _reg.emplace<MovePath>(e);
@@ -230,12 +221,12 @@ void World::_spawn_player(int player_id, bool is_local) {
 
     SkillComponent sc;
     for (int i = 0; i < 4; ++i) {
-        int sid = GameConfig::PlayerSkillIds[i];
-        const auto &def = get_skill_def(sid);
+        int sid = def.SkillIds[i];
+        const ISkill *sk = SkillRegistry::instance().get(sid);
         sc.Slots[i].SkillId = sid;
         sc.Slots[i].Level = 1;
-        sc.Slots[i].MaxCooldown = def.Cooldown;
-        sc.Slots[i].ManaCost = def.ManaCost;
+        sc.Slots[i].MaxCooldown = sk ? sk->base_cooldown() : 0.0f;
+        sc.Slots[i].ManaCost = sk ? sk->base_mana_cost() : 0.0f;
     }
     _reg.emplace<SkillComponent>(e, sc);
 }
@@ -271,6 +262,8 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     BotTier tier = detail::roll_bot_tier_for_role(role, _rng);
     auto mult = detail::tier_mult(tier);
 
+    const auto &def = HeroRegistry::instance().get(1);
+
     int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
     float atk =
         (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::AtkPerLevel) *
@@ -290,6 +283,8 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     Vec2 target = _random_map_pos(half, GameConfig::BotRadius);
 
     auto e = _reg.create();
+    _reg.emplace<HeroTag>(e, false);
+    _reg.emplace<HeroDefId>(e, def.Id);
     _reg.emplace<BotTag>(e);
     _reg.emplace<NetworkId>(e, bot_id);
     _reg.emplace<Position2D>(e, pos);
@@ -307,6 +302,7 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
         GameConfig::ManaRegenDelay,
         0.0f
     );
+    _reg.emplace<HeroInputState>(e);
     _reg.emplace<BotAIState>(
         e, target, 0.0f, entt::null, _random_wander_time()
     );
@@ -321,21 +317,24 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<Level>(e, new_lv);
     _reg.emplace<Experience>(e, 0, new_lv * GameConfig::XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, spd);
+    _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
+    _reg.emplace<MovePath>(e);
+    _reg.emplace<AttackTarget>(e);
 
     SkillComponent sc;
     for (int i = 0; i < 4; ++i) {
-        int sid = GameConfig::BotSkillIds[i];
-        const auto &def = get_skill_def(sid);
+        int sid = def.SkillIds[i];
+        const ISkill *sk = SkillRegistry::instance().get(sid);
         sc.Slots[i].SkillId = sid;
-        sc.Slots[i].MaxCooldown = def.Cooldown;
-        sc.Slots[i].ManaCost = def.ManaCost;
+        sc.Slots[i].Level = 1;
+        sc.Slots[i].MaxCooldown = sk ? sk->base_cooldown() * GameConfig::BotSkillCooldownMul : 0.0f;
+        sc.Slots[i].ManaCost = sk ? sk->base_mana_cost() : 0.0f;
     }
     _reg.emplace<SkillComponent>(e, sc);
 }
 
 void World::_spawn_pickup_spawners() {
-    // Collect wall bounds for spawn position validation
     std::vector<WallBounds> walls;
     auto wall_view = _reg.view<WallBounds>();
     for (auto w : wall_view)
@@ -355,7 +354,6 @@ void World::_spawn_pickup_spawners() {
             float base_y = -36.0f + row * 8.0f;
             Vec2 pos{base_x + xp_offset(_rng), base_y + xp_offset(_rng)};
 
-            // Discard if outside map bounds or inside a wall
             if (std::abs(pos.x) >= half || std::abs(pos.y) >= half)
                 continue;
             bool blocked = false;
