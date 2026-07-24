@@ -5,3 +5,4 @@ ReflowComments: true
 BinPackParameters: false
 BinPackArguments: false
 AlignAfterOpenBracket: BlockIndent
+ColumnLimit: 80

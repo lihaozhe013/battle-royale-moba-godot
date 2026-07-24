@@ -60,7 +60,11 @@ class DashSkill : public ISkill {
     }
 
     void on_dash_update(
-        entt::registry &reg, entt::entity caster, CastState &cs, int level, float dt
+        entt::registry &reg,
+        entt::entity caster,
+        CastState &cs,
+        int level,
+        float dt
     ) override {
         auto &pos = reg.get<Position2D>(caster);
         float total_dist = glm::length(cs.DashTarget - cs.DashStart);
