@@ -15,6 +15,9 @@ add_library(battle_royale_sim SHARED
     register_types.cpp
     sim_server.cpp
     sim/world.cpp
+    sim/world_input.cpp
+    sim/world_spawn.cpp
+    sim/nav_grid.cpp
     sim/snapshot_builder.cpp
     sim/snapshot_bindings.cpp
     sim/heroes/hero_registry.cpp

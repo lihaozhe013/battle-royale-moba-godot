@@ -51,6 +51,321 @@ inline Vec2 _perp_left(const Vec2 &v) { return Vec2{-v.y, v.x}; }
 
 } // namespace detail
 
+inline void bot_respawn_tick(
+    entt::registry &reg,
+    entt::entity e,
+    BotAIState &ai,
+    BotBehaviorState &beh,
+    Position2D &pos,
+    Health &hp,
+    CombatStats &stats,
+    MoveSpeed &speed,
+    Level &lv,
+    Experience &exp,
+    BotVisionRange &vision,
+    float map_half,
+    std::mt19937 &rng
+) {
+    ai.RespawnTimer -= (1.0f / GameConfig::TickRate);
+    if (ai.RespawnTimer > 0.0f)
+        return;
+
+    reg.get<Dead>(e).enabled = false;
+
+    int counts[3] = {0, 0, 0};
+    auto role_view = reg.view<BotTag, BotRole>(entt::exclude<Dead>);
+    for (auto b : role_view) {
+        counts[static_cast<int>(role_view.get<BotRole>(b))]++;
+    }
+
+    float density[3] = {
+        counts[0] / (float)GameConfig::FodderWeight,
+        counts[1] / (float)GameConfig::StalkerWeight,
+        counts[2] / (float)GameConfig::BruteWeight,
+    };
+    BotRole role;
+    if (density[0] <= density[1] && density[0] <= density[2])
+        role = BotRole::Fodder;
+    else if (density[1] <= density[2])
+        role = BotRole::Stalker;
+    else
+        role = BotRole::Brute;
+
+    reg.get_or_emplace<BotRole>(e) = role;
+
+    int plv = 1;
+    auto pv = reg.view<PlayerTag, Level>();
+    for (auto p : pv) {
+        if (pv.get<PlayerTag>(p).IsLocal) {
+            plv = pv.get<Level>(p).Value;
+            break;
+        }
+    }
+    int high_count = 0;
+    auto bv = reg.view<BotTag, Level>();
+    for (auto b : bv) {
+        if (b != e && bv.get<Level>(b).Value >= 25)
+            high_count++;
+    }
+    int new_lv;
+    if (high_count < 3) {
+        new_lv =
+            std::uniform_int_distribution<int>(25, GameConfig::MaxHeroLevel)(
+                rng
+            );
+    } else {
+        int offset = std::uniform_int_distribution<int>(-3, 3)(rng);
+        new_lv = std::clamp(plv + offset, 1, GameConfig::MaxHeroLevel);
+    }
+
+    BotTier tier = detail::roll_bot_tier_for_role(role, rng);
+    auto mult = detail::tier_mult(tier);
+
+    reg.get_or_emplace<BotTier>(e) = tier;
+    lv.Value = new_lv;
+    int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
+    hp.Max = static_cast<int>(base_hp * mult.HpMul);
+    hp.Cur = hp.Max;
+    stats.Atk =
+        (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::AtkPerLevel) *
+        mult.AtkMul;
+    stats.Asp = std::min(
+        (GameConfig::BotBaseAttackSpeed +
+         (new_lv - 1) * GameConfig::AspPerLevel) *
+            mult.AspMul,
+        GameConfig::AspMax
+    );
+    speed.Value =
+        (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::SpeedPerLevel) *
+        mult.SpeedMul;
+    vision.Value = GameConfig::BotVisionRange * mult.VisionMul;
+    exp.Cur = 0;
+    exp.Needed = new_lv * GameConfig::XpPerLevelBase;
+
+    float half = map_half - GameConfig::BotRadius;
+    pos.Value = Vec2{
+        std::uniform_real_distribution<float>(-half, half)(rng),
+        std::uniform_real_distribution<float>(-half, half)(rng)
+    };
+    ai.MoveTarget = Vec2{
+        std::uniform_real_distribution<float>(-half, half)(rng),
+        std::uniform_real_distribution<float>(-half, half)(rng)
+    };
+    ai.RespawnTimer = 0.0f;
+    ai.TargetEntity = entt::null;
+    ai.WanderTimer = GameConfig::BotWanderIntervalMin +
+                     std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
+                         (GameConfig::BotWanderIntervalMax -
+                          GameConfig::BotWanderIntervalMin);
+    beh.Current = BotBehaviorState::Goal::Wander;
+    beh.PickupTarget = entt::null;
+}
+
+inline void bot_decide_goal(
+    entt::registry &reg,
+    entt::entity e,
+    BotAIState &ai,
+    BotBehaviorState &beh,
+    Position2D &pos,
+    Health &hp,
+    BotVisionRange &vision,
+    float dt,
+    std::mt19937 &rng
+) {
+    auto target_view = reg.view<Damageable, Position2D, Health>();
+    detail::_PickupVec heal_pickups, xp_pickups, small_heal_pickups;
+
+    beh.DecisionCooldown -= dt;
+    bool can_decide = beh.DecisionCooldown <= 0.0f;
+    if (can_decide) {
+        beh.DecisionCooldown = GameConfig::BotDecisionCooldown;
+    }
+
+    if (!can_decide)
+        return;
+
+    detail::_scan_pickups(reg, pos.Value, PickupType::Heal, heal_pickups);
+    detail::_scan_pickups(
+        reg, pos.Value, PickupType::SmallHeal, small_heal_pickups
+    );
+    detail::_scan_pickups(reg, pos.Value, PickupType::Xp, xp_pickups);
+
+    heal_pickups.insert(
+        heal_pickups.end(), small_heal_pickups.begin(), small_heal_pickups.end()
+    );
+    if (heal_pickups.size() > 1) {
+        std::sort(
+            heal_pickups.begin(), heal_pickups.end(), [](auto &a, auto &b) {
+                return a.dist_sq < b.dist_sq;
+            }
+        );
+    }
+
+    bool has_target = ai.TargetEntity != entt::null &&
+                      reg.valid(ai.TargetEntity) &&
+                      (!reg.all_of<Dead>(ai.TargetEntity) ||
+                       !reg.get<Dead>(ai.TargetEntity).enabled);
+
+    float nearest_enemy_dist_sq = std::numeric_limits<float>::max();
+    for (auto tgt : target_view) {
+        if (tgt == e)
+            continue;
+        if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled)
+            continue;
+        Vec2 delta = target_view.get<Position2D>(tgt).Value - pos.Value;
+        float d_sq = vec2_length_sq(delta);
+        if (d_sq < nearest_enemy_dist_sq) {
+            nearest_enemy_dist_sq = d_sq;
+        }
+    }
+    bool enemy_in_vision = nearest_enemy_dist_sq < vision.Value * vision.Value;
+    float hp_ratio = static_cast<float>(hp.Cur) / static_cast<float>(hp.Max);
+
+    beh.GoalCommitTimer -= dt;
+    bool can_change_goal = beh.GoalCommitTimer <= 0.0f;
+
+    BotBehaviorState::Goal new_goal = beh.Current;
+    entt::entity new_pickup = entt::null;
+    bool goal_changed = false;
+
+    bool emergency = hp_ratio < 0.3f && enemy_in_vision;
+
+    if (emergency) {
+        new_goal = BotBehaviorState::Goal::Flee;
+        goal_changed = true;
+    } else if (can_change_goal) {
+        if (hp_ratio < 0.6f && !heal_pickups.empty()) {
+            new_goal = BotBehaviorState::Goal::SeekHeal;
+            new_pickup = detail::_pick_top3_random(heal_pickups, rng);
+            goal_changed = true;
+        } else if ((!has_target || !enemy_in_vision) && !xp_pickups.empty()) {
+            new_goal = BotBehaviorState::Goal::SeekXp;
+            new_pickup = detail::_pick_top3_random(xp_pickups, rng);
+            goal_changed = true;
+        } else if (has_target) {
+            new_goal = BotBehaviorState::Goal::Engage;
+            goal_changed = true;
+        } else {
+            new_goal = BotBehaviorState::Goal::Wander;
+            goal_changed = true;
+        }
+    }
+
+    if (goal_changed) {
+        beh.Current = new_goal;
+        beh.GoalCommitTimer = GameConfig::BotGoalCommitTime;
+    }
+    beh.PickupTarget = new_pickup;
+
+    if (beh.Current == BotBehaviorState::Goal::Engage) {
+        std::bernoulli_distribution coin(0.5);
+        beh.StrafeDir = coin(rng) ? 1 : -1;
+    }
+}
+
+inline Vec2
+bot_compute_flee_target(entt::registry &reg, entt::entity e, Position2D &pos) {
+    auto target_view = reg.view<Damageable, Position2D, Health>();
+    float nearest_dist = std::numeric_limits<float>::max();
+    Vec2 flee_from{0, 0};
+    for (auto tgt : target_view) {
+        if (tgt == e)
+            continue;
+        if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled)
+            continue;
+        Vec2 delta = target_view.get<Position2D>(tgt).Value - pos.Value;
+        float d_sq = vec2_length_sq(delta);
+        if (d_sq < nearest_dist) {
+            nearest_dist = d_sq;
+            flee_from = target_view.get<Position2D>(tgt).Value;
+        }
+    }
+    if (nearest_dist < std::numeric_limits<float>::max()) {
+        Vec2 away_dir = pos.Value - flee_from;
+        float len = glm::length(away_dir);
+        if (len > 0.01f) {
+            return pos.Value + (away_dir / len) * GameConfig::BotFleeDist;
+        }
+    }
+    return pos.Value;
+}
+
+inline Vec2 bot_compute_engage_target(
+    entt::registry &reg,
+    entt::entity e,
+    BotAIState &ai,
+    BotBehaviorState &beh,
+    Position2D &pos,
+    BotVisionRange &vision
+) {
+    if (ai.TargetEntity == entt::null || !reg.valid(ai.TargetEntity) ||
+        !reg.all_of<Position2D>(ai.TargetEntity)) {
+        return pos.Value;
+    }
+
+    Vec2 tgt_pos = reg.get<Position2D>(ai.TargetEntity).Value;
+    Vec2 to_target = tgt_pos - pos.Value;
+    float dist = glm::length(to_target);
+    if (dist < 0.001f)
+        return pos.Value;
+
+    Vec2 dir = to_target / dist;
+    float chase_enter = vision.Value * GameConfig::BotKiteChaseEnter;
+    float chase_exit = vision.Value * GameConfig::BotKiteChaseExit;
+    float retreat_exit = vision.Value * GameConfig::BotKiteRetreatExit;
+    float retreat_enter = vision.Value * GameConfig::BotKiteRetreatEnter;
+
+    switch (beh.Kite) {
+    case BotBehaviorState::KiteSub::Chase:
+        if (dist < chase_exit)
+            beh.Kite = BotBehaviorState::KiteSub::Strafe;
+        break;
+    case BotBehaviorState::KiteSub::Strafe:
+        if (dist > chase_enter)
+            beh.Kite = BotBehaviorState::KiteSub::Chase;
+        else if (dist < retreat_enter)
+            beh.Kite = BotBehaviorState::KiteSub::Retreat;
+        break;
+    case BotBehaviorState::KiteSub::Retreat:
+        if (dist > retreat_exit)
+            beh.Kite = BotBehaviorState::KiteSub::Strafe;
+        break;
+    }
+
+    switch (beh.Kite) {
+    case BotBehaviorState::KiteSub::Chase:
+        return tgt_pos;
+    case BotBehaviorState::KiteSub::Retreat:
+        return pos.Value - dir * GameConfig::BotKiteStrafeDist;
+    case BotBehaviorState::KiteSub::Strafe: {
+        Vec2 strafe =
+            (beh.StrafeDir > 0) ? detail::_perp_left(dir) : Vec2{dir.y, -dir.x};
+        return pos.Value + strafe * GameConfig::BotKiteStrafeDist;
+    }
+    }
+    return tgt_pos;
+}
+
+inline Vec2 bot_compute_wander_target(
+    BotAIState &ai, Position2D &pos, float map_half, float dt, std::mt19937 &rng
+) {
+    ai.WanderTimer -= dt;
+    Vec2 diff = ai.MoveTarget - pos.Value;
+    if (ai.WanderTimer <= 0.0f || vec2_length_sq(diff) < 0.25f) {
+        float half = map_half - GameConfig::BotRadius;
+        ai.MoveTarget = Vec2{
+            std::uniform_real_distribution<float>(-half, half)(rng),
+            std::uniform_real_distribution<float>(-half, half)(rng)
+        };
+        ai.WanderTimer =
+            GameConfig::BotWanderIntervalMin +
+            std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
+                (GameConfig::BotWanderIntervalMax -
+                 GameConfig::BotWanderIntervalMin);
+    }
+    return ai.MoveTarget;
+}
+
 inline void bot_ai_system(
     entt::registry &reg, float dt, float map_half, std::mt19937 &rng
 ) {
@@ -65,9 +380,6 @@ inline void bot_ai_system(
         Level,
         Experience,
         BotVisionRange>();
-    auto target_view = reg.view<Damageable, Position2D, Health>();
-
-    detail::_PickupVec heal_pickups, xp_pickups, small_heal_pickups;
 
     for (auto e : view) {
         auto &pos = view.get<Position2D>(e);
@@ -81,343 +393,51 @@ inline void bot_ai_system(
         auto &vision = view.get<BotVisionRange>(e);
         bool dead = reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled;
 
-        // ── Dead → Respawn ──
         if (dead) {
-            ai.RespawnTimer -= dt;
-            if (ai.RespawnTimer <= 0.0f) {
-                reg.get<Dead>(e).enabled = false;
-
-                int counts[3] = {0, 0, 0};
-                auto role_view = reg.view<BotTag, BotRole>(entt::exclude<Dead>);
-                for (auto b : role_view) {
-                    counts[static_cast<int>(role_view.get<BotRole>(b))]++;
-                }
-
-                float density[3] = {
-                    counts[0] / (float)GameConfig::FodderWeight,
-                    counts[1] / (float)GameConfig::StalkerWeight,
-                    counts[2] / (float)GameConfig::BruteWeight,
-                };
-                BotRole role;
-                if (density[0] <= density[1] && density[0] <= density[2])
-                    role = BotRole::Fodder;
-                else if (density[1] <= density[2])
-                    role = BotRole::Stalker;
-                else
-                    role = BotRole::Brute;
-
-                reg.get_or_emplace<BotRole>(e) = role;
-
-                int plv = 1;
-                auto pv = reg.view<PlayerTag, Level>();
-                for (auto p : pv) {
-                    if (pv.get<PlayerTag>(p).IsLocal) {
-                        plv = pv.get<Level>(p).Value;
-                        break;
-                    }
-                }
-                int high_count = 0;
-                auto bv = reg.view<BotTag, Level>();
-                for (auto b : bv) {
-                    if (b != e && bv.get<Level>(b).Value >= 25)
-                        high_count++;
-                }
-                int new_lv;
-                if (high_count < 3) {
-                    new_lv = std::uniform_int_distribution<
-                        int>(25, GameConfig::MaxHeroLevel)(rng);
-                } else {
-                    int offset = std::uniform_int_distribution<int>(-3, 3)(rng);
-                    new_lv =
-                        std::clamp(plv + offset, 1, GameConfig::MaxHeroLevel);
-                }
-
-                BotTier tier = detail::roll_bot_tier_for_role(role, rng);
-                auto mult = detail::tier_mult(tier);
-
-                reg.get_or_emplace<BotTier>(e) = tier;
-                lv.Value = new_lv;
-                int base_hp =
-                    GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
-                hp.Max = static_cast<int>(base_hp * mult.HpMul);
-                hp.Cur = hp.Max;
-                stats.Atk = (GameConfig::BotBaseAttack +
-                             (new_lv - 1) * GameConfig::AtkPerLevel) *
-                            mult.AtkMul;
-                stats.Asp = std::min(
-                    (GameConfig::BotBaseAttackSpeed +
-                     (new_lv - 1) * GameConfig::AspPerLevel) *
-                        mult.AspMul,
-                    GameConfig::AspMax
-                );
-                speed.Value = (GameConfig::BotSpeed +
-                               (new_lv - 1) * GameConfig::SpeedPerLevel) *
-                              mult.SpeedMul;
-                vision.Value = GameConfig::BotVisionRange * mult.VisionMul;
-                exp.Cur = 0;
-                exp.Needed = new_lv * GameConfig::XpPerLevelBase;
-
-                float half = map_half - GameConfig::BotRadius;
-                pos.Value = Vec2{
-                    std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)
-                };
-                ai.MoveTarget = Vec2{
-                    std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)
-                };
-                ai.RespawnTimer = 0.0f;
-                ai.TargetEntity = entt::null;
-                ai.WanderTimer =
-                    GameConfig::BotWanderIntervalMin +
-                    std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
-                        (GameConfig::BotWanderIntervalMax -
-                         GameConfig::BotWanderIntervalMin);
-                beh.Current = BotBehaviorState::Goal::Wander;
-                beh.PickupTarget = entt::null;
-            }
+            bot_respawn_tick(
+                reg,
+                e,
+                ai,
+                beh,
+                pos,
+                hp,
+                stats,
+                speed,
+                lv,
+                exp,
+                vision,
+                map_half,
+                rng
+            );
             continue;
         }
 
-        // ── Decision cooldown ──
-        beh.DecisionCooldown -= dt;
-        bool can_decide = beh.DecisionCooldown <= 0.0f;
-        if (can_decide) {
-            beh.DecisionCooldown = GameConfig::BotDecisionCooldown;
-        }
+        bot_decide_goal(reg, e, ai, beh, pos, hp, vision, dt, rng);
 
-        if (can_decide) {
-            detail::_scan_pickups(
-                reg, pos.Value, PickupType::Heal, heal_pickups
-            );
-            detail::_scan_pickups(
-                reg, pos.Value, PickupType::SmallHeal, small_heal_pickups
-            );
-            detail::_scan_pickups(reg, pos.Value, PickupType::Xp, xp_pickups);
-
-            heal_pickups.insert(
-                heal_pickups.end(),
-                small_heal_pickups.begin(),
-                small_heal_pickups.end()
-            );
-            if (heal_pickups.size() > 1) {
-                std::sort(
-                    heal_pickups.begin(),
-                    heal_pickups.end(),
-                    [](auto &a, auto &b) { return a.dist_sq < b.dist_sq; }
-                );
-            }
-
-            bool has_target = ai.TargetEntity != entt::null &&
-                              reg.valid(ai.TargetEntity) &&
-                              (!reg.all_of<Dead>(ai.TargetEntity) ||
-                               !reg.get<Dead>(ai.TargetEntity).enabled);
-
-            float nearest_enemy_dist_sq = std::numeric_limits<float>::max();
-            for (auto tgt : target_view) {
-                if (tgt == e)
-                    continue;
-                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled)
-                    continue;
-                Vec2 delta = target_view.get<Position2D>(tgt).Value - pos.Value;
-                float d_sq = vec2_length_sq(delta);
-                if (d_sq < nearest_enemy_dist_sq) {
-                    nearest_enemy_dist_sq = d_sq;
-                }
-            }
-            bool enemy_in_vision =
-                nearest_enemy_dist_sq < vision.Value * vision.Value;
-            float hp_ratio =
-                static_cast<float>(hp.Cur) / static_cast<float>(hp.Max);
-
-            beh.GoalCommitTimer -= dt;
-            bool can_change_goal = beh.GoalCommitTimer <= 0.0f;
-
-            BotBehaviorState::Goal new_goal = beh.Current;
-            entt::entity new_pickup = entt::null;
-            bool goal_changed = false;
-
-            bool emergency = hp_ratio < 0.3f && enemy_in_vision;
-
-            if (emergency) {
-                new_goal = BotBehaviorState::Goal::Flee;
-                goal_changed = true;
-            } else if (can_change_goal) {
-                if (hp_ratio < 0.6f && !heal_pickups.empty()) {
-                    new_goal = BotBehaviorState::Goal::SeekHeal;
-                    new_pickup = detail::_pick_top3_random(heal_pickups, rng);
-                    goal_changed = true;
-                } else if (
-                    (!has_target || !enemy_in_vision) && !xp_pickups.empty()
-                ) {
-                    new_goal = BotBehaviorState::Goal::SeekXp;
-                    new_pickup = detail::_pick_top3_random(xp_pickups, rng);
-                    goal_changed = true;
-                } else if (has_target) {
-                    new_goal = BotBehaviorState::Goal::Engage;
-                    goal_changed = true;
-                } else {
-                    new_goal = BotBehaviorState::Goal::Wander;
-                    goal_changed = true;
-                }
-            }
-
-            if (goal_changed) {
-                beh.Current = new_goal;
-                beh.GoalCommitTimer = GameConfig::BotGoalCommitTime;
-            }
-            beh.PickupTarget = new_pickup;
-
-            if (beh.Current == BotBehaviorState::Goal::Engage) {
-                std::bernoulli_distribution coin(0.5);
-                beh.StrafeDir = coin(rng) ? 1 : -1;
-            }
-        }
-
-        // ── Compute MoveTarget (no direct pos writes) ──
         Vec2 target_pos = ai.MoveTarget;
 
         switch (beh.Current) {
-        case BotBehaviorState::Goal::Flee: {
-            float nearest_dist = std::numeric_limits<float>::max();
-            Vec2 flee_from{0, 0};
-            for (auto tgt : target_view) {
-                if (tgt == e)
-                    continue;
-                if (reg.all_of<Dead>(tgt) && reg.get<Dead>(tgt).enabled)
-                    continue;
-                Vec2 delta = target_view.get<Position2D>(tgt).Value - pos.Value;
-                float d_sq = vec2_length_sq(delta);
-                if (d_sq < nearest_dist) {
-                    nearest_dist = d_sq;
-                    flee_from = target_view.get<Position2D>(tgt).Value;
-                }
-            }
-            if (nearest_dist < std::numeric_limits<float>::max()) {
-                Vec2 away_dir = pos.Value - flee_from;
-                float len = glm::length(away_dir);
-                if (len > 0.01f) {
-                    target_pos =
-                        pos.Value + (away_dir / len) * GameConfig::BotFleeDist;
-                }
-            }
+        case BotBehaviorState::Goal::Flee:
+            target_pos = bot_compute_flee_target(reg, e, pos);
             break;
-        }
-        case BotBehaviorState::Goal::SeekHeal: {
+        case BotBehaviorState::Goal::SeekHeal:
+        case BotBehaviorState::Goal::SeekXp:
             if (beh.PickupTarget != entt::null && reg.valid(beh.PickupTarget) &&
                 reg.all_of<Position2D>(beh.PickupTarget)) {
                 target_pos = reg.get<Position2D>(beh.PickupTarget).Value;
             }
             break;
-        }
-        case BotBehaviorState::Goal::SeekXp: {
-            if (beh.PickupTarget != entt::null && reg.valid(beh.PickupTarget) &&
-                reg.all_of<Position2D>(beh.PickupTarget)) {
-                target_pos = reg.get<Position2D>(beh.PickupTarget).Value;
-            } else {
-                detail::_scan_pickups(
-                    reg, pos.Value, PickupType::Xp, xp_pickups
-                );
-                if (!xp_pickups.empty()) {
-                    target_pos =
-                        reg.get<Position2D>(xp_pickups[0].entity).Value;
-                }
-            }
+        case BotBehaviorState::Goal::Engage:
+            target_pos =
+                bot_compute_engage_target(reg, e, ai, beh, pos, vision);
             break;
-        }
-        case BotBehaviorState::Goal::Engage: {
-            if (ai.TargetEntity != entt::null && reg.valid(ai.TargetEntity) &&
-                reg.all_of<Position2D>(ai.TargetEntity)) {
-                Vec2 tgt_pos = reg.get<Position2D>(ai.TargetEntity).Value;
-                Vec2 to_target = tgt_pos - pos.Value;
-                float dist = glm::length(to_target);
-                if (dist > 0.001f) {
-                    Vec2 dir = to_target / dist;
-                    float chase_enter =
-                        vision.Value * GameConfig::BotKiteChaseEnter;
-                    float chase_exit =
-                        vision.Value * GameConfig::BotKiteChaseExit;
-                    float retreat_exit =
-                        vision.Value * GameConfig::BotKiteRetreatExit;
-                    float retreat_enter =
-                        vision.Value * GameConfig::BotKiteRetreatEnter;
-
-                    switch (beh.Kite) {
-                    case BotBehaviorState::KiteSub::Chase:
-                        if (dist < chase_exit)
-                            beh.Kite = BotBehaviorState::KiteSub::Strafe;
-                        break;
-                    case BotBehaviorState::KiteSub::Strafe:
-                        if (dist > chase_enter)
-                            beh.Kite = BotBehaviorState::KiteSub::Chase;
-                        else if (dist < retreat_enter)
-                            beh.Kite = BotBehaviorState::KiteSub::Retreat;
-                        break;
-                    case BotBehaviorState::KiteSub::Retreat:
-                        if (dist > retreat_exit)
-                            beh.Kite = BotBehaviorState::KiteSub::Strafe;
-                        break;
-                    }
-
-                    switch (beh.Kite) {
-                    case BotBehaviorState::KiteSub::Chase:
-                        target_pos = tgt_pos;
-                        break;
-                    case BotBehaviorState::KiteSub::Retreat:
-                        target_pos =
-                            pos.Value - dir * GameConfig::BotKiteStrafeDist;
-                        break;
-                    case BotBehaviorState::KiteSub::Strafe: {
-                        Vec2 strafe = (beh.StrafeDir > 0)
-                                          ? detail::_perp_left(dir)
-                                          : Vec2{dir.y, -dir.x};
-                        target_pos =
-                            pos.Value + strafe * GameConfig::BotKiteStrafeDist;
-                        break;
-                    }
-                    }
-                }
-            }
-            break;
-        }
         case BotBehaviorState::Goal::Wander:
-        default: {
-            ai.WanderTimer -= dt;
-            Vec2 diff = ai.MoveTarget - pos.Value;
-            if (ai.WanderTimer <= 0.0f || vec2_length_sq(diff) < 0.25f) {
-                float half = map_half - GameConfig::BotRadius;
-                ai.MoveTarget = Vec2{
-                    std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)
-                };
-                ai.WanderTimer =
-                    GameConfig::BotWanderIntervalMin +
-                    std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
-                        (GameConfig::BotWanderIntervalMax -
-                         GameConfig::BotWanderIntervalMin);
-            }
-            target_pos = ai.MoveTarget;
+        default:
+            target_pos = bot_compute_wander_target(ai, pos, map_half, dt, rng);
             break;
-        }
         }
 
         ai.MoveTarget = target_pos;
-
-        if (beh.Current != BotBehaviorState::Goal::Wander) {
-            ai.WanderTimer -= dt;
-            if (ai.WanderTimer <= 0.0f) {
-                float half = map_half - GameConfig::BotRadius;
-                ai.MoveTarget = Vec2{
-                    std::uniform_real_distribution<float>(-half, half)(rng),
-                    std::uniform_real_distribution<float>(-half, half)(rng)
-                };
-                ai.WanderTimer =
-                    GameConfig::BotWanderIntervalMin +
-                    std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
-                        (GameConfig::BotWanderIntervalMax -
-                         GameConfig::BotWanderIntervalMin);
-            }
-        }
     }
 }
 
