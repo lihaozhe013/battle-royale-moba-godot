@@ -164,6 +164,7 @@ void World::tick(double dt) {
 
     bot_targeting_system(_reg, _rng, fdt);
     bot_ai_system(_reg, fdt, map_half, _rng);
+    bot_combat_state_system(_reg, fdt);
     bot_skill_decider_system(_reg, _rng);
     bot_input_injection_system(_reg);
 
@@ -341,6 +342,7 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<StatusEffect>(e);
     _reg.emplace<MovePath>(e);
     _reg.emplace<AttackTarget>(e);
+    _reg.emplace<BotCombatState>(e);
 
     SkillComponent sc;
     for (int i = 0; i < 4; ++i) {

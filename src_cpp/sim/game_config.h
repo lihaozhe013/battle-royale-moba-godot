@@ -82,6 +82,17 @@ struct GameConfig {
     static constexpr float BotKiteRetreatExit = 0.35f;
     static constexpr float BotKiteRetreatEnter = 0.25f;
 
+    // ── 战斗状态机（v4） ──
+    static constexpr float BotCombatPhaseCooldown = 0.2f;
+    static constexpr float BotSkillDecisionCooldown = 0.1f;
+    static constexpr float BotGoalDecisionCooldown = 0.5f;
+    static constexpr float BotApproachThreshold = 0.8f;
+    static constexpr float BotKiteThreshold = 1.2f;
+    static constexpr float BotBurstHealthThreshold = 0.7f;
+    static constexpr float BotSustainHealthThreshold = 0.4f;
+    static constexpr float BotDisengageHealthThreshold = 0.3f;
+    static constexpr float BotSafeDistanceMultiplier = 2.0f;
+
     // ── 击杀 XP ──
     static constexpr int KillXpBase = 200;
     static constexpr float KillXpHighBonus = 0.75f;

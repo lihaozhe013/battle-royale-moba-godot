@@ -8,6 +8,7 @@
 #include "systems/attack_command.h"
 #include "systems/attack_fire.h"
 #include "systems/bot_ai.h"
+#include "systems/bot_combat_state.h"
 #include "systems/bot_input_injection.h"
 #include "systems/bot_role_rules.h"
 #include "systems/bot_skill_decider.h"

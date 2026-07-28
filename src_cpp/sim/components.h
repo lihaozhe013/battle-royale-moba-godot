@@ -120,6 +120,7 @@ struct BotCastRequest {
     Vec2 AimPos{0.0f};
     int TargetNetworkId = -1;
     bool Valid = false;
+    float Score = 0.0f;
 };
 
 enum class BotTier : uint8_t {
@@ -162,6 +163,20 @@ struct BotAIState {
 
 struct BotVisionRange {
     float Value = 0.0f;
+};
+
+struct BotCombatState {
+    enum class Phase : uint8_t {
+        Approach = 0,
+        Kite = 1,
+        Burst = 2,
+        Sustain = 3,
+        Disengage = 4,
+    };
+    Phase Current = Phase::Approach;
+    float PhaseTimer = 0.0f;
+    int BurstStep = 0;
+    float BurstTimer = 0.0f;
 };
 
 // ── StatusEffect.cs ──────────────────────────────────────────────────────
