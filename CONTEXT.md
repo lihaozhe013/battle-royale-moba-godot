@@ -1,7 +1,7 @@
 # AGENTS.md — 项目上下文快照
 
-> 最后更新：2026-07-21
-> 当前阶段：**Hero + Skill 系统重构已实施**（P1-P6 全部完成）
+> 最后更新：2026-07-27
+> 当前阶段：**Bot AI v4 三层状态机优化已实施**（P1-P6 + v4 全部完成）
 > 引擎：Godot 4.7
 > 架构：C++ GDExtension ECS (Sim) + GDScript (View)
 
@@ -36,7 +36,7 @@ Docs/Reference/
 ├── prompt.md                    ← 主设计文档 + MOBA 升级方案
 ├── sim_system_reference.md      ← C++ 层完整参考（组件/系统/快照/常量）
 ├── hero_skill_architecture.md   ← Hero + Skill 系统重构设计（🔥 新）
-├── bot_ai.md                    ← Bot AI v3 行为树（Hero 框架下技能决策）
+├── bot_ai.md                    ← Bot AI v4 三层状态机 + 评分技能选择（🔥 新）
 ├── input_system_design.md       ← 输入系统重构设计方案（唯一标准）
 └── godot-editor-todo.md         ← 编辑器待办事项
 
@@ -172,11 +172,21 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | P4 | System 泛化 | `player_*` → `attack_command`/`attack_fire`/`pathfinding`/`movement`；`bot_combat` 删除；`bot_skill_decider`/`bot_input_injection` 新增；`bot_ai` 移除直接 pos 写 | ✅ |
 | P5 | Snapshot + View | `SimHeroSnap` 实现；`snap.heroes` 新增；View 层支持双格式（heroes + players/bots 兼容） | ✅ |
 
-### 📋 待实施（P6: Bot 行为树补完）
+### 📋 已实施（P6: Bot 行为树补完）
 
-| # | 任务 | 内容 |
-|---|------|------|
-| P6 | Bot 技能决策验证 | 验证 Bot 通过 `HeroInputState` 的技能使用全链路正确性 |
+| # | 任务 | 内容 | 状态 |
+|---|------|------|------|
+| P6 | Bot 技能决策验证 | 验证 Bot 通过 `HeroInputState` 的技能使用全链路正确性 | ✅ |
+
+### 📋 已实施（v4: Bot 三层状态机优化）
+
+| # | 任务 | 内容 | 状态 |
+|---|------|------|------|
+| v4-1 | 三层状态机架构 | Goal State → Combat State → Skill Decision | ✅ |
+| v4-2 | BotCombatState 组件 | 新增战斗状态机（Approach/Kite/Burst/Sustain/Disengage） | ✅ |
+| v4-3 | 评分技能选择系统 | 替代硬编码优先级，基于距离/HP/相位/敌人数量评分 | ✅ |
+| v4-4 | Bot 互打优化 | 调整目标选择策略，优先攻击玩家 | ✅ |
+| v4-5 | 分层决策频率 | Goal 0.5s / Combat 0.2s / Skill 0.1s | ✅ |
 
 ### ❌ 待做（后续 MOBA 模块）
 
@@ -209,10 +219,10 @@ SimAoESnap:     id, x, y, radius, remaining, duration
 
 ## tick 顺序
 
-**当前 v3（Hero 统一后，22 systems）：**
+**当前 v4（三层状态机 + 评分技能选择，23 systems）：**
 
 ```
-local_input_injection → bot_targeting → bot_ai → bot_skill_decider → bot_input_injection →
+local_input_injection → bot_targeting → bot_ai → bot_combat_state → bot_skill_decider → bot_input_injection →
 attack_command → skill_cast → pathfinding → movement → attack_fire →
 arrow_movement → wall_collision → combat →
 pickup → aoe → status_effect → mana_regen → skill_cooldown → skill_level → progression → snapshot_export
@@ -263,3 +273,4 @@ pickup → aoe → status_effect → mana_regen → skill_cooldown → skill_lev
 | `skill_level_system`           | `skill_level.h`           | 消费 SKILL_UPGRADE → SkillPoints-- + slot.Level++ ✅           |
 | `bot_skill_decider_system`     | `bot_skill_decider.h`     | **新增** P4：Engage 技能优先级选择 → BotCastRequest ✅           |
 | `bot_input_injection_system`   | `bot_input_injection.h`   | **新增** P4：Bot AI 状态 → HeroInputState ✅                    |
+| `bot_combat_state_system`      | `bot_combat_state.h`      | **新增** v4：战斗状态机（Approach/Kite/Burst/Sustain/Disengage） |

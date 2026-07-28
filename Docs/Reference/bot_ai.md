@@ -1,7 +1,7 @@
-# Bot AI v3 — Hero 框架下的 AI 行为树
+# Bot AI v4 — 三层状态机 + 评分技能选择
 
-> 最后更新：2026-07-20
-> 当前方案：v3 — Hero 统一化架构
+> 最后更新：2026-07-27
+> 当前方案：v4 — 三层状态机架构
 > 关联：`Docs/Reference/hero_skill_architecture.md`（Hero + Skill 重构）、`Docs/Reference/sim_system_reference.md`（C++ 层组件/系统/快照参考）
 
 ---
@@ -13,13 +13,14 @@
 3. [组件清单（Bot 专用）](#3-组件清单bot-专用)
 4. [系统清单](#4-系统清单)
 5. [行为树 — Goal 层](#5-行为树--goal-层)
-6. [行为树 — Engage 技能子决策](#6-行为树--engage-技能子决策)
-7. [Bot 输入注入流程](#7-bot-输入注入流程)
-8. [Bot 数值系统](#8-bot-数值系统)
-9. [阶梯重生系统](#9-阶梯重生系统)
-10. [Tick 顺序](#10-tick-顺序)
-11. [文件改动清单](#11-文件改动清单)
-12. [风险与对策](#12-风险与对策)
+6. [行为树 — Combat State 层（v4 新增）](#6-行为树--combat-state-层v4-新增)
+7. [行为树 — Skill Decision 层（v4 重构）](#7-行为树--skill-decision-层v4-重构)
+8. [Bot 输入注入流程](#8-bot-输入注入流程)
+9. [Bot 数值系统](#9-bot-数值系统)
+10. [阶梯重生系统](#10-阶梯重生系统)
+11. [Tick 顺序](#11-tick-顺序)
+12. [文件改动清单](#12-文件改动清单)
+13. [风险与对策](#13-风险与对策)
 
 ---
 
@@ -36,18 +37,30 @@
 | Snapshot | `SimBotSnap` 独立 | `SimHeroSnap` 统一，通过 `is_local` 字段区分 |
 | Prefab | bot.tscn 硬编码 | `hero_def_id` → HeroRegistry 选 prefab |
 
-### 1.2 统一后的 Bot 生命周期
+### 1.2 v3 → v4 变更摘要
+
+| 项 | v3（现有） | v4（优化后） |
+|---|-----------|-------------|
+| 技能决策 | 硬编码优先级（P1-P5） | 三层状态机 + 评分选择系统 |
+| 战斗状态 | 仅 KiteSub（Chase/Strafe/Retreat） | 新增 BotCombatState（Approach/Kite/Burst/Sustain/Disengage） |
+| 技能选择 | 逐级检查，第一个可用 | 基于权重评分，选择最高分技能 |
+| Bot 互打 | 已支持但未优化 | 优化目标选择策略，优先攻击玩家 |
+| 决策粒度 | 单一 DecisionCooldown | 分层决策（Goal 0.5s / Combat 0.2s / Skill 0.1s） |
+
+### 1.3 统一后的 Bot 生命周期
 
 ```
 Bot 出生
   ├─ _spawn_bot_hero()：创建 HeroTag + BotAI 组件 + SkillComponent（按 HeroDef 查表）
   ├─ BotAIState / BotBehaviorState 初始化为 Wander
+  ├─ BotCombatState 初始化为 Approach（v4 新增）
   └─ SkillSlot 按 Bot 技能系数缩放
 
 每 tick
-  ├─ bot_targeting_system   : 选 TargetEntity（对所有 Damageable）
+  ├─ bot_targeting_system   : 选 TargetEntity（对所有 Damageable，优先玩家）
   ├─ bot_ai_system          : Goal 决策 + 复活等级 roll
-  ├─ bot_skill_decider      : Engage 时选技能 → BotCastRequest
+  ├─ bot_combat_state_system: 战斗状态机（Approach/Kite/Burst/Sustain/Disengage）（v4 新增）
+  ├─ bot_skill_decider      : 评分选择技能 → BotCastRequest（v4 重构）
   ├─ bot_input_injection    : BotAIState + BotCastRequest → HeroInputState
   ├─ attack_command         : HeroInputState → AttackTarget（泛化）
   ├─ skill_cast             : HeroInputState → ISkill 调度（泛化）
@@ -132,10 +145,41 @@ struct BotCastRequest {
 |------|------|
 | `BotAIState` | 运行时状态（respawn timer/目标/wander timer） |
 | `BotBehaviorState` | 决策状态（Goal/PickupTarget/Kiting 滞回） |
+| `BotCombatState` | **v4 新增**：战斗状态机（Approach/Kite/Burst/Sustain/Disengage） |
 | `BotTier` | Normal/Elite/Boss，影响属性倍率 |
 | `BotRole` | Fodder/Stalker/Brute，影响等级范围 |
 | `BotVisionRange` | 视野半径 |
-| `BotCastRequest` | **新增**：Engage 子树的技能选择意图 |
+| `BotCastRequest` | 技能选择意图（含评分） |
+
+### 3.1 BotCombatState 组件定义（v4 新增）
+
+```cpp
+struct BotCombatState {
+    enum class Phase : uint8_t {
+        Approach = 0,   // 接近目标
+        Kite = 1,       // 保持距离输出
+        Burst = 2,      // 爆发连招
+        Sustain = 3,    // 持续输出
+        Disengage = 4,  // 撤退重整
+    };
+    Phase Current = Phase::Approach;
+    float PhaseTimer = 0.0f;
+    int BurstStep = 0;      // 连招步骤
+    float BurstTimer = 0.0f;
+};
+```
+
+### 3.2 BotCastRequest 扩展（v4 扩展）
+
+```cpp
+struct BotCastRequest {
+    int TargetSlot = -1;        // 0-3, -1=不施法
+    Vec2 AimPos{0.0f};
+    int TargetNetworkId = -1;   // 指向性技能目标
+    bool Valid = false;
+    float Score = 0.0f;         // v4 新增：技能评分
+};
+```
 
 ---
 
@@ -143,9 +187,10 @@ struct BotCastRequest {
 
 | System | 保留/新增 | 职责 |
 |--------|-----------|------|
-| `bot_targeting_system` | 保留 | 视野内按 `min HP → min dist → random` 选目标。不变。 |
+| `bot_targeting_system` | 保留 | 视野内按 `玩家优先 → min HP → min dist` 选目标 |
 | `bot_ai_system` | **重写** | Goal 决策 + 复活 roll。**不再写 Position2D**。 |
-| `bot_skill_decider_system` | **新增** | Engage 时按优先级选技能 → `BotCastRequest` |
+| `bot_combat_state_system` | **v4 新增** | 战斗状态机（Approach/Kite/Burst/Sustain/Disengage） |
+| `bot_skill_decider_system` | **v4 重构** | 基于评分系统选技能 → `BotCastRequest` |
 | `bot_input_injection_system` | **新增** | BotAIState + BotCastRequest → `HeroInputState` + `MoveTarget` |
 | `bot_combat_system` | **删除** | 被 `attack_fire_system` 统一接管 |
 
@@ -153,7 +198,7 @@ struct BotCastRequest {
 
 ## 5. 行为树 — Goal 层
 
-沿用 v2 的 5 种 Goal 优先级体系，保留决策冷却 (`DecisionCooldown = 0.3s`) 和承诺计时 (`GoalCommitTimer = 0.8s`)。
+沿用 v2 的 5 种 Goal 优先级体系，保留决策冷却 (`DecisionCooldown = 0.5s`) 和承诺计时 (`GoalCommitTimer = 0.8s`)。
 
 ### 5.1 优先级（高→低）
 
@@ -172,100 +217,230 @@ PRIORITY 3: SEEK_XP
         且 地图上有 Xp pickup
   动作: PickupTarget = top-3 随机一个 XP 实体 → MoveTarget
 
-PRIORITY 4: ENGAGE（含技能 — 见 §6）
+PRIORITY 4: ENGAGE（含技能 — 见 §6-7）
   条件: TargetEntity != null 且在视野内
   动作: 
-    ├─ 技能子决策（per §6）
-    └─ Kiting 移动（per §5.2）
+    ├─ Combat State 决策（per §6）
+    ├─ 技能评分选择（per §7）
+    └─ 移动执行（per §6.2）
 
 PRIORITY 5: WANDER
   条件: 无事可做
   动作: 随机地图点 + WanderTimer 刷新
 ```
 
-### 5.2 Kiting 滞回状态机（Engage 移动，不变）
-
-| 状态 | 进入条件 | 行为 |
-|------|----------|------|
-| Chase | dist > vision × 0.85 | MoveTarget = target.position |
-| Strafe | 中间距离 | 垂直方向横移（Direction 每 DecisionCooldown 随机） |
-| Retreat | dist < vision × 0.25 | MoveTarget = pos - dir × 20（撤到安全距离） |
-
-移动执行不再直接算 `Position2D`，而是：
-1. `bot_input_injection` 将 Kiting 计算结果写入 `HeroInputState`
-2. `HeroInputState.MoveTarget` + `MoveIssue=true`
-3. `pathfinding` / `movement` 统一处理
-
 ---
 
-## 6. 行为树 — Engage 技能子决策
+## 6. 行为树 — Combat State 层（v4 新增）
 
 ### 6.1 概览
 
-Engage 状态下，每 `DecisionCooldown=0.3s` 评估一次技能可用性。选中的技能通过 `BotCastRequest` 传递给 `bot_input_injection`，最终写入 `HeroInputState.SkillSlot/Confirm/Aim/TargetId`。
+Engage 状态下，`bot_combat_state_system` 每 `0.2s` 评估一次战斗相位。相位决定移动策略和技能偏好。
 
-### 6.2 技能优先级规则
+### 6.2 状态转换规则
 
 ```
-Engage 技能选择（逐级检查，只选第一个可用的）
-├── [P1: 逃生 Dash]
-│   条件: hp.Cur < hp.Max * 0.3  且 最近敌人在 Dash 范围内
-│         Dash 技能 CD=0 且 Mana 足够
-│   动作: BotCastRequest{Slot=Dash_index, Confirm=true,
-│          Aim=pos + away_dir * dash_range, TargetId=-1}
+┌─────────────────────────────────────────────────────────┐
+│                 BotCombatState 状态机                    │
+└─────────────────────────────────────────────────────────┘
 
-├── [P2: 群控 AoE]
-│   条件: 2+ 敌人在 AoE 技能范围内
-│         AoE 技能 CD=0 且 Mana 足够
-│   动作: BotCastRequest{Slot=AoE_index, Confirm=true,
-│          Aim=敌人簇中心, TargetId=-1}
+Approach ──┬── dist < attack_range * 0.8 ────────→ Kite
+           └── hp < 30% && dash_ready ──────────→ Disengage
 
-├── [P3: 爆发 MeleeSingle]
-│   条件: 锁定目标 (ai.TargetEntity) 在 MeleeSingle 范围内
-│         或距离 < vision * 0.6（可 Chasing 追击）
-│         MeleeSingle 技能 CD=0 且 Mana 足够
-│   动作: BotCastRequest{Slot=MeleeSingle_index, Confirm=true,
-│          TargetId=target_net_id}
+Kite ──────┬── dist > attack_range * 1.2 ────────→ Approach
+           ├── hp > 70% && burst_skills_ready ──→ Burst
+           └── hp < 40% ────────────────────────→ Disengage
 
-├── [P4: 持续 ChannelBurst]
-│   条件: hp.Cur > hp.Max * 0.5（低血量时避免站桩）
-│         目标在 ChannelBurst 射程内
-│         ChannelBurst 技能 CD=0 且 Mana 足够
-│   动作: BotCastRequest{Slot=ChannelBurst_index, Confirm=true}
+Burst ─────└── burst_combo_done ─────────────────→ Sustain
 
-└── [P5: 普攻] — 无可用技能
-    动作: BotCastRequest 留空；bot_input_injection 写入 AttackTargetId
-          attack_fire_system 自动射 homing 箭
+Sustain ───┬── hp < 40% ────────────────────────→ Disengage
+           └── dist > attack_range * 1.5 ────────→ Approach
+
+Disengage ─┬── dist > safe_distance ────────────→ Approach
+           └── hp > 60% ────────────────────────→ Approach
 ```
 
-### 6.3 技能可用性检查函数
+### 6.3 各相位行为
+
+| 相位 | 移动策略 | 技能偏好 |
+|------|----------|----------|
+| **Approach** | MoveTarget = target.position | Dash（接近）> 控制 > 爆发 |
+| **Kite** | 垂直方向横移（Strafe） | 远程技能 > 持续技能 > 普攻 |
+| **Burst** | 保持当前距离 | 爆发技能 > 控制技能 > 普攻 |
+| **Sustain** | 轻微调整距离 | 持续技能 > 远程技能 > 普攻 |
+| **Disengage** | MoveTarget = 远离目标 | Dash（逃生）> 控制（自保）> 普攻 |
+
+### 6.4 bot_combat_state_system 流程
 
 ```cpp
-inline bool bot_skill_ready(const SkillSlot &s, const Mana &m, int level,
-                             const ISkill *sk) {
-    if (!sk) return false;
-    if (s.CooldownTimer > 0.0f) return false;
-    float effective_cost = sk->mana_cost(level) * GameConfig::BotManaCostMul;
-    if (m.Cur < effective_cost) return false;
-    return true;
-}
+inline void bot_combat_state_system(entt::registry &reg, float dt) {
+    auto view = reg.view<BotTag, BotCombatState, BotBehaviorState, 
+                         BotAIState, Health, Position2D>();
 
-inline bool bot_target_in_range(entt::registry &reg, entt::entity caster,
-                                 entt::entity target, const ISkill *sk, int level) {
-    if (!reg.valid(target)) return false;
-    Vec2 delta = reg.get<Position2D>(target).Value -
-                 reg.get<Position2D>(caster).Value;
-    return vec2_length_sq(delta) <= sk->range(level) * sk->range(level);
+    for (auto e : view) {
+        if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled) continue;
+        auto &beh = view.get<BotBehaviorState>(e);
+        if (beh.Current != BotBehaviorState::Goal::Engage) continue;
+
+        auto &combat = view.get<BotCombatState>(e);
+        auto &ai = view.get<BotAIState>(e);
+        auto &hp = view.get<Health>(e);
+        auto &pos = view.get<Position2D>(e);
+
+        if (ai.TargetEntity == entt::null || !reg.valid(ai.TargetEntity)) continue;
+        if (!reg.all_of<Position2D>(ai.TargetEntity)) continue;
+
+        Vec2 to_target = reg.get<Position2D>(ai.TargetEntity).Value - pos.Value;
+        float dist = glm::length(to_target);
+        float hp_ratio = (float)hp.Cur / (float)hp.Max;
+        float attack_range = 8.0f; // 从 CombatStats 或配置获取
+
+        combat.PhaseTimer -= dt;
+        if (combat.PhaseTimer > 0.0f) continue; // 冷却中
+
+        BotCombatState::Phase new_phase = combat.Current;
+        bool changed = false;
+
+        switch (combat.Current) {
+        case BotCombatState::Phase::Approach:
+            if (dist < attack_range * 0.8f) {
+                new_phase = BotCombatState::Phase::Kite;
+                changed = true;
+            } else if (hp_ratio < 0.3f && has_dash_ready(e)) {
+                new_phase = BotCombatState::Phase::Disengage;
+                changed = true;
+            }
+            break;
+
+        case BotCombatState::Phase::Kite:
+            if (dist > attack_range * 1.2f) {
+                new_phase = BotCombatState::Phase::Approach;
+                changed = true;
+            } else if (hp_ratio > 0.7f && has_burst_skills_ready(e)) {
+                new_phase = BotCombatState::Phase::Burst;
+                changed = true;
+            } else if (hp_ratio < 0.4f) {
+                new_phase = BotCombatState::Phase::Disengage;
+                changed = true;
+            }
+            break;
+
+        case BotCombatState::Phase::Burst:
+            if (combat.BurstStep >= 3 || combat.BurstTimer <= 0.0f) {
+                new_phase = BotCombatState::Phase::Sustain;
+                changed = true;
+            }
+            break;
+
+        case BotCombatState::Phase::Sustain:
+            if (hp_ratio < 0.4f) {
+                new_phase = BotCombatState::Phase::Disengage;
+                changed = true;
+            } else if (dist > attack_range * 1.5f) {
+                new_phase = BotCombatState::Phase::Approach;
+                changed = true;
+            }
+            break;
+
+        case BotCombatState::Phase::Disengage:
+            if (dist > attack_range * 2.0f || hp_ratio > 0.6f) {
+                new_phase = BotCombatState::Phase::Approach;
+                changed = true;
+            }
+            break;
+        }
+
+        if (changed) {
+            combat.Current = new_phase;
+            combat.PhaseTimer = 0.2f; // 相位切换冷却
+            if (new_phase == BotCombatState::Phase::Burst) {
+                combat.BurstStep = 0;
+                combat.BurstTimer = 2.0f; // 爆发窗口
+            }
+        }
+    }
 }
 ```
 
-### 6.4 bot_skill_decider_system 流程
+---
+
+## 7. 行为树 — Skill Decision 层（v4 重构）
+
+### 7.1 概览
+
+Engage 状态下，`bot_skill_decider_system` 每 `0.1s` 评估一次技能可用性。使用**评分系统**替代硬编码优先级，选择最高分技能。
+
+### 7.2 评分规则
+
+```cpp
+struct SkillScore {
+    int slot;
+    float score;
+};
+
+inline float calculate_skill_score(
+    const ISkill *sk,
+    const SkillSlot &slot,
+    float dist,
+    float hp_ratio,
+    int enemy_count,
+    BotCombatState::Phase phase
+) {
+    float score = 0.0f;
+    float range = sk->range(slot.Level);
+
+    // 基础分：技能可用性
+    score += 50.0f;
+
+    // 距离适配分
+    if (dist <= range) score += 30.0f;
+    else if (dist <= range * 1.5f) score += 10.0f;
+    else score -= 20.0f; // 超出范围扣分
+
+    // 相位适配分
+    switch (phase) {
+    case BotCombatState::Phase::Approach:
+        if (sk->kind() == SkillKind::Dash) score += 40.0f;
+        if (sk->kind() == SkillKind::MeleeSingle) score += 20.0f;
+        break;
+    case BotCombatState::Phase::Kite:
+        if (sk->kind() == SkillKind::AoEField) score += 30.0f;
+        if (sk->kind() == SkillKind::ChannelBurst) score += 25.0f;
+        break;
+    case BotCombatState::Phase::Burst:
+        if (sk->kind() == SkillKind::MeleeSingle) score += 50.0f;
+        if (sk->kind() == SkillKind::AoEField) score += 40.0f;
+        break;
+    case BotCombatState::Phase::Sustain:
+        if (sk->kind() == SkillKind::ChannelBurst) score += 45.0f;
+        if (sk->kind() == SkillKind::AoEField) score += 20.0f;
+        break;
+    case BotCombatState::Phase::Disengage:
+        if (sk->kind() == SkillKind::Dash) score += 60.0f;
+        break;
+    }
+
+    // HP 适配分
+    if (hp_ratio < 0.3f && sk->kind() == SkillKind::Dash) score += 50.0f;
+    if (hp_ratio > 0.7f && sk->kind() == SkillKind::ChannelBurst) score += 20.0f;
+    if (hp_ratio < 0.5f && sk->kind() == SkillKind::ChannelBurst) score -= 30.0f;
+
+    // 群控加分
+    if (sk->kind() == SkillKind::AoEField && enemy_count >= 2) {
+        score += enemy_count * 25.0f;
+    }
+
+    return score;
+}
+```
+
+### 7.3 bot_skill_decider_system 流程（v4 重构）
 
 ```cpp
 inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
     auto view = reg.view<
-        BotTag, BotBehaviorState, BotAIState, SkillComponent,
-        Mana, Position2D, Level>();
+        BotTag, BotBehaviorState, BotAIState, BotCombatState,
+        SkillComponent, Mana, Position2D, Level, Health>();
 
     for (auto e : view) {
         if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled) continue;
@@ -273,19 +448,27 @@ inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
         if (beh.Current != BotBehaviorState::Goal::Engage) continue;
 
         auto &ai = view.get<BotAIState>(e);
+        auto &combat = view.get<BotCombatState>(e);
         auto &skills = view.get<SkillComponent>(e);
         auto &mana = view.get<Mana>(e);
         auto &pos = view.get<Position2D>(e);
+        auto &hp = view.get<Health>(e);
         auto &lv = view.get<Level>(e);
 
         auto &rq = reg.get_or_emplace<BotCastRequest>(e);
-        rq.Valid = false; // 默认不施法
+        rq.Valid = false;
+        rq.Score = 0.0f;
 
         if (ai.TargetEntity == entt::null || !reg.valid(ai.TargetEntity)) continue;
+        if (!reg.all_of<Position2D>(ai.TargetEntity)) continue;
 
         bool target_alive = !(reg.all_of<Dead>(ai.TargetEntity) &&
                               reg.get<Dead>(ai.TargetEntity).enabled);
         if (!target_alive) continue;
+
+        Vec2 to_target = reg.get<Position2D>(ai.TargetEntity).Value - pos.Value;
+        float dist = glm::length(to_target);
+        float hp_ratio = (float)hp.Cur / (float)hp.Max;
 
         // 收集每个槽的 ISkill 指针
         const ISkill *sk[4] = {
@@ -295,84 +478,83 @@ inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
             SkillRegistry::instance().get(skills.Slots[3].SkillId),
         };
 
-        Vec2 to_target = reg.get<Position2D>(ai.TargetEntity).Value - pos.Value;
-        float dist = glm::length(to_target);
-        Vec2 away_dir = (dist > 0.001f) ? -(to_target / dist) : Vec2{1,0};
-
-        float hp_ratio = (float)reg.get<Health>(e).Cur /
-                         (float)reg.get<Health>(e).Max;
-
-        float effective_range[4];
-        for (int i = 0; i < 4; ++i) {
-            effective_range[i] = sk[i] ? sk[i]->range(skills.Slots[i].Level) : 0.0f;
-        }
-
-        // ── P1: Dash 逃生 ──
-        if (hp_ratio < 0.3f && dist < effective_range[2] * 1.5f) {
-            if (bot_skill_ready(skills.Slots[2], mana, skills.Slots[2].Level, sk[2])) {
-                rq.TargetSlot = 2;
-                rq.AimPos = pos.Value + away_dir * effective_range[2];
-                rq.TargetNetworkId = -1;
-                rq.Valid = true;
-                continue;
+        // 计算敌人数量（用于 AoE 评分）
+        int enemy_count = 0;
+        auto damageable_view = reg.view<Damageable, Position2D>();
+        for (auto t : damageable_view) {
+            if (t == e) continue;
+            if (reg.all_of<Dead>(t) && reg.get<Dead>(t).enabled) continue;
+            Vec2 d = damageable_view.get<Position2D>(t).Value - pos.Value;
+            if (vec2_length_sq(d) <= 100.0f) { // 10 单位半径
+                enemy_count++;
             }
         }
 
-        // ── P2: AoE 群控 ──
-        if (sk[1] && bot_skill_ready(skills.Slots[1], mana, skills.Slots[1].Level, sk[1])) {
-            int enemy_count = 0;
-            Vec2 sum_pos{0,0};
-            // 扫描 enemies in AoE range
-            auto damageable_view = reg.view<Damageable, Position2D>();
+        // 评分选择最佳技能
+        std::vector<SkillScore> candidates;
+        for (int i = 0; i < 4; ++i) {
+            if (!sk[i]) continue;
+            if (!bot_skill_ready(skills.Slots[i], mana, skills.Slots[i].Level, sk[i])) continue;
+
+            float score = calculate_skill_score(
+                sk[i], skills.Slots[i], dist, hp_ratio, enemy_count, combat.Current
+            );
+            candidates.push_back({i, score});
+        }
+
+        if (candidates.empty()) continue;
+
+        // 选择最高分技能
+        std::sort(candidates.begin(), candidates.end(),
+                  [](auto &a, auto &b) { return a.score > b.score; });
+
+        auto &best = candidates[0];
+        rq.TargetSlot = best.slot;
+        rq.Score = best.score;
+        rq.Valid = true;
+
+        // 设置 AimPos 和 TargetNetworkId
+        if (sk[best.slot]->kind() == SkillKind::MeleeSingle) {
+            rq.TargetNetworkId = reg.all_of<NetworkId>(ai.TargetEntity)
+                ? reg.get<NetworkId>(ai.TargetEntity).Value : -1;
+            rq.AimPos = reg.get<Position2D>(ai.TargetEntity).Value;
+        } else if (sk[best.slot]->kind() == SkillKind::Dash) {
+            Vec2 away_dir = (dist > 0.001f) ? -(to_target / dist) : Vec2{1, 0};
+            if (hp_ratio < 0.3f) {
+                // 逃生：远离目标
+                rq.AimPos = pos.Value + away_dir * sk[best.slot]->range(skills.Slots[best.slot].Level);
+            } else {
+                // 接近：朝向目标
+                rq.AimPos = reg.get<Position2D>(ai.TargetEntity).Value;
+            }
+            rq.TargetNetworkId = -1;
+        } else if (sk[best.slot]->kind() == SkillKind::AoEField) {
+            // AoE：瞄准敌人中心
+            Vec2 sum_pos{0, 0};
+            int count = 0;
             for (auto t : damageable_view) {
                 if (t == e) continue;
                 if (reg.all_of<Dead>(t) && reg.get<Dead>(t).enabled) continue;
                 Vec2 d = damageable_view.get<Position2D>(t).Value - pos.Value;
-                if (vec2_length_sq(d) <= effective_range[1] * effective_range[1]) {
-                    enemy_count++;
+                if (vec2_length_sq(d) <= sk[best.slot]->range(skills.Slots[best.slot].Level) *
+                                         sk[best.slot]->range(skills.Slots[best.slot].Level)) {
                     sum_pos = sum_pos + damageable_view.get<Position2D>(t).Value;
+                    count++;
                 }
             }
-            if (enemy_count >= 2) {
-                rq.TargetSlot = 1;
-                rq.AimPos = sum_pos / (float)enemy_count;
-                rq.TargetNetworkId = -1;
-                rq.Valid = true;
-                continue;
-            }
-        }
-
-        // ── P3: MeleeSingle 爆发 ──
-        if (sk[0] && bot_skill_ready(skills.Slots[0], mana, skills.Slots[0].Level, sk[0])) {
-            int target_net = reg.all_of<NetworkId>(ai.TargetEntity)
-                ? reg.get<NetworkId>(ai.TargetEntity).Value : -1;
-            rq.TargetSlot = 0;
-            rq.TargetNetworkId = target_net;
-            rq.AimPos = reg.get<Position2D>(ai.TargetEntity).Value;
-            rq.Valid = true;
-            continue;
-        }
-
-        // ── P4: ChannelBurst 持续 ──
-        if (hp_ratio > 0.5f && sk[3] &&
-            bot_skill_ready(skills.Slots[3], mana, skills.Slots[3].Level, sk[3]) &&
-            dist < effective_range[3] * 1.2f) {
-            rq.TargetSlot = 3;
+            rq.AimPos = (count > 0) ? sum_pos / (float)count : pos.Value;
             rq.TargetNetworkId = -1;
-            rq.AimPos = {0,0};
-            rq.Valid = true;
-            continue;
+        } else {
+            rq.AimPos = {0, 0};
+            rq.TargetNetworkId = -1;
         }
-
-        // P5: 啥也不选 → 普攻
-        rq.Valid = false;
     }
 }
 ```
 
 ---
 
-## 7. Bot 输入注入流程
+## 8. Bot 输入注入流程
 
 `bot_input_injection_system` 将 `BotAIState`（移动目标）和 `BotCastRequest`（技能意图）翻译为 `HeroInputState`，使后续 System 无需区分玩家/Bot。
 
@@ -439,9 +621,9 @@ inline void bot_input_injection_system(entt::registry &reg) {
 
 ---
 
-## 8. Bot 数值系统
+## 9. Bot 数值系统
 
-### 8.1 基础属性（沿用 v2，已低于玩家）
+### 9.1 基础属性（沿用 v2，已低于玩家）
 
 | 属性 | Bot | Player | 比值 |
 |------|-----|--------|------|
@@ -451,7 +633,7 @@ inline void bot_input_injection_system(entt::registry &reg) {
 | BaseMoveSpeed | 2.0 | 5.0 | 40% |
 | BaseMana | 80.0 | 300.0 | 27% |
 
-### 8.2 技能系数（新增，此处定义）
+### 9.2 技能系数（新增，此处定义）
 
 ```cpp
 // game_config.h
@@ -472,7 +654,7 @@ static constexpr float BotManaCostMul = 0.6f;          // 蓝耗 ×0.6
 
 > Bot 不是每种英雄都有，通过 Bot 技能系数让同一 HeroDef 的 Bot 版本自动弱于玩家版本。
 
-### 8.3 Tier 倍率（保留 v2）
+### 9.3 Tier 倍率（保留 v2）
 
 | Tier | HpMul | AtkMul | AspMul | SpeedMul | VisionMul |
 |------|-------|--------|--------|----------|-----------|
@@ -482,7 +664,7 @@ static constexpr float BotManaCostMul = 0.6f;          // 蓝耗 ×0.6
 
 Tier 与 BotRole 联动（§9）。
 
-### 8.4 等级成长（Bot vs Player）
+### 9.4 等级成长（Bot vs Player）
 
 | 属性 | Player（HeroDef 默认） | Bot（在 Bot 基础值上 × Tier） |
 |------|----------------------|-------------------------------|
@@ -495,11 +677,11 @@ Tier 与 BotRole 联动（§9）。
 
 ---
 
-## 9. 阶梯重生系统
+## 10. 阶梯重生系统
 
 沿用 v2 §11 的设计，基本不变。
 
-### 9.1 三类 Bot Role
+### 10.1 三类 Bot Role
 
 | Role | 等级范围 | Tier 分布 | 权重 |
 |------|----------|-----------|------|
@@ -507,7 +689,7 @@ Tier 与 BotRole 联动（§9）。
 | **Stalker（追猎者）** | player_lv ± 2 | 5% Boss / 15% Elite / 80% Normal | 4 |
 | **Brute（重型）** | BruteMinLv(22)~MaxBotLevel(30) | 60% Elite / 40% Boss | 2 |
 
-### 9.2 复活段算法
+### 10.2 复活段算法
 
 ```
 bot_ai_system 复活分支（dead → respawn）:
@@ -522,39 +704,55 @@ bot_ai_system 复活分支（dead → respawn）:
   step 7: 复活位置随机 + 重置 AI 状态
 ```
 
-### 9.3 首次出生
+### 10.3 首次出生
 
 `World::initialize` 中 `_spawn_bot_hero()` × `BotCount` 次，每个执行 weight-based role roll（同上）。所有 Bot 都用同一 `HeroDefId`（当前默认 Swordsman）。
 
 ---
 
-## 10. Tick 顺序
+## 11. Tick 顺序
 
 与 Hero 统一后一致（详见 `hero_skill_architecture.md §9`）：
 
 ```
-# Bot AI 阶段（三个独立 System）
-1. bot_targeting_system       — 选 TargetEntity
+# Bot AI 阶段（五个独立 System）
+1. bot_targeting_system       — 选 TargetEntity（优先玩家）
 2. bot_ai_system              — Goal 决策 + 复活 roll（改写 BotAIState）
-3. bot_skill_decider_system   — Engage 技能选择 → BotCastRequest（新增）
-4. bot_input_injection_system — BotAIState + BotCastRequest → HeroInputState（新增）
+3. bot_combat_state_system    — 战斗状态机（v4 新增）
+4. bot_skill_decider_system   — 评分选择技能 → BotCastRequest（v4 重构）
+5. bot_input_injection_system — BotAIState + BotCastRequest → HeroInputState
 
 # 统一战斗阶段（与玩家相同，泛化后同时处理所有 HeroTag）
-5. attack_command_system
-6. skill_cast_system
-7. pathfinding_system
-8. movement_system
-9. attack_fire_system
+6. attack_command_system
+7. skill_cast_system
+8. pathfinding_system
+9. movement_system
+10. attack_fire_system
 
 # 物理 & 游戏系统
-10. arrow_movement → wall_collision → combat → pickup → aoe → status → mana_regen → skill_cooldown → skill_level → progression → snapshot
+11. arrow_movement → wall_collision → combat → pickup → aoe → status → mana_regen → skill_cooldown → skill_level → progression → snapshot
 ```
 
 ---
 
-## 11. 文件改动清单
+## 12. 文件改动清单
 
-### 修改
+### v4 修改
+
+| 文件 | 改动 |
+|------|------|
+| `src_cpp/sim/components.h` | 新增 `BotCombatState` 组件 |
+| `src_cpp/sim/systems/bot_targeting.h` | 调整目标选择策略，优先攻击玩家 |
+| `src_cpp/sim/systems/bot_skill_decider.h` | 重构为评分选择系统 |
+| `src_cpp/sim/game_config.h` | 新增战斗状态机相关常量 |
+
+### v4 新增
+
+| 文件 | 归属 | 职责 |
+|------|------|------|
+| `src_cpp/sim/systems/bot_combat_state.h` | P0 | 战斗状态机（Approach/Kite/Burst/Sustain/Disengage） |
+
+### v3 修改（保留）
 
 | 文件 | 改动 |
 |------|------|
@@ -562,7 +760,7 @@ bot_ai_system 复活分支（dead → respawn）:
 | `src_cpp/sim/systems/bot_combat.h` | **删除** |
 | `src_cpp/sim/game_config.h` | 新增 3 个 Bot 技能系数常量 |
 
-### 新增
+### v3 新增（保留）
 
 | 文件 | 归属 | 职责 |
 |------|------|------|
@@ -584,7 +782,6 @@ bot_ai_system 复活分支（dead → respawn）:
 
 | 文件 | 理由 |
 |------|------|
-| `bot_targeting.h` | 逻辑不变 |
 | `bot_role_rules.h` | 逻辑不变 |
 | `wall_collision.h` / `arrow_movement.h` / `combat.h` | 通用 |
 | `pickup.h` / `aoe.h` / `status_effect.h` / `mana_regen.h` / `skill_cooldown.h` / `progression.h` | 通用，无关 |
@@ -593,20 +790,22 @@ bot_ai_system 复活分支（dead → respawn）:
 
 ---
 
-## 12. 风险与对策
+## 13. 风险与对策
 
 | 风险 | 描述 | 对策 |
 |------|------|------|
-| Bot 技能选择 0.3s 决策延迟可能 miss 窗口 | 技能确认需等下一 DecisionCooldown 才发出 | MOBA 中 0.3s 可接受；若不够可缩短到 0.15s |
+| Bot 技能选择 0.1s 决策延迟可能 miss 窗口 | 技能确认需等下一 DecisionCooldown 才发出 | 0.1s 已足够快；若不够可缩短到 0.05s |
 | Bot 在 CastState 内时 Goal 切换 | Engage 中 Fugitive 决定取消技能，但已经在 CastState 内 | `bot_input_injection` 检测 Goal 切换 → 写 `CancelSkill=true`；`skill_cast` 按 refund 策略处理 |
 | 普攻与技能冲突 | Bot 同时设 SkillConfirm=true 和 AttackTargetId | `bot_input_injection` 中二选一：有技能时 AttackTargetId=-1；无技能时 SkillSlot=-1 |
 | Channeling 期间 Bot 不移动被击杀 | Channeling 不可打断 | 设计上 R 技能就是高风险高回报；Bot 应当在 HP 安全时用，`bot_skill_decider` P3 已过滤 hp_ratio |
 | 移动写入 HeroInputState 被 bot_input_injection 覆盖 | 同 bot 的 HeroInputState 只在一处写入 | bot_input_injection 是唯一写入点（不走 LocalInputInjection），无竞争 |
 | Pathfinding 无效目标 | Bot 可能 chasing 已死亡的敌人的位置 | `bot_targeting` 每次 decision 刷新 TargetEntity；death check 保护 |
+| 战斗状态机频繁切换导致抖动 | Phase 切换冷却太短 | 设置 0.2s 相位切换冷却 |
+| 评分系统计算开销 | 每 0.1s 计算所有技能评分 | 仅在 Engage 状态下计算，且最多 4 个技能 |
 
 ---
 
-## 附录：v2 → v3 Goal 对比
+## 附录 A：v2 → v3 Goal 对比
 
 | Goal | v2 行为 | v3 行为 |
 |------|---------|---------|
@@ -615,3 +814,16 @@ bot_ai_system 复活分支（dead → respawn）:
 | SeekXp | 直接写 `pos` 朝 XP | 同上 + pathfinding A\* |
 | Engage | Kiting 直接写 `pos` + `angle`；射普攻箭 | Kiting 写 `HeroInputState`；技能选 `SkillSlot/Confirm/Aim`；普攻走 `AttackTargetId` → 统一 attack_fire |
 | Wander | 随机 `pos` 写 | 随机 `ai.MoveTarget` → pathfinding A\* |
+
+---
+
+## 附录 B：v3 → v4 技能决策对比
+
+| 项 | v3 | v4 |
+|----|----|----|
+| 决策模型 | 硬编码优先级（P1-P5） | 三层状态机 + 评分系统 |
+| 技能选择 | 逐级检查，第一个可用 | 基于距离/HP/相位/敌人数量评分 |
+| 战斗状态 | 仅 KiteSub | BotCombatState（5 相位） |
+| 移动策略 | 固定 Kiting | 根据相位动态调整 |
+| Bot 互打 | 支持但未优化 | 优先攻击玩家 |
+| 决策频率 | 0.3s 统一 | 分层（Goal 0.5s / Combat 0.2s / Skill 0.1s） |
