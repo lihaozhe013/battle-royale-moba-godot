@@ -31,8 +31,8 @@ inline void wall_collision_system(entt::registry &reg, CommandBuffer &cb) {
             reg.get<CastState>(e).State == CastState::Phase::Dashing)
             continue;
 
-        float radius = reg.all_of<BotTag>(e) ? GameConfig::BotRadius
-                                             : GameConfig::PlayerRadius;
+        float radius = reg.all_of<BotTag>(e) ? stats(reg).BotRadius
+                                             : stats(reg).PlayerRadius;
         auto &pos = mover_view.get<Position2D>(e);
 
         Vec2 new_pos = pos.Value;

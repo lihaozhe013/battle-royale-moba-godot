@@ -14,12 +14,12 @@ inline int
 roll_bot_level_for_role(entt::registry &reg, BotRole role, std::mt19937 &rng) {
     switch (role) {
     case BotRole::Fodder:
-        return std::uniform_int_distribution<int>(1, GameConfig::FodderMaxLv)(
+        return std::uniform_int_distribution<int>(1, stats(reg).FodderMaxLv)(
             rng
         );
     case BotRole::Brute:
         return std::uniform_int_distribution<
-            int>(GameConfig::BruteMinLv, GameConfig::MaxHeroLevel)(rng);
+            int>(stats(reg).BruteMinLv, stats(reg).MaxHeroLevel)(rng);
     case BotRole::Stalker: {
         int plv = 1;
         auto pv = reg.view<PlayerTag, Level>();
@@ -30,28 +30,29 @@ roll_bot_level_for_role(entt::registry &reg, BotRole role, std::mt19937 &rng) {
             }
         }
         int off = std::uniform_int_distribution<
-            int>(-GameConfig::StalkerOffset, GameConfig::StalkerOffset)(rng);
-        return std::clamp(plv + off, 1, GameConfig::MaxHeroLevel);
+            int>(-stats(reg).StalkerOffset, stats(reg).StalkerOffset)(rng);
+        return std::clamp(plv + off, 1, stats(reg).MaxHeroLevel);
     }
     }
     return 1;
 }
 
-inline BotTier roll_bot_tier_for_role(BotRole role, std::mt19937 &rng) {
+inline BotTier roll_bot_tier_for_role(
+    BotRole role, std::mt19937 &rng, const StatsConfig &config
+) {
     float r = std::uniform_real_distribution<float>(0.0f, 1.0f)(rng);
     switch (role) {
     case BotRole::Fodder:
         return BotTier::Normal;
     case BotRole::Stalker:
-        if (r < GameConfig::BossRoll)
+        if (r < config.BossRoll)
             return BotTier::Boss;
-        else if (r < GameConfig::EliteRoll)
+        else if (r < config.EliteRoll)
             return BotTier::Elite;
         else
             return BotTier::Normal;
     case BotRole::Brute:
-        return (r < GameConfig::BruteEliteRoll) ? BotTier::Elite
-                                                : BotTier::Boss;
+        return (r < config.BruteEliteRoll) ? BotTier::Elite : BotTier::Boss;
     }
     return BotTier::Normal;
 }
@@ -60,32 +61,32 @@ struct BotTierMult {
     float HpMul, AtkMul, AspMul, SpeedMul, VisionMul;
 };
 
-inline BotTierMult tier_mult(BotTier t) {
+inline BotTierMult tier_mult(BotTier t, const StatsConfig &config) {
     switch (t) {
     case BotTier::Elite:
         return {
-            GameConfig::EliteHpMul,
-            GameConfig::EliteAtkMul,
-            GameConfig::EliteAspMul,
-            GameConfig::EliteSpeedMul,
-            GameConfig::EliteVisionMul
+            config.EliteHpMul,
+            config.EliteAtkMul,
+            config.EliteAspMul,
+            config.EliteSpeedMul,
+            config.EliteVisionMul
         };
     case BotTier::Boss:
         return {
-            GameConfig::BossHpMul,
-            GameConfig::BossAtkMul,
-            GameConfig::BossAspMul,
-            GameConfig::BossSpeedMul,
-            GameConfig::BossVisionMul
+            config.BossHpMul,
+            config.BossAtkMul,
+            config.BossAspMul,
+            config.BossSpeedMul,
+            config.BossVisionMul
         };
     case BotTier::Normal:
     default:
         return {
-            GameConfig::NormalHpMul,
-            GameConfig::NormalAtkMul,
-            GameConfig::NormalAspMul,
-            GameConfig::NormalSpeedMul,
-            GameConfig::NormalVisionMul
+            config.NormalHpMul,
+            config.NormalAtkMul,
+            config.NormalAspMul,
+            config.NormalSpeedMul,
+            config.NormalVisionMul
         };
     }
 }

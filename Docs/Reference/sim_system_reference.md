@@ -66,7 +66,8 @@ src_cpp/
 │
 └── sim/
     ├── components.h               # 全部 ECS 组件定义（21 个 struct + 3 个 enum）
-    ├── game_config.h              # 全部游戏常量（GameConfig 静态 constexpr）
+    ├── game_config.h              # StatsConfig registry-context 访问器
+    ├── stats_config.h/cpp         # stats.yaml 解析与运行时平衡配置
     ├── vec2.h                     # Vec2 = glm::vec2 + 碰撞/工具函数
     ├── command_buffer.h           # 延迟操作队列
     ├── arrow_spawner.h            # try_fire() 辅助函数
@@ -660,7 +661,7 @@ if snap.players.size() > 0:
 
 | 方法              | 签名                                                          | 说明                            |
 | ----------------- | ------------------------------------------------------------- | ------------------------------- |
-| `initialize`      | `(map_json: String) -> void`                                  | 解析地图 JSON，创建所有初始实体 |
+| `initialize`      | `(map_json: String, stats_yaml: String) -> bool`               | 解析地图与平衡 YAML，创建所有初始实体 |
 | `set_local_input` | `(move: Vector2, aim: Vector2, fire: bool, seq: int) -> void` | 设置当前帧移动/瞄准/射击输入    |
 | `set_skill_input` | `(q: bool, w: bool, e: bool, r: bool) -> void`                | 设置当前帧技能按键输入          |
 | `tick`            | `(delta: float) -> void`                                      | 执行一个 tick（30Hz）           |
@@ -765,7 +766,9 @@ ClassDB::register_class<sim::SimEventSnap>();
 
 ---
 
-## 10. GameConfig 常量参考
+## 10. StatsConfig / `data/stats.yaml` 参考
+
+`data/stats.yaml` 是运行时平衡数值的唯一编辑入口。GDScript 在启动时读取文本，C++ 解析并把 `StatsConfig` 放入当前 `World` 的 registry context；修改数值后重启游戏生效。`game_config.h` 只提供访问器，不再保存静态平衡常量。
 
 ### 10.1 核心
 

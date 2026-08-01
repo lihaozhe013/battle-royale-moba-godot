@@ -52,12 +52,12 @@ inline void pickup_system(
                 continue;
 
             float mover_radius = reg.all_of<BotTag>(mover)
-                                     ? GameConfig::BotRadius
-                                     : GameConfig::PlayerRadius;
+                                     ? stats(reg).BotRadius
+                                     : stats(reg).PlayerRadius;
 
             if (!circles_overlap(
                     p_pos.Value,
-                    GameConfig::PickupRadius,
+                    stats(reg).PickupRadius,
                     mover_view.get<Position2D>(mover).Value,
                     mover_radius
                 )) {
@@ -75,8 +75,8 @@ inline void pickup_system(
                 auto &hp = reg.get<Health>(mover);
                 float fraction =
                     (p_tag.Type == PickupType::Heal)
-                        ? GameConfig::HealFraction
-                        : (GameConfig::SmallHealPickupValue / 100.0f);
+                        ? stats(reg).HealFraction
+                        : (stats(reg).SmallHealPickupValue / 100.0f);
                 int heal = static_cast<int>(std::ceil(hp.Max * fraction));
                 hp.Cur = std::min(hp.Cur + heal, hp.Max);
             }

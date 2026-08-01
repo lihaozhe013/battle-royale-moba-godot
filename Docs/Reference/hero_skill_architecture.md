@@ -4,6 +4,8 @@
 > 状态：设计评审
 > 关联：`Docs/Reference/bot_ai.md`、`Docs/Reference/sim_system_reference.md`、`Docs/Reference/input_system_design.md`
 
+运行时英雄与技能平衡数值以 `data/stats.yaml` 为准；本文中的 `GameConfig` 数值示例只描述历史设计，不是编辑入口。
+
 ---
 
 ## 目录

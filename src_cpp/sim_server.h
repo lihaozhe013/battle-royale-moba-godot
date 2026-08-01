@@ -17,7 +17,9 @@ public:
     SimServer();
     ~SimServer();
 
-    void initialize(const godot::String &map_json);
+    bool initialize(
+        const godot::String &map_json, const godot::String &stats_yaml
+    );
 
     // ── v2 新命令 API ──
     void set_skill_command(int slot, bool confirm, float aim_x, float aim_y, int target_id);

@@ -46,8 +46,7 @@ inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
             bool need_repath = true;
             if (path.Following) {
                 Vec2 d = chase_target - path.FinalTarget;
-                if (vec2_length_sq(d) <
-                    GameConfig::SkillChaseRepathDeadzoneSq) {
+                if (vec2_length_sq(d) < stats(reg).SkillChaseRepathDeadzoneSq) {
                     need_repath = false;
                 }
             }
@@ -76,8 +75,8 @@ inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
                         Vec2 target_pos = reg.get<Position2D>(at.Target).Value;
                         Vec2 delta = target_pos - pos.Value;
                         float dist = vec2_length_sq(delta);
-                        if (dist > GameConfig::PlayerAttackRange *
-                                       GameConfig::PlayerAttackRange) {
+                        if (dist > stats(reg).PlayerAttackRange *
+                                       stats(reg).PlayerAttackRange) {
                             auto waypoints =
                                 nav.find_path(pos.Value, target_pos);
                             if (!waypoints.empty()) {
@@ -106,7 +105,7 @@ inline void player_pathfinding_system(entt::registry &reg, const NavGrid &nav) {
             bool need_repath = true;
             if (path.Following) {
                 Vec2 d = input.MoveTarget - path.FinalTarget;
-                if (vec2_length_sq(d) < GameConfig::RepathTargetDeadzoneSq) {
+                if (vec2_length_sq(d) < stats(reg).RepathTargetDeadzoneSq) {
                     need_repath = false;
                 }
             }

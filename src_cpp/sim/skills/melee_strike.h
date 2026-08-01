@@ -11,22 +11,29 @@ namespace sim {
 
 class MeleeStrikeSkill : public ISkill {
   public:
+    explicit MeleeStrikeSkill(const SkillTuning &tuning) : _tuning(tuning) {}
+
     int id() const override { return 1; }
     SkillKind kind() const override { return SkillKind::MeleeSingle; }
 
-    float base_cooldown() const override { return 5.0f; }
-    float base_mana_cost() const override { return 20.0f; }
-    float base_cast_time() const override { return 0.2f; }
-    float base_range(int) const override { return 8.0f; }
+    float base_cooldown() const override { return _tuning.BaseCooldown; }
+    float base_mana_cost() const override { return _tuning.BaseManaCost; }
+    float base_cast_time() const override { return _tuning.BaseCastTime; }
+    float base_range(int) const override { return _tuning.BaseRange; }
 
     float cooldown(int level) const override {
-        return base_cooldown() - (level - 1) * 0.5f;
+        return base_cooldown() - (level - 1) * _tuning.CooldownPerLevel;
     }
     float mana_cost(int level) const override {
-        return base_mana_cost() * std::max(0.3f, 1.0f - (level - 1) * 0.05f);
+        return base_mana_cost() *
+               std::max(
+                   _tuning.ManaReductionMin,
+                   1.0f - (level - 1) * _tuning.ManaReductionPerLevel
+               );
     }
     float damage(int level, float atk) const override {
-        return 40.0f + (level - 1) * 15.0f + atk * 0.9f;
+        return _tuning.DamageBase + (level - 1) * _tuning.DamagePerLevel +
+               atk * _tuning.DamageAtkRatio;
     }
 
     int validate_cast(
@@ -68,7 +75,7 @@ class MeleeStrikeSkill : public ISkill {
         float dmg = damage(level, reg.get<CombatStats>(caster).Atk);
         bool is_bot = reg.all_of<BotTag>(caster);
         if (is_bot)
-            dmg *= GameConfig::BotSkillDmgMul;
+            dmg *= stats(reg).BotSkillDmgMul;
 
         auto &hp = reg.get<Health>(tgt);
         hp.Cur -= static_cast<int>(dmg);
@@ -82,7 +89,7 @@ class MeleeStrikeSkill : public ISkill {
                 reg.get<Dead>(tgt).enabled = true;
             if (reg.all_of<BotAIState>(tgt))
                 reg.get<BotAIState>(tgt).RespawnTimer =
-                    GameConfig::BotRespawnTime;
+                    stats(reg).BotRespawnTime;
             int victim_id =
                 reg.all_of<NetworkId>(tgt) ? reg.get<NetworkId>(tgt).Value : 0;
             auto kill_view = reg.view<KillEventBuffer>();
@@ -94,6 +101,9 @@ class MeleeStrikeSkill : public ISkill {
                 reg.get<Kills>(caster).Value += 1;
         }
     }
+
+  private:
+    SkillTuning _tuning;
 };
 
 } // namespace sim

@@ -17,6 +17,7 @@ add_library(battle_royale_sim SHARED
     sim/world.cpp
     sim/world_input.cpp
     sim/world_spawn.cpp
+    sim/stats_config.cpp
     sim/nav_grid.cpp
     sim/snapshot_builder.cpp
     sim/snapshot_bindings.cpp

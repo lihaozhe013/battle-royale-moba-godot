@@ -10,25 +10,32 @@ namespace sim {
 
 class AoEFieldSkill : public ISkill {
   public:
+    explicit AoEFieldSkill(const SkillTuning &tuning) : _tuning(tuning) {}
+
     int id() const override { return 2; }
     SkillKind kind() const override { return SkillKind::AoEField; }
 
-    float base_cooldown() const override { return 20.0f; }
-    float base_mana_cost() const override { return 100.0f; }
-    float base_cast_time() const override { return 0.5f; }
-    float base_range(int) const override { return 4.0f; }
+    float base_cooldown() const override { return _tuning.BaseCooldown; }
+    float base_mana_cost() const override { return _tuning.BaseManaCost; }
+    float base_cast_time() const override { return _tuning.BaseCastTime; }
+    float base_range(int) const override { return _tuning.BaseRange; }
 
     float cooldown(int level) const override {
-        return base_cooldown() - (level - 1) * 1.5f;
+        return base_cooldown() - (level - 1) * _tuning.CooldownPerLevel;
     }
     float mana_cost(int level) const override {
-        return base_mana_cost() * std::max(0.3f, 1.0f - (level - 1) * 0.10f);
+        return base_mana_cost() *
+               std::max(
+                   _tuning.ManaReductionMin,
+                   1.0f - (level - 1) * _tuning.ManaReductionPerLevel
+               );
     }
     float damage(int level, float atk) const override {
-        return 35.0f + (level - 1) * 10.0f + atk * 0.9f;
+        return _tuning.DamageBase + (level - 1) * _tuning.DamagePerLevel +
+               atk * _tuning.DamageAtkRatio;
     }
     float effect_value(int level) const override {
-        return 2.0f + (level - 1) * 0.25f;
+        return _tuning.EffectBase + (level - 1) * _tuning.EffectPerLevel;
     }
 
     int validate_cast(
@@ -57,7 +64,7 @@ class AoEFieldSkill : public ISkill {
         bool is_bot = reg.all_of<BotTag>(caster);
         float skill_dmg = damage(level, reg.get<CombatStats>(caster).Atk);
         if (is_bot)
-            skill_dmg *= GameConfig::BotSkillDmgMul;
+            skill_dmg *= stats(reg).BotSkillDmgMul;
 
         auto target_view = reg.view<Damageable, Position2D, Health>();
         for (auto t : target_view) {
@@ -77,7 +84,7 @@ class AoEFieldSkill : public ISkill {
                     reg.get<Dead>(t).enabled = true;
                 if (reg.all_of<BotAIState>(t))
                     reg.get<BotAIState>(t).RespawnTimer =
-                        GameConfig::BotRespawnTime;
+                        stats(reg).BotRespawnTime;
                 int victim_id =
                     reg.all_of<NetworkId>(t) ? reg.get<NetworkId>(t).Value : 0;
                 auto kill_view = reg.view<KillEventBuffer>();
@@ -106,6 +113,9 @@ class AoEFieldSkill : public ISkill {
         );
         reg.emplace<NetworkId>(aoe, ids.NextAoEId++);
     }
+
+  private:
+    SkillTuning _tuning;
 };
 
 } // namespace sim

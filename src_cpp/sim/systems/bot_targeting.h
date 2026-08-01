@@ -84,7 +84,7 @@ bot_targeting_system(entt::registry &reg, std::mt19937 &rng, float dt) {
         );
 
         ai.TargetEntity = candidates[0].entity;
-        ai.TargetLockTimer = GameConfig::BotTargetLockTime;
+        ai.TargetLockTimer = stats(reg).BotTargetLockTime;
         reg.replace<BotAIState>(bot, ai);
     }
 }

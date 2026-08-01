@@ -224,11 +224,11 @@ inline void skill_cast_system(
             float cd = sk->cooldown(slot.Level);
             float mc = sk->mana_cost(slot.Level);
             if (is_bot) {
-                mc *= GameConfig::BotManaCostMul;
-                cd *= GameConfig::BotSkillCooldownMul;
+                mc *= stats(reg).BotManaCostMul;
+                cd *= stats(reg).BotSkillCooldownMul;
             }
             mana.Cur -= mc;
-            mana.RegenTimer = GameConfig::ManaRegenDelay;
+            mana.RegenTimer = stats(reg).ManaRegenDelay;
             slot.CooldownTimer = cd;
             slot.MaxCooldown = cd;
 

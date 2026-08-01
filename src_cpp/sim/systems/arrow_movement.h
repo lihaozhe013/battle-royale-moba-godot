@@ -23,7 +23,7 @@ inline void arrow_movement_system(entt::registry &reg, float dt) {
                 float dist = glm::length(to_target);
                 if (dist > 0.001f) {
                     Vec2 dir = to_target / dist;
-                    vel.Value = dir * GameConfig::ArrowSpeed;
+                    vel.Value = dir * stats(reg).ArrowSpeed;
                     if (reg.all_of<FacingAngle>(e))
                         reg.get<FacingAngle>(e).Radians =
                             std::atan2(dir.y, dir.x);

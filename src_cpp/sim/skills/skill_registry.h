@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../stats_config.h"
 #include "skill_interface.h"
 #include <memory>
 #include <unordered_map>
@@ -19,6 +20,6 @@ class SkillRegistry {
     std::unordered_map<int, std::unique_ptr<ISkill>> _skills;
 };
 
-void register_builtin_skills();
+void register_builtin_skills(const StatsConfig &config);
 
 } // namespace sim

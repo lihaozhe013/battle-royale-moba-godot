@@ -81,10 +81,7 @@ inline void attack_command_system(entt::registry &reg, float dt) {
 
         if (input.AttackGround) {
             entt::entity tgt = find_nearest_enemy(
-                reg,
-                input.AttackGroundPos,
-                GameConfig::AttackAcquisitionRange,
-                e
+                reg, input.AttackGroundPos, stats(reg).AttackAcquisitionRange, e
             );
             if (tgt != entt::null) {
                 int net_id = reg.all_of<NetworkId>(tgt)

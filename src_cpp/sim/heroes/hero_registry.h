@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../stats_config.h"
 #include "hero_def.h"
 #include <unordered_map>
 
@@ -15,6 +16,6 @@ class HeroRegistry {
     std::unordered_map<int, HeroDef> _heroes;
 };
 
-void register_builtin_heroes();
+void register_builtin_heroes(const StatsConfig &config);
 
 } // namespace sim

@@ -8,7 +8,7 @@ SimServer::~SimServer() {}
 void SimServer::_bind_methods() {
     // ── 核心方法 ──
     godot::ClassDB::bind_method(
-        godot::D_METHOD("initialize", "map_json"),
+        godot::D_METHOD("initialize", "map_json", "stats_yaml"),
         &SimServer::initialize);
 
     // ── v2 新命令 API ──
@@ -53,9 +53,19 @@ void SimServer::_bind_methods() {
         &SimServer::is_game_over);
 }
 
-void SimServer::initialize(const godot::String &p_map_json) {
-    godot::UtilityFunctions::print("SimServer::initialize called");
-    _world.initialize(p_map_json.utf8().get_data());
+bool SimServer::initialize(
+    const godot::String &p_map_json, const godot::String &p_stats_yaml
+) {
+    bool initialized = _world.initialize(
+        p_map_json.utf8().get_data(), p_stats_yaml.utf8().get_data()
+    );
+    if (!initialized) {
+        godot::UtilityFunctions::push_error(
+            godot::String("[stats_config] Failed to load data/stats.yaml: ") +
+            godot::String(_world.last_error().c_str())
+        );
+    }
+    return initialized;
 }
 
 // ── v2 新命令 API ──

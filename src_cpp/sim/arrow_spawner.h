@@ -34,8 +34,8 @@ inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
     ctx.cb.push([arrow_id, ctx](entt::registry &reg) {
         auto e = reg.create();
         Vec2 vel{
-            std::cos(ctx.angle) * GameConfig::ArrowSpeed,
-            std::sin(ctx.angle) * GameConfig::ArrowSpeed
+            std::cos(ctx.angle) * sim::stats(reg).ArrowSpeed,
+            std::sin(ctx.angle) * sim::stats(reg).ArrowSpeed
         };
         reg.emplace<Position2D>(e, ctx.spawn_pos);
         reg.emplace<Velocity2D>(e, vel);
@@ -43,7 +43,7 @@ inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
         reg.emplace<ArrowTag>(
             e, ctx.owner_id, ctx.owner_entity, ctx.dmg, ctx.lifesteal_ratio
         );
-        reg.emplace<Lifetime>(e, GameConfig::ArrowLifetime);
+        reg.emplace<Lifetime>(e, sim::stats(reg).ArrowLifetime);
         reg.emplace<NetworkId>(e, arrow_id);
         if (ctx.homing_target != entt::null) {
             reg.emplace<Homing>(e, ctx.homing_target, ctx.homing_target_net_id);

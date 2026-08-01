@@ -18,17 +18,17 @@ inline void apply_xp(entt::registry &reg, entt::entity e, int xp_amount) {
     while (exp.Cur >= exp.Needed) {
         exp.Cur -= exp.Needed;
         lv.Value += 1;
-        hp.Max += GameConfig::HpPerLevel;
+        hp.Max += sim::stats(reg).HpPerLevel;
         hp.Cur = hp.Max;
-        ms.Value += GameConfig::SpeedPerLevel;
+        ms.Value += sim::stats(reg).SpeedPerLevel;
         if (reg.all_of<CombatStats>(e)) {
             auto &stats = reg.get<CombatStats>(e);
-            stats.Atk += GameConfig::AtkPerLevel;
+            stats.Atk += sim::stats(reg).AtkPerLevel;
             stats.Asp = std::min(
-                stats.Asp + GameConfig::AspPerLevel, GameConfig::AspMax
+                stats.Asp + sim::stats(reg).AspPerLevel, sim::stats(reg).AspMax
             );
         }
-        exp.Needed = lv.Value * GameConfig::XpPerLevelBase;
+        exp.Needed = lv.Value * sim::stats(reg).XpPerLevelBase;
         if (reg.all_of<Mana>(e)) {
             auto &mana = reg.get<Mana>(e);
             mana.Cur = mana.Max;

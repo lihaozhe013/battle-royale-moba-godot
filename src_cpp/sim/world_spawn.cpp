@@ -12,8 +12,8 @@ void World::_spawn_player(int player_id, bool is_local) {
 
     const auto &def = HeroRegistry::instance().get(1);
 
-    float half = GameConfig::MapHalf - GameConfig::PlayerRadius;
-    Vec2 pos = _random_map_pos(half, GameConfig::PlayerRadius);
+    float half = stats(_reg).MapHalf - stats(_reg).PlayerRadius;
+    Vec2 pos = _random_map_pos(half, stats(_reg).PlayerRadius);
 
     auto e = _reg.create();
     _reg.emplace<HeroTag>(e, is_local);
@@ -26,8 +26,8 @@ void World::_spawn_player(int player_id, bool is_local) {
         e,
         def.BaseMana,
         def.BaseMana,
-        GameConfig::PlayerManaRegen,
-        GameConfig::ManaRegenDelay,
+        stats(_reg).PlayerManaRegen,
+        stats(_reg).ManaRegenDelay,
         0.0f
     );
     _reg.emplace<CombatStats>(e, def.BaseAtk, def.BaseAsp, -999.0);
@@ -37,7 +37,7 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, 1);
-    _reg.emplace<Experience>(e, 0, GameConfig::XpPerLevelBase);
+    _reg.emplace<Experience>(e, 0, stats(_reg).XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, def.BaseMoveSpeed);
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
@@ -59,21 +59,20 @@ void World::_spawn_player(int player_id, bool is_local) {
     for (auto b : bot_view) {
         Vec2 &bp = bot_view.get<Position2D>(b).Value;
         Vec2 delta = bp - pos;
-        if (vec2_length_sq(delta) <
-            GameConfig::PlayerSpawnSafeRadiusSq) {
-            bp = _random_map_pos(half, GameConfig::BotRadius);
+        if (vec2_length_sq(delta) < stats(_reg).PlayerSpawnSafeRadiusSq) {
+            bp = _random_map_pos(half, stats(_reg).BotRadius);
         }
     }
 }
 
 void World::_spawn_bot() {
-    int total_w = GameConfig::FodderWeight + GameConfig::StalkerWeight +
-                  GameConfig::BruteWeight;
+    int total_w = stats(_reg).FodderWeight + stats(_reg).StalkerWeight +
+                  stats(_reg).BruteWeight;
     int r = std::uniform_int_distribution<int>(0, total_w - 1)(_rng);
     BotRole role;
-    if (r < GameConfig::FodderWeight)
+    if (r < stats(_reg).FodderWeight)
         role = BotRole::Fodder;
-    else if (r < GameConfig::FodderWeight + GameConfig::StalkerWeight)
+    else if (r < stats(_reg).FodderWeight + stats(_reg).StalkerWeight)
         role = BotRole::Stalker;
     else
         role = BotRole::Brute;
@@ -81,13 +80,13 @@ void World::_spawn_bot() {
     int new_lv;
     if (_count_high_level_bots() < 3) {
         new_lv =
-            std::uniform_int_distribution<int>(25, GameConfig::MaxHeroLevel)(
+            std::uniform_int_distribution<int>(25, stats(_reg).MaxHeroLevel)(
                 _rng
             );
     } else {
         int plv = _get_player_level();
         int offset = std::uniform_int_distribution<int>(-3, 3)(_rng);
-        new_lv = std::clamp(plv + offset, 1, GameConfig::MaxHeroLevel);
+        new_lv = std::clamp(plv + offset, 1, stats(_reg).MaxHeroLevel);
     }
     _spawn_bot_with_role(role, new_lv);
 }
@@ -95,30 +94,30 @@ void World::_spawn_bot() {
 void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
     int bot_id = ids.NextBotId++;
-    BotTier tier = detail::roll_bot_tier_for_role(role, _rng);
-    auto mult = detail::tier_mult(tier);
+    BotTier tier = detail::roll_bot_tier_for_role(role, _rng, stats(_reg));
+    auto mult = detail::tier_mult(tier, stats(_reg));
 
     const auto &def = HeroRegistry::instance().get(1);
 
-    int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
+    int base_hp = stats(_reg).BotHp + (new_lv - 1) * stats(_reg).HpPerLevel;
     float atk =
-        (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::AtkPerLevel) *
-        mult.AtkMul * GameConfig::BotStatMul;
+        (stats(_reg).BotBaseAttack + (new_lv - 1) * stats(_reg).AtkPerLevel) *
+        mult.AtkMul * stats(_reg).BotStatMul;
     float asp = std::min(
-        (GameConfig::BotBaseAttackSpeed +
-         (new_lv - 1) * GameConfig::AspPerLevel) *
-            mult.AspMul * GameConfig::BotStatMul,
-        GameConfig::AspMax
+        (stats(_reg).BotBaseAttackSpeed +
+         (new_lv - 1) * stats(_reg).AspPerLevel) *
+            mult.AspMul * stats(_reg).BotStatMul,
+        stats(_reg).AspMax
     );
     float spd =
-        (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::SpeedPerLevel) *
+        (stats(_reg).BotSpeed + (new_lv - 1) * stats(_reg).SpeedPerLevel) *
         mult.SpeedMul;
     float vis =
-        GameConfig::BotVisionRange * mult.VisionMul * GameConfig::BotStatMul;
+        stats(_reg).BotVisionRange * mult.VisionMul * stats(_reg).BotStatMul;
 
-    float half = GameConfig::MapHalf - GameConfig::BotRadius;
-    Vec2 pos = _random_map_pos(half, GameConfig::BotRadius);
-    Vec2 target = _random_map_pos(half, GameConfig::BotRadius);
+    float half = stats(_reg).MapHalf - stats(_reg).BotRadius;
+    Vec2 pos = _random_map_pos(half, stats(_reg).BotRadius);
+    Vec2 target = _random_map_pos(half, stats(_reg).BotRadius);
 
     auto e = _reg.create();
     _reg.emplace<HeroTag>(e, false);
@@ -129,15 +128,15 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<FacingAngle>(e, 0.0f);
     _reg.emplace<Health>(
         e,
-        static_cast<int>(base_hp * mult.HpMul * GameConfig::BotStatMul),
-        static_cast<int>(base_hp * mult.HpMul * GameConfig::BotStatMul)
+        static_cast<int>(base_hp * mult.HpMul * stats(_reg).BotStatMul),
+        static_cast<int>(base_hp * mult.HpMul * stats(_reg).BotStatMul)
     );
     _reg.emplace<Mana>(
         e,
-        GameConfig::BotBaseMana,
-        GameConfig::BotBaseMana,
-        GameConfig::BotManaRegen,
-        GameConfig::ManaRegenDelay,
+        stats(_reg).BotBaseMana,
+        stats(_reg).BotBaseMana,
+        stats(_reg).BotManaRegen,
+        stats(_reg).ManaRegenDelay,
         0.0f
     );
     _reg.emplace<HeroInputState>(e);
@@ -153,7 +152,7 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, new_lv);
-    _reg.emplace<Experience>(e, 0, new_lv * GameConfig::XpPerLevelBase);
+    _reg.emplace<Experience>(e, 0, new_lv * stats(_reg).XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, spd);
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
@@ -168,7 +167,7 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
         sc.Slots[i].SkillId = sid;
         sc.Slots[i].Level = 1;
         sc.Slots[i].MaxCooldown =
-            sk ? sk->base_cooldown() * GameConfig::BotSkillCooldownMul : 0.0f;
+            sk ? sk->base_cooldown() * stats(_reg).BotSkillCooldownMul : 0.0f;
         sc.Slots[i].ManaCost = sk ? sk->base_mana_cost() : 0.0f;
     }
     _reg.emplace<SkillComponent>(e, sc);
@@ -208,33 +207,33 @@ void World::_spawn_pickup_spawners() {
 
             _spawn_one_spawner(
                 PickupType::Xp,
-                GameConfig::XpPickupValue,
+                stats(_reg).XpPickupValue,
                 pos,
-                GameConfig::XpPickupRespawnTime
+                stats(_reg).XpPickupRespawnTime
             );
         }
     }
     SpawnDef heal[] = {
         {PickupType::Heal,
-         GameConfig::HealPickupValue,
+         stats(_reg).HealPickupValue,
          Vec2{-20, -20},
-         GameConfig::HealPickupRespawnTime},
+         stats(_reg).HealPickupRespawnTime},
         {PickupType::Heal,
-         GameConfig::HealPickupValue,
+         stats(_reg).HealPickupValue,
          Vec2{20, 20},
-         GameConfig::HealPickupRespawnTime},
+         stats(_reg).HealPickupRespawnTime},
     };
     for (auto &s : heal)
         _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);
     SpawnDef small[] = {
         {PickupType::SmallHeal,
-         GameConfig::SmallHealPickupValue,
+         stats(_reg).SmallHealPickupValue,
          Vec2{-10, 10},
-         GameConfig::SmallHealPickupRespawnTime},
+         stats(_reg).SmallHealPickupRespawnTime},
         {PickupType::SmallHeal,
-         GameConfig::SmallHealPickupValue,
+         stats(_reg).SmallHealPickupValue,
          Vec2{10, -10},
-         GameConfig::SmallHealPickupRespawnTime},
+         stats(_reg).SmallHealPickupRespawnTime},
     };
     for (auto &s : small)
         _spawn_one_spawner(s.type, s.value, s.pos, s.respawn);

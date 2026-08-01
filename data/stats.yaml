@@ -1,0 +1,268 @@
+schema:
+  version: 1
+
+simulation:
+  tick_rate: 30.0
+  snapshot_rate: 20.0
+world:
+  map_half: 50.0
+
+player:
+  radius: 0.5
+  speed: 5.0
+  base_hp: 100
+  base_attack: 10.0
+  base_attack_speed: 1.0
+  spawn_safe_radius: 12.0
+
+projectile:
+  speed: 20.0
+  lifetime: 2.0
+  radius: 0.3
+
+bot:
+  count: 20
+  radius: 0.5
+  speed: 2.0
+  hp: 30
+  base_attack: 3.0
+  base_attack_speed: 0.5
+  respawn_time: 8.0
+  vision_range: 20.0
+  stat_multiplier: 0.1
+  wander_interval_min: 2.0
+  wander_interval_max: 5.0
+
+hero_progression:
+  max_level: 30
+  atk_per_level: 1.0
+  asp_per_level: 0.03
+
+bot_tiers:
+  normal:
+    hp_multiplier: 1.0
+    attack_multiplier: 1.0
+    attack_speed_multiplier: 1.0
+    speed_multiplier: 1.0
+    vision_multiplier: 1.0
+  elite:
+    hp_multiplier: 2.0
+    attack_multiplier: 1.6
+    attack_speed_multiplier: 1.1
+    speed_multiplier: 1.1
+    vision_multiplier: 1.2
+  boss:
+    hp_multiplier: 4.0
+    attack_multiplier: 2.5
+    attack_speed_multiplier: 1.25
+    speed_multiplier: 1.2
+    vision_multiplier: 1.5
+  boss_roll: 0.05
+  elite_roll: 0.20
+
+bot_roles:
+  fodder_max_level: 5
+  brute_min_level: 22
+  stalker_level_offset: 2
+  fodder_weight: 4
+  stalker_weight: 4
+  brute_weight: 2
+  brute_elite_roll: 0.6
+
+bot_ai:
+  decision_cooldown: 0.3
+  flee_distance: 30.0
+  engage_range_high: 0.8
+  engage_range_low: 0.3
+  kite_strafe_distance: 5.0
+  target_lock_time: 2.0
+  goal_commit_time: 0.8
+  kite_chase_exit: 0.75
+  kite_chase_enter: 0.85
+  kite_retreat_exit: 0.35
+  kite_retreat_enter: 0.25
+
+bot_combat:
+  phase_cooldown: 0.2
+  skill_decision_cooldown: 0.1
+  goal_decision_cooldown: 0.5
+  approach_threshold: 0.8
+  kite_threshold: 1.2
+  burst_health_threshold: 0.7
+  sustain_health_threshold: 0.4
+  disengage_health_threshold: 0.3
+  safe_distance_multiplier: 2.0
+  burst_step_limit: 3
+  burst_duration: 2.0
+  disengage_recovery_threshold: 0.6
+
+progression:
+  atk_per_kill: 2.0
+  asp_per_kill: 0.05
+  asp_max: 4.0
+  kill_xp_base: 200
+  kill_xp_high_bonus: 0.75
+  xp_per_level_base: 250
+  hp_per_level: 10
+  speed_per_level: 0.5
+  heal_fraction: 0.5
+
+entity_ids:
+  player_start: 1
+  bot_start: 1001
+  arrow_start: 2001
+  pickup_start: 3001
+  aoe_start: 4001
+
+pickups:
+  xp:
+    value: 48
+    respawn_time: 10.0
+    count: 120
+  heal:
+    value: 30
+    respawn_time: 25.0
+    count: 2
+  small_heal:
+    value: 25
+    respawn_time: 20.0
+    count: 2
+  radius: 0.5
+
+pathfinding:
+  repath_target_deadzone: 1.5
+  turn_rate: 12.0
+  skill_chase_repath_deadzone: 2.0
+
+mana:
+  player_max: 300.0
+  player_regen: 5.0
+  bot_max: 80.0
+  bot_regen: 3.0
+  regen_delay: 3.0
+
+attack:
+  range: 8.0
+  acquisition_range: 15.0
+
+skills:
+  player_ids: [1, 2, 3, 4]
+  bot_ids: [1, 2, 3, 4]
+  max_level: 4
+  mana_reduction_min: 0.2
+  cdr_min: 0.4
+  cdr_per_level: 0.05
+  damage_attack_ratio: 0.9
+  refund_on_cast_interrupt: true
+  refund_on_chase_interrupt: true
+  bot_damage_multiplier: 0.07
+  bot_cooldown_multiplier: 1.3
+  bot_mana_multiplier: 0.6
+  melee_strike:
+    id: 1
+    name: Melee Strike
+    base_cooldown: 5.0
+    base_mana_cost: 20.0
+    base_cast_time: 0.2
+    base_range: 8.0
+    cooldown_per_level: 0.5
+    mana_reduction_per_level: 0.05
+    mana_reduction_min: 0.3
+    range_per_level: 0.0
+    damage_base: 40.0
+    damage_per_level: 15.0
+    damage_atk_ratio: 0.9
+    effect_base: 0.0
+    effect_per_level: 0.0
+  aoe_field:
+    id: 2
+    name: AOE Field
+    base_cooldown: 20.0
+    base_mana_cost: 100.0
+    base_cast_time: 0.5
+    base_range: 4.0
+    cooldown_per_level: 1.5
+    mana_reduction_per_level: 0.10
+    mana_reduction_min: 0.3
+    range_per_level: 0.0
+    damage_base: 35.0
+    damage_per_level: 10.0
+    damage_atk_ratio: 0.9
+    effect_base: 2.0
+    effect_per_level: 0.25
+  dash:
+    id: 3
+    name: Dash
+    base_cooldown: 10.0
+    base_mana_cost: 40.0
+    base_cast_time: 0.2
+    base_range: 8.0
+    cooldown_per_level: 1.0
+    mana_reduction_per_level: 0.05
+    mana_reduction_min: 0.3
+    range_per_level: 1.0
+    damage_base: 0.0
+    damage_per_level: 0.0
+    damage_atk_ratio: 0.0
+    effect_base: 0.0
+    effect_per_level: 0.0
+    dash_speed: 20.0
+  channel_burst:
+    id: 4
+    name: Channel Burst
+    base_cooldown: 60.0
+    base_mana_cost: 230.0
+    base_cast_time: 1.0
+    base_range: 0.0
+    cooldown_per_level: 5.0
+    mana_reduction_per_level: 0.03
+    mana_reduction_min: 0.3
+    range_per_level: 0.0
+    damage_base: 0.0
+    damage_per_level: 0.0
+    damage_atk_ratio: 0.9
+    effect_base: 5.0
+    effect_per_level: 0.5
+    channel_interval: 0.5
+    channel_projectile_count: 16
+    channel_projectile_spawn_radius: 0.5
+
+bot_skill_scoring:
+  base: 50.0
+  in_range: 30.0
+  near_range: 10.0
+  out_of_range: -20.0
+  approach_dash: 40.0
+  approach_melee: 20.0
+  kite_aoe: 30.0
+  kite_channel: 25.0
+  burst_melee: 50.0
+  burst_aoe: 40.0
+  sustain_channel: 45.0
+  sustain_aoe: 20.0
+  disengage_dash: 60.0
+  low_health_dash: 50.0
+  high_health_channel: 20.0
+  low_health_channel: -30.0
+  aoe_enemy: 25.0
+  enemy_scan_radius_sq: 100.0
+  low_health: 0.3
+  high_health: 0.7
+  sustain_health: 0.5
+
+heroes:
+  swordsman:
+    id: 1
+    name: Swordsman
+    skill_ids: [1, 2, 3, 4]
+    base_hp: 100
+    base_mana: 300.0
+    base_attack: 10.0
+    base_attack_speed: 1.0
+    base_move_speed: 5.0
+    attack_range: 8.0
+    hp_per_level: 10.0
+    attack_per_level: 1.0
+    attack_speed_per_level: 0.03
+    move_speed_per_level: 0.5
+    prefab_id: 0

@@ -85,11 +85,13 @@ tools/map_editor/                ← Python 地图编辑器（pygame + watchdog�
 └── map_editor_help.txt          ← 帮助面板文本
 
 data/skills/icons/               ← 7 个占位图标 PNG（系统自动导入）
+data/stats.yaml                  ← C++ Sim 启动时加载的平衡数值
 
 src_cpp/sim/                     ← C++ Sim 层核心
 ├── components.h                 ← 全部 ECS 组件（含 MovePath）
-├── game_config.h                ← 游戏常量（含 PathTurnRate 等）
-├── skill_defs.h                 ← 4 技能定义表
+├── game_config.h                ← StatsConfig registry-context 访问器
+├── stats_config.h/cpp           ← stats.yaml 解析与运行时平衡配置
+├── skill_defs.h                 ← 已废弃（技能由 SkillRegistry 管理）
 ├── nav_grid.h                   ← NavGrid A* 寻路（新增）
 ├── world.cpp                    ← World 初始化 + tick 循环
 ├── world.h                      ← World 声明
@@ -129,7 +131,7 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | 旧 skill_bar_hud 清理                                                              | 已删除                                                                                            |
 | **4 技能系统完整设计方案**                                                         | **已废弃，由 `input_system_design.md` 取代**                                                      |
 | **Q 技能刀光命中 VFX**                                                             | `skill_vfx_attachment.gd`, `entity_view.gd`                                                       |
-| **Bot 死亡停留时间 3s→8s**                                                         | `game_config.h` BotRespawnTime                                                                    |
+| **Bot 死亡停留时间 3s→8s**                                                         | `data/stats.yaml` bot.respawn_time                                                                |
 | _*右键点地板移动 + A* 寻路（C++ Sim）_*                                            | `input_system_design.md`                                                                          |
 | **单一 MOBA 控制模式（WASD 模式已移除）**                                          | `game_settings.gd`, `input_collector.gd`                                                          |
 | **设置面板（ESC 切换 + 退出游戏）**                                                | `settings_panel.gd/tscn`                                                                          |
@@ -158,7 +160,8 @@ src_cpp/sim/                     ← C++ Sim 层核心
 | **修正 SimSkillSlotSnap.level 语义 bug**                                           | snapshot 字段改为 `slot.Level`（之前误用 char_level）                                             |
 | **Snapshot 扩展**                                                                  | SimPlayerSnap 新增 `is_moving` / `cast_target_id` / `skill_points`                               |
 | **WASD 模式彻底移除**                                                             | `player_movement.h` 移除 WASD 分支；`sim_bridge.gd` 移除旧 InputCollector 引用                   |
-| **refund 配置化（v2 默认退蓝退 CD）**                                              | `GameConfig::RefundOnCastInterrupt = true` / `RefundOnChaseInterrupt = true`                      |
+| **refund 配置化（v2 默认退蓝退 CD）**                                              | `data/stats.yaml` skills.refund_*                                                                 |
+| **平衡数值外置**                                                                    | `data/stats.yaml` + `StatsConfig`（Sim 启动时加载，重启生效）                                      |
 
 ### 📋 已实施（Hero + Skill 系统重构，P1-P5）
 

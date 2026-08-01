@@ -6,12 +6,22 @@
 
 namespace sim {
 
-World::World() : _rng(42) {
-    register_builtin_heroes();
-    register_builtin_skills();
-}
+World::World() : _rng(42) {}
 
-void World::initialize(const std::string &map_json) {
+bool World::initialize(
+    const std::string &map_json, const std::string &stats_yaml
+) {
+    _last_error.clear();
+    StatsConfig config;
+    std::string stats_error;
+    if (!load_stats_yaml(stats_yaml, config, stats_error)) {
+        _last_error = stats_error;
+        return false;
+    }
+    _reg.ctx().emplace<StatsConfig>(std::move(config));
+    register_builtin_heroes(stats(_reg));
+    register_builtin_skills(stats(_reg));
+
     auto map = parse_map_json(map_json);
 
     _map_bounds_entity = _reg.create();
@@ -40,11 +50,11 @@ void World::initialize(const std::string &map_json) {
     _id_state_entity = _reg.create();
     _reg.emplace<IdState>(
         _id_state_entity,
-        GameConfig::PlayerIdStart,
-        GameConfig::BotIdStart,
-        GameConfig::ArrowIdStart,
-        GameConfig::PickupIdStart,
-        GameConfig::AoEIdStart
+        stats(_reg).PlayerIdStart,
+        stats(_reg).BotIdStart,
+        stats(_reg).ArrowIdStart,
+        stats(_reg).PickupIdStart,
+        stats(_reg).AoEIdStart
     );
 
     _kill_event_entity = _reg.create();
@@ -62,10 +72,11 @@ void World::initialize(const std::string &map_json) {
 
     _build_nav_grid();
 
-    for (int i = 0; i < GameConfig::BotCount; ++i)
+    for (int i = 0; i < stats(_reg).BotCount; ++i)
         _spawn_bot();
-    _spawn_player(GameConfig::PlayerIdStart, true);
+    _spawn_player(stats(_reg).PlayerIdStart, true);
     _spawn_pickup_spawners();
+    return true;
 }
 
 void World::tick(double dt) {
@@ -125,7 +136,7 @@ Vec2 World::_random_map_pos(float half, float radius) {
 
 float World::_random_wander_time() {
     std::uniform_real_distribution<float> dist(
-        GameConfig::BotWanderIntervalMin, GameConfig::BotWanderIntervalMax
+        stats(_reg).BotWanderIntervalMin, stats(_reg).BotWanderIntervalMax
     );
     return dist(_rng);
 }
@@ -137,7 +148,7 @@ void World::_build_nav_grid() {
         walls.push_back(_reg.get<WallBounds>(w));
 
     float half = _reg.get<MapBounds>(_map_bounds_entity).Half;
-    _nav_grid.build(half, walls, 0.5f, GameConfig::PlayerRadius);
+    _nav_grid.build(half, walls, 0.5f, stats(_reg).PlayerRadius);
 }
 
 int World::_get_player_level() {

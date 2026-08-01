@@ -37,12 +37,12 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
             }
 
             float target_radius = reg.all_of<BotTag>(target)
-                                      ? GameConfig::BotRadius
-                                      : GameConfig::PlayerRadius;
+                                      ? stats(reg).BotRadius
+                                      : stats(reg).PlayerRadius;
 
             if (!circles_overlap(
                     arrow_pos.Value,
-                    GameConfig::ArrowRadius,
+                    stats(reg).ArrowRadius,
                     target_view.get<Position2D>(target).Value,
                     target_radius
                 )) {
@@ -71,7 +71,7 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
                 }
                 if (reg.all_of<BotAIState>(target)) {
                     reg.get<BotAIState>(target).RespawnTimer =
-                        GameConfig::BotRespawnTime;
+                        stats(reg).BotRespawnTime;
                 }
             }
 

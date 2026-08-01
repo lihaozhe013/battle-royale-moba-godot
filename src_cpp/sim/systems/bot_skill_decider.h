@@ -19,19 +19,25 @@ struct SkillScore {
 };
 
 inline bool bot_skill_ready(
-    const SkillSlot &s, const Mana &m, int level, const ISkill *sk
+    entt::registry &reg,
+    const SkillSlot &s,
+    const Mana &m,
+    int level,
+    const ISkill *sk
 ) {
     if (!sk)
         return false;
     if (s.CooldownTimer > 0.0f)
         return false;
-    float effective_cost = sk->mana_cost(level) * GameConfig::BotManaCostMul;
+    float effective_cost =
+        sk->mana_cost(level) * sim::stats(reg).BotManaCostMul;
     if (m.Cur < effective_cost)
         return false;
     return true;
 }
 
 inline float calculate_skill_score(
+    const StatsConfig &config,
     const ISkill *sk,
     const SkillSlot &slot,
     float dist,
@@ -45,55 +51,57 @@ inline float calculate_skill_score(
     float score = 0.0f;
     float range = sk->range(slot.Level);
 
-    score += 50.0f;
+    score += config.BotSkillScoreBase;
 
     if (dist <= range)
-        score += 30.0f;
+        score += config.BotSkillScoreInRange;
     else if (dist <= range * 1.5f)
-        score += 10.0f;
+        score += config.BotSkillScoreNearRange;
     else
-        score -= 20.0f;
+        score += config.BotSkillScoreOutOfRange;
 
     switch (phase) {
     case BotCombatState::Phase::Approach:
         if (sk->kind() == SkillKind::Dash)
-            score += 40.0f;
+            score += config.BotSkillScoreApproachDash;
         if (sk->kind() == SkillKind::MeleeSingle)
-            score += 20.0f;
+            score += config.BotSkillScoreApproachMelee;
         break;
     case BotCombatState::Phase::Kite:
         if (sk->kind() == SkillKind::AoEField)
-            score += 30.0f;
+            score += config.BotSkillScoreKiteAoe;
         if (sk->kind() == SkillKind::ChannelBurst)
-            score += 25.0f;
+            score += config.BotSkillScoreKiteChannel;
         break;
     case BotCombatState::Phase::Burst:
         if (sk->kind() == SkillKind::MeleeSingle)
-            score += 50.0f;
+            score += config.BotSkillScoreBurstMelee;
         if (sk->kind() == SkillKind::AoEField)
-            score += 40.0f;
+            score += config.BotSkillScoreBurstAoe;
         break;
     case BotCombatState::Phase::Sustain:
         if (sk->kind() == SkillKind::ChannelBurst)
-            score += 45.0f;
+            score += config.BotSkillScoreSustainChannel;
         if (sk->kind() == SkillKind::AoEField)
-            score += 20.0f;
+            score += config.BotSkillScoreSustainAoe;
         break;
     case BotCombatState::Phase::Disengage:
         if (sk->kind() == SkillKind::Dash)
-            score += 60.0f;
+            score += config.BotSkillScoreDisengageDash;
         break;
     }
 
-    if (hp_ratio < 0.3f && sk->kind() == SkillKind::Dash)
-        score += 50.0f;
-    if (hp_ratio > 0.7f && sk->kind() == SkillKind::ChannelBurst)
-        score += 20.0f;
-    if (hp_ratio < 0.5f && sk->kind() == SkillKind::ChannelBurst)
-        score -= 30.0f;
+    if (hp_ratio < config.BotSkillLowHealth && sk->kind() == SkillKind::Dash)
+        score += config.BotSkillScoreLowHealthDash;
+    if (hp_ratio > config.BotSkillHighHealth &&
+        sk->kind() == SkillKind::ChannelBurst)
+        score += config.BotSkillScoreHighHealthChannel;
+    if (hp_ratio < config.BotSkillSustainHealth &&
+        sk->kind() == SkillKind::ChannelBurst)
+        score += config.BotSkillScoreLowHealthChannel;
 
     if (sk->kind() == SkillKind::AoEField && enemy_count >= 2) {
-        score += enemy_count * 25.0f;
+        score += enemy_count * config.BotSkillScoreAoeEnemy;
     }
 
     return score;
@@ -160,7 +168,8 @@ inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
             if (reg.all_of<Dead>(t) && reg.get<Dead>(t).enabled)
                 continue;
             Vec2 d = damageable_view.get<Position2D>(t).Value - pos.Value;
-            if (vec2_length_sq(d) <= 100.0f) {
+            if (vec2_length_sq(d) <=
+                sim::stats(reg).BotSkillEnemyScanRadiusSq) {
                 enemy_count++;
             }
         }
@@ -170,11 +179,12 @@ inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
             if (!sk[i])
                 continue;
             if (!bot_skill_ready(
-                    skills.Slots[i], mana, skills.Slots[i].Level, sk[i]
+                    reg, skills.Slots[i], mana, skills.Slots[i].Level, sk[i]
                 ))
                 continue;
 
             float score = calculate_skill_score(
+                sim::stats(reg),
                 sk[i],
                 skills.Slots[i],
                 dist,
@@ -204,7 +214,7 @@ inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
             rq.AimPos = reg.get<Position2D>(ai.TargetEntity).Value;
         } else if (sk[best.slot]->kind() == SkillKind::Dash) {
             Vec2 away_dir = (dist > 0.001f) ? -(to_target / dist) : Vec2{1, 0};
-            if (hp_ratio < 0.3f) {
+            if (hp_ratio < sim::stats(reg).BotSkillLowHealth) {
                 rq.AimPos =
                     pos.Value +
                     away_dir *

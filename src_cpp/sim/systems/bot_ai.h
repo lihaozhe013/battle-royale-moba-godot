@@ -66,7 +66,7 @@ inline void bot_respawn_tick(
     float map_half,
     std::mt19937 &rng
 ) {
-    ai.RespawnTimer -= (1.0f / GameConfig::TickRate);
+    ai.RespawnTimer -= (1.0f / sim::stats(reg).TickRate);
     if (ai.RespawnTimer > 0.0f)
         return;
 
@@ -79,9 +79,9 @@ inline void bot_respawn_tick(
     }
 
     float density[3] = {
-        counts[0] / (float)GameConfig::FodderWeight,
-        counts[1] / (float)GameConfig::StalkerWeight,
-        counts[2] / (float)GameConfig::BruteWeight,
+        counts[0] / (float)sim::stats(reg).FodderWeight,
+        counts[1] / (float)sim::stats(reg).StalkerWeight,
+        counts[2] / (float)sim::stats(reg).BruteWeight,
     };
     BotRole role;
     if (density[0] <= density[1] && density[0] <= density[2])
@@ -109,41 +109,41 @@ inline void bot_respawn_tick(
     }
     int new_lv;
     if (high_count < 3) {
-        new_lv =
-            std::uniform_int_distribution<int>(25, GameConfig::MaxHeroLevel)(
-                rng
-            );
+        new_lv = std::uniform_int_distribution<
+            int>(25, sim::stats(reg).MaxHeroLevel)(rng);
     } else {
         int offset = std::uniform_int_distribution<int>(-3, 3)(rng);
-        new_lv = std::clamp(plv + offset, 1, GameConfig::MaxHeroLevel);
+        new_lv = std::clamp(plv + offset, 1, sim::stats(reg).MaxHeroLevel);
     }
 
-    BotTier tier = detail::roll_bot_tier_for_role(role, rng);
-    auto mult = detail::tier_mult(tier);
+    BotTier tier = detail::roll_bot_tier_for_role(role, rng, sim::stats(reg));
+    auto mult = detail::tier_mult(tier, sim::stats(reg));
 
     reg.get_or_emplace<BotTier>(e) = tier;
     lv.Value = new_lv;
-    int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
-    hp.Max = static_cast<int>(base_hp * mult.HpMul * GameConfig::BotStatMul);
+    int base_hp =
+        sim::stats(reg).BotHp + (new_lv - 1) * sim::stats(reg).HpPerLevel;
+    hp.Max =
+        static_cast<int>(base_hp * mult.HpMul * sim::stats(reg).BotStatMul);
     hp.Cur = hp.Max;
-    stats.Atk =
-        (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::AtkPerLevel) *
-        mult.AtkMul * GameConfig::BotStatMul;
+    stats.Atk = (sim::stats(reg).BotBaseAttack +
+                 (new_lv - 1) * sim::stats(reg).AtkPerLevel) *
+                mult.AtkMul * sim::stats(reg).BotStatMul;
     stats.Asp = std::min(
-        (GameConfig::BotBaseAttackSpeed +
-         (new_lv - 1) * GameConfig::AspPerLevel) *
-            mult.AspMul * GameConfig::BotStatMul,
-        GameConfig::AspMax
+        (sim::stats(reg).BotBaseAttackSpeed +
+         (new_lv - 1) * sim::stats(reg).AspPerLevel) *
+            mult.AspMul * sim::stats(reg).BotStatMul,
+        sim::stats(reg).AspMax
     );
-    speed.Value =
-        (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::SpeedPerLevel) *
-        mult.SpeedMul;
-    vision.Value =
-        GameConfig::BotVisionRange * mult.VisionMul * GameConfig::BotStatMul;
+    speed.Value = (sim::stats(reg).BotSpeed +
+                   (new_lv - 1) * sim::stats(reg).SpeedPerLevel) *
+                  mult.SpeedMul;
+    vision.Value = sim::stats(reg).BotVisionRange * mult.VisionMul *
+                   sim::stats(reg).BotStatMul;
     exp.Cur = 0;
-    exp.Needed = new_lv * GameConfig::XpPerLevelBase;
+    exp.Needed = new_lv * sim::stats(reg).XpPerLevelBase;
 
-    float half = map_half - GameConfig::BotRadius;
+    float half = map_half - sim::stats(reg).BotRadius;
     Vec2 player_pos{0.0f};
     bool has_player = false;
     auto pv2 = reg.view<PlayerTag, Position2D>();
@@ -161,7 +161,7 @@ inline void bot_respawn_tick(
     if (has_player) {
         int guard = 0;
         while (vec2_length_sq(pos.Value - player_pos) <
-                   GameConfig::PlayerSpawnSafeRadiusSq &&
+                   sim::stats(reg).PlayerSpawnSafeRadiusSq &&
                guard++ < 32) {
             pos.Value = Vec2{
                 std::uniform_real_distribution<float>(-half, half)(rng),
@@ -175,10 +175,10 @@ inline void bot_respawn_tick(
     };
     ai.RespawnTimer = 0.0f;
     ai.TargetEntity = entt::null;
-    ai.WanderTimer = GameConfig::BotWanderIntervalMin +
+    ai.WanderTimer = sim::stats(reg).BotWanderIntervalMin +
                      std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
-                         (GameConfig::BotWanderIntervalMax -
-                          GameConfig::BotWanderIntervalMin);
+                         (sim::stats(reg).BotWanderIntervalMax -
+                          sim::stats(reg).BotWanderIntervalMin);
     beh.Current = BotBehaviorState::Goal::Wander;
     beh.PickupTarget = entt::null;
 }
@@ -200,7 +200,7 @@ inline void bot_decide_goal(
     beh.DecisionCooldown -= dt;
     bool can_decide = beh.DecisionCooldown <= 0.0f;
     if (can_decide) {
-        beh.DecisionCooldown = GameConfig::BotDecisionCooldown;
+        beh.DecisionCooldown = sim::stats(reg).BotDecisionCooldown;
     }
 
     if (!can_decide)
@@ -275,7 +275,7 @@ inline void bot_decide_goal(
 
     if (goal_changed) {
         beh.Current = new_goal;
-        beh.GoalCommitTimer = GameConfig::BotGoalCommitTime;
+        beh.GoalCommitTimer = sim::stats(reg).BotGoalCommitTime;
     }
     beh.PickupTarget = new_pickup;
 
@@ -306,7 +306,7 @@ bot_compute_flee_target(entt::registry &reg, entt::entity e, Position2D &pos) {
         Vec2 away_dir = pos.Value - flee_from;
         float len = glm::length(away_dir);
         if (len > 0.01f) {
-            return pos.Value + (away_dir / len) * GameConfig::BotFleeDist;
+            return pos.Value + (away_dir / len) * sim::stats(reg).BotFleeDist;
         }
     }
     return pos.Value;
@@ -332,10 +332,10 @@ inline Vec2 bot_compute_engage_target(
         return pos.Value;
 
     Vec2 dir = to_target / dist;
-    float chase_enter = vision.Value * GameConfig::BotKiteChaseEnter;
-    float chase_exit = vision.Value * GameConfig::BotKiteChaseExit;
-    float retreat_exit = vision.Value * GameConfig::BotKiteRetreatExit;
-    float retreat_enter = vision.Value * GameConfig::BotKiteRetreatEnter;
+    float chase_enter = vision.Value * sim::stats(reg).BotKiteChaseEnter;
+    float chase_exit = vision.Value * sim::stats(reg).BotKiteChaseExit;
+    float retreat_exit = vision.Value * sim::stats(reg).BotKiteRetreatExit;
+    float retreat_enter = vision.Value * sim::stats(reg).BotKiteRetreatEnter;
 
     switch (beh.Kite) {
     case BotBehaviorState::KiteSub::Chase:
@@ -358,32 +358,37 @@ inline Vec2 bot_compute_engage_target(
     case BotBehaviorState::KiteSub::Chase:
         return tgt_pos;
     case BotBehaviorState::KiteSub::Retreat:
-        return pos.Value - dir * GameConfig::BotKiteStrafeDist;
+        return pos.Value - dir * sim::stats(reg).BotKiteStrafeDist;
     case BotBehaviorState::KiteSub::Strafe: {
         Vec2 strafe =
             (beh.StrafeDir > 0) ? detail::_perp_left(dir) : Vec2{dir.y, -dir.x};
-        return pos.Value + strafe * GameConfig::BotKiteStrafeDist;
+        return pos.Value + strafe * sim::stats(reg).BotKiteStrafeDist;
     }
     }
     return tgt_pos;
 }
 
 inline Vec2 bot_compute_wander_target(
-    BotAIState &ai, Position2D &pos, float map_half, float dt, std::mt19937 &rng
+    entt::registry &reg,
+    BotAIState &ai,
+    Position2D &pos,
+    float map_half,
+    float dt,
+    std::mt19937 &rng
 ) {
     ai.WanderTimer -= dt;
     Vec2 diff = ai.MoveTarget - pos.Value;
     if (ai.WanderTimer <= 0.0f || vec2_length_sq(diff) < 0.25f) {
-        float half = map_half - GameConfig::BotRadius;
+        float half = map_half - sim::stats(reg).BotRadius;
         ai.MoveTarget = Vec2{
             std::uniform_real_distribution<float>(-half, half)(rng),
             std::uniform_real_distribution<float>(-half, half)(rng)
         };
         ai.WanderTimer =
-            GameConfig::BotWanderIntervalMin +
+            sim::stats(reg).BotWanderIntervalMin +
             std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) *
-                (GameConfig::BotWanderIntervalMax -
-                 GameConfig::BotWanderIntervalMin);
+                (sim::stats(reg).BotWanderIntervalMax -
+                 sim::stats(reg).BotWanderIntervalMin);
     }
     return ai.MoveTarget;
 }
@@ -455,7 +460,8 @@ inline void bot_ai_system(
             break;
         case BotBehaviorState::Goal::Wander:
         default:
-            target_pos = bot_compute_wander_target(ai, pos, map_half, dt, rng);
+            target_pos =
+                bot_compute_wander_target(reg, ai, pos, map_half, dt, rng);
             break;
         }
 

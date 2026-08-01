@@ -10,22 +10,28 @@ namespace sim {
 
 class DashSkill : public ISkill {
   public:
+    explicit DashSkill(const SkillTuning &tuning) : _tuning(tuning) {}
+
     int id() const override { return 3; }
     SkillKind kind() const override { return SkillKind::Dash; }
 
-    float base_cooldown() const override { return 10.0f; }
-    float base_mana_cost() const override { return 40.0f; }
-    float base_cast_time() const override { return 0.2f; }
-    float base_range(int) const override { return 8.0f; }
+    float base_cooldown() const override { return _tuning.BaseCooldown; }
+    float base_mana_cost() const override { return _tuning.BaseManaCost; }
+    float base_cast_time() const override { return _tuning.BaseCastTime; }
+    float base_range(int) const override { return _tuning.BaseRange; }
 
     float cooldown(int level) const override {
-        return base_cooldown() - (level - 1) * 1.0f;
+        return base_cooldown() - (level - 1) * _tuning.CooldownPerLevel;
     }
     float mana_cost(int level) const override {
-        return base_mana_cost() * std::max(0.3f, 1.0f - (level - 1) * 0.05f);
+        return base_mana_cost() *
+               std::max(
+                   _tuning.ManaReductionMin,
+                   1.0f - (level - 1) * _tuning.ManaReductionPerLevel
+               );
     }
     float range(int level) const override {
-        return base_range(level) + (level - 1) * 1.0f;
+        return base_range(level) + (level - 1) * _tuning.RangePerLevel;
     }
 
     int validate_cast(
@@ -56,7 +62,7 @@ class DashSkill : public ISkill {
             dir = vec2_normalize(cs.AimPos - pos.Value);
         cs.DashStart = pos.Value;
         cs.DashTarget = pos.Value + dir * range(level);
-        cs.Timer = range(level) / 20.0f;
+        cs.Timer = range(level) / _tuning.DashSpeed;
     }
 
     void on_dash_update(
@@ -71,7 +77,7 @@ class DashSkill : public ISkill {
         if (total_dist < 0.001f)
             return;
         Vec2 dir = (cs.DashTarget - cs.DashStart) / total_dist;
-        float speed = 20.0f;
+        float speed = _tuning.DashSpeed;
         float step = speed * dt;
         pos.Value = pos.Value + dir * step;
         cs.Timer -= dt;
@@ -82,6 +88,9 @@ class DashSkill : public ISkill {
                phase == CastState::Phase::Casting ||
                phase == CastState::Phase::Dashing;
     }
+
+  private:
+    SkillTuning _tuning;
 };
 
 } // namespace sim

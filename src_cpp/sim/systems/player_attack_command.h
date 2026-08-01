@@ -90,10 +90,7 @@ inline void player_attack_command_system(entt::registry &reg, float dt) {
         // 4. 空地攻击（A+左键点空地 → 找最近敌人）
         if (input.AttackGround) {
             entt::entity tgt = find_nearest_enemy(
-                reg,
-                input.AttackGroundPos,
-                GameConfig::AttackAcquisitionRange,
-                e
+                reg, input.AttackGroundPos, stats(reg).AttackAcquisitionRange, e
             );
             if (tgt != entt::null) {
                 int net_id = reg.all_of<NetworkId>(tgt)

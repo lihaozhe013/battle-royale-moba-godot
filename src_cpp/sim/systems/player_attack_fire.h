@@ -56,11 +56,11 @@ inline void player_attack_fire_system(
         auto &target_pos = reg.get<Position2D>(at.Target).Value;
         Vec2 delta = target_pos - pos.Value;
         float dist = glm::length(delta);
-        if (dist > GameConfig::PlayerAttackRange) {
+        if (dist > sim::stats(reg).PlayerAttackRange) {
             printf(
                 "[ATK] skip out of range dist=%.2f range=%.2f\n",
                 dist,
-                GameConfig::PlayerAttackRange
+                sim::stats(reg).PlayerAttackRange
             );
             continue;
         }

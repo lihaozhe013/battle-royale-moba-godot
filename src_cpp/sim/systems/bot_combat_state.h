@@ -19,7 +19,7 @@ inline bool has_dash_ready(entt::registry &reg, entt::entity e) {
     if (skills.Slots[2].CooldownTimer > 0.0f)
         return false;
     float effective_cost =
-        sk->mana_cost(skills.Slots[2].Level) * GameConfig::BotManaCostMul;
+        sk->mana_cost(skills.Slots[2].Level) * sim::stats(reg).BotManaCostMul;
     return mana.Cur >= effective_cost;
 }
 
@@ -34,8 +34,8 @@ inline bool has_burst_skills_ready(entt::registry &reg, entt::entity e) {
             continue;
         if (skills.Slots[i].CooldownTimer > 0.0f)
             continue;
-        float effective_cost =
-            sk->mana_cost(skills.Slots[i].Level) * GameConfig::BotManaCostMul;
+        float effective_cost = sk->mana_cost(skills.Slots[i].Level) *
+                               sim::stats(reg).BotManaCostMul;
         if (mana.Cur < effective_cost)
             continue;
         if (sk->kind() == SkillKind::MeleeSingle ||
@@ -80,7 +80,7 @@ inline void bot_combat_state_system(entt::registry &reg, float dt) {
         Vec2 to_target = reg.get<Position2D>(ai.TargetEntity).Value - pos.Value;
         float dist = glm::length(to_target);
         float hp_ratio = (float)hp.Cur / (float)hp.Max;
-        float attack_range = GameConfig::PlayerAttackRange;
+        float attack_range = sim::stats(reg).PlayerAttackRange;
 
         combat.PhaseTimer -= dt;
         if (combat.PhaseTimer > 0.0f)
@@ -91,11 +91,11 @@ inline void bot_combat_state_system(entt::registry &reg, float dt) {
 
         switch (combat.Current) {
         case BotCombatState::Phase::Approach:
-            if (dist < attack_range * GameConfig::BotApproachThreshold) {
+            if (dist < attack_range * sim::stats(reg).BotApproachThreshold) {
                 new_phase = BotCombatState::Phase::Kite;
                 changed = true;
             } else if (
-                hp_ratio < GameConfig::BotDisengageHealthThreshold &&
+                hp_ratio < sim::stats(reg).BotDisengageHealthThreshold &&
                 has_dash_ready(reg, e)
             ) {
                 new_phase = BotCombatState::Phase::Disengage;
@@ -104,41 +104,43 @@ inline void bot_combat_state_system(entt::registry &reg, float dt) {
             break;
 
         case BotCombatState::Phase::Kite:
-            if (dist > attack_range * GameConfig::BotKiteThreshold) {
+            if (dist > attack_range * sim::stats(reg).BotKiteThreshold) {
                 new_phase = BotCombatState::Phase::Approach;
                 changed = true;
             } else if (
-                hp_ratio > GameConfig::BotBurstHealthThreshold &&
+                hp_ratio > sim::stats(reg).BotBurstHealthThreshold &&
                 has_burst_skills_ready(reg, e)
             ) {
                 new_phase = BotCombatState::Phase::Burst;
                 changed = true;
-            } else if (hp_ratio < GameConfig::BotSustainHealthThreshold) {
+            } else if (hp_ratio < sim::stats(reg).BotSustainHealthThreshold) {
                 new_phase = BotCombatState::Phase::Disengage;
                 changed = true;
             }
             break;
 
         case BotCombatState::Phase::Burst:
-            if (combat.BurstStep >= 3 || combat.BurstTimer <= 0.0f) {
+            if (combat.BurstStep >= sim::stats(reg).BotBurstStepLimit ||
+                combat.BurstTimer <= 0.0f) {
                 new_phase = BotCombatState::Phase::Sustain;
                 changed = true;
             }
             break;
 
         case BotCombatState::Phase::Sustain:
-            if (hp_ratio < GameConfig::BotSustainHealthThreshold) {
+            if (hp_ratio < sim::stats(reg).BotSustainHealthThreshold) {
                 new_phase = BotCombatState::Phase::Disengage;
                 changed = true;
-            } else if (dist > attack_range * GameConfig::BotKiteThreshold) {
+            } else if (dist > attack_range * sim::stats(reg).BotKiteThreshold) {
                 new_phase = BotCombatState::Phase::Approach;
                 changed = true;
             }
             break;
 
         case BotCombatState::Phase::Disengage:
-            if (dist > attack_range * GameConfig::BotSafeDistanceMultiplier ||
-                hp_ratio > 0.6f) {
+            if (dist >
+                    attack_range * sim::stats(reg).BotSafeDistanceMultiplier ||
+                hp_ratio > sim::stats(reg).BotDisengageRecoveryThreshold) {
                 new_phase = BotCombatState::Phase::Approach;
                 changed = true;
             }
@@ -147,10 +149,10 @@ inline void bot_combat_state_system(entt::registry &reg, float dt) {
 
         if (changed) {
             combat.Current = new_phase;
-            combat.PhaseTimer = GameConfig::BotCombatPhaseCooldown;
+            combat.PhaseTimer = sim::stats(reg).BotCombatPhaseCooldown;
             if (new_phase == BotCombatState::Phase::Burst) {
                 combat.BurstStep = 0;
-                combat.BurstTimer = 2.0f;
+                combat.BurstTimer = sim::stats(reg).BotBurstDuration;
             }
         }
 

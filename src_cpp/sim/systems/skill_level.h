@@ -23,7 +23,7 @@ inline void skill_level_system(entt::registry &reg) {
             continue;
 
         auto &slot = skills.Slots[input.SkillUpgradeSlot];
-        if (slot.SkillId <= 0 || slot.Level >= GameConfig::MaxSkillLevel)
+        if (slot.SkillId <= 0 || slot.Level >= stats(reg).MaxSkillLevel)
             continue;
 
         slot.Level++;

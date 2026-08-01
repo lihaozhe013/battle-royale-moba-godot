@@ -49,6 +49,12 @@ func _ready() -> void:
 		return
 	var map_json = file.get_as_text()
 	file.close()
+	var stats_file = FileAccess.open("res://data/stats.yaml", FileAccess.READ)
+	if not stats_file:
+		push_error("[stats_config] Failed to load stats YAML")
+		return
+	var stats_yaml = stats_file.get_as_text()
+	stats_file.close()
 
 	# Auto-create input layer nodes
 	input_event_queue = _ensure_node("InputEventQueue", &"res://scripts/input/input_event_queue.gd")
@@ -64,7 +70,9 @@ func _ready() -> void:
 	health_bar_manager.health_bar_scene = preload("res://scenes/ui/health_bar_ui.tscn")
 
 	sim = SimServer.new()
-	sim.initialize(map_json)
+	if not sim.initialize(map_json, stats_yaml):
+		push_error("[stats_config] SimServer initialization failed")
+		return
 	print("SimServer initialized")
 
 	_skill_vfx = $SkillVFX if has_node("SkillVFX") else Node3D.new()

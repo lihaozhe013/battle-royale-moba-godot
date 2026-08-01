@@ -26,9 +26,10 @@ inline void progression_system(entt::registry &reg) {
                 if (net.Value != ev.KillerId)
                     continue;
                 auto &stats = combatant_view.get<CombatStats>(c);
-                stats.Atk += GameConfig::AtkPerKill;
+                stats.Atk += sim::stats(reg).AtkPerKill;
                 stats.Asp = std::min(
-                    stats.Asp + GameConfig::AspPerKill, GameConfig::AspMax
+                    stats.Asp + sim::stats(reg).AspPerKill,
+                    sim::stats(reg).AspMax
                 );
                 break;
             }
@@ -55,8 +56,8 @@ inline void progression_system(entt::registry &reg) {
             if (killer_entity != entt::null && killer_entity != victim_entity) {
                 int level_diff = std::max(0, victim_lv - killer_lv);
                 int kill_xp = static_cast<int>(
-                    GameConfig::KillXpBase * victim_lv *
-                    (1.0f + level_diff * GameConfig::KillXpHighBonus)
+                    sim::stats(reg).KillXpBase * victim_lv *
+                    (1.0f + level_diff * sim::stats(reg).KillXpHighBonus)
                 );
                 apply_xp(reg, killer_entity, kill_xp);
             }

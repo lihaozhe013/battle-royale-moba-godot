@@ -66,7 +66,7 @@ inline void movement_system(entt::registry &reg, float dt, float map_half) {
                 auto smooth_facing = [&](Vec2 move_dir) {
                     float target = std::atan2(move_dir.y, move_dir.x);
                     float diff = pm_angle_diff(target, angle.Radians);
-                    float max_turn = GameConfig::PathTurnRate * dt;
+                    float max_turn = stats(reg).PathTurnRate * dt;
                     if (std::abs(diff) > max_turn)
                         diff = (diff > 0 ? max_turn : -max_turn);
                     angle.Radians += diff;

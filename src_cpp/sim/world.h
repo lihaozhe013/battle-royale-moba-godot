@@ -37,7 +37,8 @@ class World {
   public:
     World();
 
-    void initialize(const std::string &map_json);
+    bool initialize(const std::string &map_json, const std::string &stats_yaml);
+    const std::string &last_error() const { return _last_error; }
 
     // ── 新命令 API ──
     void set_skill_command(
@@ -114,6 +115,7 @@ class World {
     entt::entity _id_state_entity = entt::null;
     entt::entity _kill_event_entity = entt::null;
     bool _game_over = false;
+    std::string _last_error;
 };
 
 } // namespace sim
