@@ -30,6 +30,7 @@ struct GameConfig {
     static constexpr float BotBaseAttackSpeed = 0.5f;
     static constexpr float BotRespawnTime = 8.0f;
     static constexpr float BotVisionRange = 20.0f;
+    static constexpr float BotStatMul = 0.1f;
     static constexpr float BotWanderIntervalMin = 2.0f;
     static constexpr float BotWanderIntervalMax = 5.0f;
 
@@ -103,6 +104,10 @@ struct GameConfig {
     static constexpr int PickupIdStart = 3001;
     static constexpr int AoEIdStart = 4001;
 
+    static constexpr float PlayerSpawnSafeRadius = 12.0f;
+    static constexpr float PlayerSpawnSafeRadiusSq =
+        PlayerSpawnSafeRadius * PlayerSpawnSafeRadius;
+
     static constexpr int XpPerLevelBase = 250;
     static constexpr int HpPerLevel = 10;
     static constexpr float SpeedPerLevel = 0.5f;
@@ -158,7 +163,7 @@ struct GameConfig {
     static constexpr bool RefundOnChaseInterrupt = true;
 
     // ── Bot 技能系数（与 HeroDef 中的基础值乘算） ──
-    static constexpr float BotSkillDmgMul = 0.7f;
+    static constexpr float BotSkillDmgMul = 0.7f * BotStatMul;
     static constexpr float BotSkillCooldownMul = 1.3f;
     static constexpr float BotManaCostMul = 0.6f;
 };

@@ -54,6 +54,16 @@ void World::_spawn_player(int player_id, bool is_local) {
         sc.Slots[i].ManaCost = sk ? sk->base_mana_cost() : 0.0f;
     }
     _reg.emplace<SkillComponent>(e, sc);
+
+    auto bot_view = _reg.view<BotTag, Position2D>();
+    for (auto b : bot_view) {
+        Vec2 &bp = bot_view.get<Position2D>(b).Value;
+        Vec2 delta = bp - pos;
+        if (vec2_length_sq(delta) <
+            GameConfig::PlayerSpawnSafeRadiusSq) {
+            bp = _random_map_pos(half, GameConfig::BotRadius);
+        }
+    }
 }
 
 void World::_spawn_bot() {
@@ -93,17 +103,18 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
     float atk =
         (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::AtkPerLevel) *
-        mult.AtkMul;
+        mult.AtkMul * GameConfig::BotStatMul;
     float asp = std::min(
         (GameConfig::BotBaseAttackSpeed +
          (new_lv - 1) * GameConfig::AspPerLevel) *
-            mult.AspMul,
+            mult.AspMul * GameConfig::BotStatMul,
         GameConfig::AspMax
     );
     float spd =
         (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::SpeedPerLevel) *
         mult.SpeedMul;
-    float vis = GameConfig::BotVisionRange * mult.VisionMul;
+    float vis =
+        GameConfig::BotVisionRange * mult.VisionMul * GameConfig::BotStatMul;
 
     float half = GameConfig::MapHalf - GameConfig::BotRadius;
     Vec2 pos = _random_map_pos(half, GameConfig::BotRadius);
@@ -118,8 +129,8 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<FacingAngle>(e, 0.0f);
     _reg.emplace<Health>(
         e,
-        static_cast<int>(base_hp * mult.HpMul),
-        static_cast<int>(base_hp * mult.HpMul)
+        static_cast<int>(base_hp * mult.HpMul * GameConfig::BotStatMul),
+        static_cast<int>(base_hp * mult.HpMul * GameConfig::BotStatMul)
     );
     _reg.emplace<Mana>(
         e,

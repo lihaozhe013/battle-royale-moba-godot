@@ -124,29 +124,51 @@ inline void bot_respawn_tick(
     reg.get_or_emplace<BotTier>(e) = tier;
     lv.Value = new_lv;
     int base_hp = GameConfig::BotHp + (new_lv - 1) * GameConfig::HpPerLevel;
-    hp.Max = static_cast<int>(base_hp * mult.HpMul);
+    hp.Max = static_cast<int>(base_hp * mult.HpMul * GameConfig::BotStatMul);
     hp.Cur = hp.Max;
     stats.Atk =
         (GameConfig::BotBaseAttack + (new_lv - 1) * GameConfig::AtkPerLevel) *
-        mult.AtkMul;
+        mult.AtkMul * GameConfig::BotStatMul;
     stats.Asp = std::min(
         (GameConfig::BotBaseAttackSpeed +
          (new_lv - 1) * GameConfig::AspPerLevel) *
-            mult.AspMul,
+            mult.AspMul * GameConfig::BotStatMul,
         GameConfig::AspMax
     );
     speed.Value =
         (GameConfig::BotSpeed + (new_lv - 1) * GameConfig::SpeedPerLevel) *
         mult.SpeedMul;
-    vision.Value = GameConfig::BotVisionRange * mult.VisionMul;
+    vision.Value =
+        GameConfig::BotVisionRange * mult.VisionMul * GameConfig::BotStatMul;
     exp.Cur = 0;
     exp.Needed = new_lv * GameConfig::XpPerLevelBase;
 
     float half = map_half - GameConfig::BotRadius;
+    Vec2 player_pos{0.0f};
+    bool has_player = false;
+    auto pv2 = reg.view<PlayerTag, Position2D>();
+    for (auto p : pv2) {
+        if (pv2.get<PlayerTag>(p).IsLocal) {
+            player_pos = pv2.get<Position2D>(p).Value;
+            has_player = true;
+            break;
+        }
+    }
     pos.Value = Vec2{
         std::uniform_real_distribution<float>(-half, half)(rng),
         std::uniform_real_distribution<float>(-half, half)(rng)
     };
+    if (has_player) {
+        int guard = 0;
+        while (vec2_length_sq(pos.Value - player_pos) <
+                   GameConfig::PlayerSpawnSafeRadiusSq &&
+               guard++ < 32) {
+            pos.Value = Vec2{
+                std::uniform_real_distribution<float>(-half, half)(rng),
+                std::uniform_real_distribution<float>(-half, half)(rng)
+            };
+        }
+    }
     ai.MoveTarget = Vec2{
         std::uniform_real_distribution<float>(-half, half)(rng),
         std::uniform_real_distribution<float>(-half, half)(rng)
