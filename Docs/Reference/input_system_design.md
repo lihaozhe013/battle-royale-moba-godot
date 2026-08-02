@@ -1,137 +1,138 @@
-# 输入系统设计方案（v2 — 唯一标准）
+# Input System Design (v2 — Single Source of Truth)
 
-> 创建：2026-07-13
-> 状态：📋 设计方案（待实施），实施前请将其视为输入相关所有问题的唯一标准
-> 取代：`skill_system_design.md`、`targeted_attack_design.md`、`right_click_movement_design.md`、`skill_cast_error_fix.md`（均已删除）
-> 关联：`sim_system_reference.md`（C++ 层组件/系统/快照参考）、`prompt.md`（玩法总纲）
-
----
-
-## 0. 历史澄清与范围
-
-- 本项目早期曾有 **WASD + MOBA 双控制模式**，**WASD 模式已完全废弃移除**。任何旧文档中提到的 WASD 模式、`MoveMode` 枚举、`move_mode` 字段、`mode_changed` 信号、双模式切换面板等均为过时误导，**以本文档为唯一标准**。
-- 当前与未来只有一种控制模式：**MOBA 模式**（右键点地板移动 + Q/W/E/R 4 技能 + A 键普攻命令）。
-- 本文档职责：**完整重构 input_controller 与 Sim 侧施法/普攻/移动的输入链路**，建立分层、状态化、不丢指令的输入体系。
-- 不在本方案范围：Bot 行为重构、装备系统、缩圈、死亡淘汰。Bot 当前为占位单位（其攻击是"非指向性技能"占位，**不是**普攻），未来会重构成与玩家完全相同的英雄单位；**Bot 的当前行为不得影响 input_controller 的设计**。
+> Last updated: 2026-08-02
+> Status: ✅ **Fully implemented** — this is the design and operational reference for the input system.
+> Replaces: `skill_system_design.md`, `targeted_attack_design.md`, `right_click_movement_design.md`, `skill_cast_error_fix.md` (all deleted).
+> Related: `sim_api_reference.md` (Sim component/API reference), `docs/DATA_FLOW.md` (end-to-end data flow), `hero_skill_architecture.md` (Hero + Skill refactor).
 
 ---
 
-## 目录
+## 0. Historical clarification and scope
 
-1. [设计目标与原则](#1-设计目标与原则)
-2. [总体架构（四层）](#2-总体架构四层)
-3. [Layer 1 — 输入事件队列（不丢指令）](#3-layer-1--输入事件队列不丢指令)
-4. [Layer 2 — Input 状态机（View 侧 FSM）](#4-layer-2--input-状态机view-侧-fsm)
-5. [Layer 3 — 命令翻译（Command Builder）](#5-layer-3--命令翻译command-builder)
-6. [Layer 4 — 命令缓冲与 Sim 消费](#6-layer-4--命令缓冲与-sim-消费)
-7. [Sim 侧 CastState 重构（含 Chasing 跟随施法）](#7-sim-侧-caststate-重构含-chasing-跟随施法)
-8. [Quick Cast 与 Normal Cast 流程](#8-quick-cast-与-normal-cast-流程)
-9. [普攻命令模式（独立分支）](#9-普攻命令模式独立分支)
-10. [移动与寻路（A\* 追击/跟随）](#10-移动与寻路a-追击跟随)
-11. [SimServer API（统一命令接口）](#11-simserver-api统一命令接口)
-12. [Snapshot 扩展（状态回写同步）](#12-snapshot-扩展状态回写同步)
-13. [tick 顺序](#13-tick-顺序)
-14. [组件变更清单](#14-组件变更清单)
-15. [文件改动清单](#15-文件改动清单)
-16. [实施阶段](#16-实施阶段)
-17. [边界情况与陷阱](#17-边界情况与陷阱)
-18. [与 Bot 单位的关系澄清](#18-与-bot-单位的关系澄清)
+- The project **previously had WASD + MOBA dual input modes**. The WASD mode has been **completely removed**. Any older docs mentioning WASD mode, `MoveMode` enum, `move_mode` field, `mode_changed` signal, or dual-mode switch panels are **obsolete** — **this document is the only standard**.
+- Current and future: **only MOBA mode** (right-click ground to move + Q/W/E/R skills + A for basic attack).
+- This doc covers: full refactor of `input_controller` + the Sim-side cast / basic-attack / move input pipeline, with a layered, stateful, lossless command system.
+- **Not in scope**: Bot behavior refactor, equipment, zone shrinking, death/elimination. Bots are placeholders (their "attack" is a non-targeted skill placeholder, not a real basic attack); they will be refactored to be full heroes. **Bot current behavior does NOT influence input_controller design**.
 
 ---
 
-## 1. 设计目标与原则
+## Table of contents
 
-| #   | 目标                                      | 对应原则                                                             |
-| --- | ----------------------------------------- | -------------------------------------------------------------------- |
-| G1  | input_controller 解耦，职责清晰           | 按 **四层** 分离：原始事件 / 状态机 / 命令翻译 / 命令缓冲            |
-| G2  | 显式状态机，避免散落条件分支              | View 与 Sim **各自维护 FSM**，通过 snapshot **双向同步**             |
-| G3  | 打断施法不引发 bug                        | input 层 **镜像 Sim 的 CastState**，打断 = 状态转移而非多处 flag     |
-| G4  | 不丢指令（30Hz Sim < 60Hz 渲染）          | 单一 **CommandBuffer 层** 统一处理跨 tick 指令，**不每操作单独处理** |
-| G5  | Quick cast / Normal cast 双模式共存       | 由 **玩家偏好**（per-slot 或全局）决定，input 层翻译时分支           |
-| G6  | Normal cast / 普攻命令 / 移动模式相互独立 | **三个独立 FSM 分支**，最解耦最不易出 bug                            |
-| G7  | 跟随施法（超出范围 A\* 追踪）             | Sim 侧新增 **Chasing** 阶段，由 Sim 权威推进                         |
-| G8  | 普攻能穿墙                                | Sim 侧 `wall_collision` 对追击中玩家 + homing 箭矢跳过               |
-
-**核心原则**：
-
-1. **Sim 权威**：所有 gameplay 状态（CastState / AttackTarget / MovePath）由 Sim 拥有，View 只读 snapshot。
-2. **View 镜像**：input_controller 维护一个本地 FSM 副本，**仅用于决定如何翻译下一个输入事件**，绝不作为 gameplay 真值。
-3. **命令语义化**：View → Sim 传的是 **命令**（"施法槽 2 在 (x,y) 对 target_id 确认"），不是原始按键。
-4. **事件不丢**：所有边沿（key press / release / mouse click）入队，CommandBuffer 持续消费直到清空。
+1. [Design goals and principles](#1-design-goals-and-principles)
+2. [Overall architecture (four layers)](#2-overall-architecture-four-layers)
+3. [Layer 1 — Input event queue (no command loss)](#3-layer-1--input-event-queue-no-command-loss)
+4. [Layer 2 — Input state machine (View-side FSM)](#4-layer-2--input-state-machine-view-side-fsm)
+5. [Layer 3 — Command translation (Command Builder)](#5-layer-3--command-translation-command-builder)
+6. [Layer 4 — Command buffer and Sim consumption](#6-layer-4--command-buffer-and-sim-consumption)
+7. [Sim-side CastState refactor (incl. Chasing)](#7-sim-side-caststate-refactor-incl-chasing)
+8. [Quick Cast and Normal Cast flow](#8-quick-cast-and-normal-cast-flow)
+9. [Basic attack command mode (independent branch)](#9-basic-attack-command-mode-independent-branch)
+10. [Movement and pathfinding (A* chase/follow)](#10-movement-and-pathfinding-a-chasefollow)
+11. [SimServer API (unified command interface)](#11-simserver-api-unified-command-interface)
+12. [Snapshot extensions (state echo sync)](#12-snapshot-extensions-state-echo-sync)
+13. [Tick order](#13-tick-order)
+14. [Component change list (historical — fully implemented)](#14-component-change-list-historical--fully-implemented)
+15. [File change list (historical)](#15-file-change-list-historical)
+16. [Implementation phases (historical — all complete)](#16-implementation-phases-historical--all-complete)
+17. [Edge cases and pitfalls](#17-edge-cases-and-pitfalls)
+18. [Clarifications on Bot units](#18-clarifications-on-bot-units)
+19. [Summary](#19-summary)
 
 ---
 
-## 2. 总体架构（四层）
+## 1. Design goals and principles
+
+| # | Goal | Principle |
+| --- | --- | --- |
+| G1 | `input_controller` decoupled, clear responsibilities | Four layers: raw events / state machine / command translation / command buffer |
+| G2 | Explicit state machine, no scattered conditional branches | View and Sim **each maintain an FSM**, bidirectionally synced via **Snapshot** |
+| G3 | Cast interruption must not introduce bugs | input layer **mirrors Sim's CastState**; interruption = state transition, not scattered flags |
+| G4 | No command loss (30Hz Sim < 60Hz render) | A single **CommandBuffer** layer handles cross-tick commands; **no per-action handling** |
+| G5 | Quick cast / Normal cast coexist | Player preference (per-slot or global) decides; input layer branches |
+| G6 | Normal cast / basic attack command / move modes are independent | **Three independent FSM branches**; most decoupled, fewest bugs |
+| G7 | Chase-and-cast (A* follow when out of range) | Sim-side new **Chasing** phase, advanced by Sim |
+| G8 | Basic attack passes through walls | Sim-side `wall_collision` skips chasing players + homing arrows |
+
+**Core principles**:
+
+1. **Sim authoritative**: all gameplay state (`CastState` / `AttackTarget` / `MovePath`) is owned by Sim; View reads snapshot.
+2. **View mirror**: `input_controller` maintains a local FSM copy used **only to decide how to translate the next input event**; never a source of gameplay truth.
+3. **Commands, not raw events**: View→Sim transmits **commands** ("cast slot 2 at (x,y) on target_id confirmed"), not raw keypresses.
+4. **No event loss**: all edges (key press/release, mouse click) queue; CommandBuffer consumes until empty.
+
+---
+
+## 2. Overall architecture (four layers)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Godot 原始输入（InputEvent / Input.is_*_pressed）             │
-│  60Hz _process / _physics_process                              │
+│  Godot raw input (InputEvent / Input.is_*_pressed)          │
+│  60Hz _process / _physics_process                            │
 └──────────────────────────┬───────────────────────────────────┘
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  Layer 1 ─ Input Event Queue (GDScript)                       │
-│  - _input/_unhandled_input 收集边沿事件入队                     │
-│  - 持续状态（held keys、mouse pos）每帧采样                     │
-│  - 队列元素：{type, key/button, pos, timestamp, seq}           │
-│  - 永不丢失，直到 Layer 3 消费                                  │
+│  Layer 1 — Input Event Queue (GDScript)                      │
+│  - _input/_unhandled_input collects edge events to queue     │
+│  - Persistent state (held keys, mouse pos) sampled per frame │
+│  - Queue element: {type, key/button, pos, timestamp, seq}    │
+│  - Never lost; Layer 3 drains                                 │
 └──────────────────────────┬───────────────────────────────────┘
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  Layer 2 ─ Input State Machine (GDScript)                     │
-│  - 双正交状态轴：                                               │
+│  Layer 2 — Input State Machine (GDScript)                    │
+│  - Two orthogonal axes:                                       │
 │      MoveAxis   : Moving | NotMoving                          │
-│      CommandAxis: Idle | SkillAiming | AttackAiming | CastLocked│
-│  - 读 Sim snapshot 的 cast_state 反向同步 CastLocked            │
-│  - 输出"当前帧应处理哪些事件"                                   │
+│      CommandAxis: Idle | SkillAiming | AttackAiming | CastLocked │
+│  - Reads Sim snapshot cast_state to sync CastLocked           │
+│  - Outputs "which events to process this frame"               │
 └──────────────────────────┬───────────────────────────────────┘
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  Layer 3 ─ Command Builder (GDScript)                         │
-│  - 根据 FSM 状态 + 事件队列 → 生成语义命令                       │
-│  - 命令类型：MoveCmd / SkillCmd / AttackCmd / CancelCmd / StopCmd│
-│  - Quick vs Normal cast 在此分支                                │
+│  Layer 3 — Command Builder (GDScript)                         │
+│  - FSM state + event queue → semantic commands               │
+│  - Command types: MoveCmd / SkillCmd / AttackCmd / CancelCmd / StopCmd │
+│  - Quick vs Normal cast branches here                         │
 └──────────────────────────┬───────────────────────────────────┘
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  Layer 4 ─ Command Buffer (GDScript + C++)                    │
-│  - GDScript 端：FIFO 队列，每帧可入多条                          │
-│  - sim_bridge 每 Sim tick 出队 N 条 → 调 SimServer.set_command  │
-│  - 跨 tick 持续，直到清空（不丢失）                              │
+│  Layer 4 — Command Buffer (GDScript + C++)                   │
+│  - GDScript: FIFO queue; multiple per frame allowed           │
+│  - sim_bridge: per Sim tick, pop all N → SimServer.set_command │
+│  - Cross-tick persistent; never lost (no cap on small bursts) │
 └──────────────────────────┬───────────────────────────────────┘
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  C++ Sim（30Hz）                                               │
-│  - 消费命令 → 写 LocalInputSingleton                            │
-│  - local_input_injection → player_attack_command →             │
-│    player_pathfinding → player_movement → player_attack_fire → │
-│    skill_cast → ...                                            │
-│  - 输出 SimSnapshot（cast_state / attack_target_id / ...）     │
+│  C++ Sim (30Hz)                                               │
+│  - Consume commands → write LocalInputSingleton              │
+│  - local_input_injection → attack_command →                  │
+│    skill_cast → pathfinding → movement → attack_fire →       │
+│    physics ...                                                │
+│  - Outputs SimSnapshot (cast_state / attack_target_id / ...) │
 └──────────────────────────┬───────────────────────────────────┘
                            │
                            ▼
-            SimSnapshot → View → Layer 2 反向同步
+            SimSnapshot → View → Layer 2 reverse sync
 ```
 
 ---
 
-## 3. Layer 1 — 输入事件队列（不丢指令）
+## 3. Layer 1 — Input event queue (no command loss)
 
-### 3.1 动机
+### 3.1 Motivation
 
-Sim 30Hz，渲染 60Hz。一帧渲染内 sim_bridge 可能跑 0/1/2 个 tick。若每操作各自管"是否传给 Sim"，会出现：
+Sim runs at 30Hz, render at 60Hz. A single render frame can run 0/1/2 sim ticks. If every action separately decides "should I send to Sim?":
 
-- 边沿事件（key press）发生在 tick 间隙 → 下一 tick 已 release → Sim 永远没看到 → **丢指令**
-- 多个事件同帧发生 → 只传最后一个 → **丢指令**
+- Edge events (key press) between ticks → next tick already released → Sim never sees it → **command lost**.
+- Multiple events in one frame → only the last is sent → **command lost**.
 
-**解决**：所有边沿事件入队，CommandBuffer 持续消费直到清空。
+**Solution**: all edge events queue; CommandBuffer consumes until empty.
 
-### 3.2 数据结构
+### 3.2 Data structure
 
 ```gdscript
 # scripts/input/input_event_queue.gd
@@ -140,18 +141,18 @@ extends Node
 
 enum EType { KEY_PRESS, KEY_RELEASE, MB_PRESS, MB_RELEASE, MOUSE_MOVE }
 
-struct Ev:
+class Ev:
     var type: int
-    var key: int        # KEY_* 或 MOUSE_BUTTON_*
-    var pos: Vector2    # 鼠标世界坐标（MOUSE_MOVE / MB_* 时填）
+    var key: int        # KEY_* or MOUSE_BUTTON_*
+    var pos: Vector2    # mouse world coords (for MOUSE_MOVE / MB_*)
     var t: float        # Time.get_ticks_msec() / 1000.0
-    var seq: int        # 自增序号
+    var seq: int        # monotonic
 
 var _queue: Array[Ev] = []
 var _seq := 0
-var mouse_world := Vector2.ZERO      # 持续状态：当前鼠标世界坐标
-var held_keys: Dictionary = {}       # 持续状态：当前按住的键 → true
-var held_mouse: Dictionary = {}      # 持续状态：当前按住的鼠标键 → true
+var mouse_world := Vector2.ZERO      # persistent: current mouse world coords
+var held_keys: Dictionary = {}       # persistent: held key → true
+var held_mouse: Dictionary = {}      # persistent: held mouse button → true
 
 func push_key_press(k: int) -> void
 func push_key_release(k: int) -> void
@@ -159,123 +160,122 @@ func push_mb_press(b: int, pos: Vector2) -> void
 func push_mb_release(b: int, pos: Vector2) -> void
 func push_mouse_move(pos: Vector2) -> void
 
-func pop_all() -> Array[Ev]    # 取出并清空
-func peek_all() -> Array[Ev]   # 只读
+func pop_all() -> Array[Ev]    # pop and clear
+func peek_all() -> Array[Ev]   # read-only
 ```
 
-### 3.3 接入方式
+### 3.3 Wiring
 
-- `_input(event)` 或 `_unhandled_input(event)`：捕获 `InputEventKey` / `InputEventMouseButton`，按 press/release 入队；`InputEventMouseMotion` 更新 `mouse_world`（射线投影到地面）+ 入 `MOUSE_MOVE` 事件。
-- 持续状态（`held_keys` / `held_mouse`）每帧由 `Input.is_*_pressed` 校准一次，防止失焦等导致的状态漂移。
-- 鼠标世界坐标投影（cam ray → y=0 平面）放本层，下游一律用 `mouse_world`，避免重复算。
+- `_input(event)` or `_unhandled_input(event)`: catches `InputEventKey` / `InputEventMouseButton`, queues press/release. `InputEventMouseMotion` updates `mouse_world` (camera ray → y=0 plane) + queues `MOUSE_MOVE`.
+- Persistent state (`held_keys` / `held_mouse`) is reconciled each frame with `Input.is_*_pressed` to prevent drift from focus loss.
+- Mouse world projection (camera ray → y=0 plane) lives in this layer; downstream always uses `mouse_world`.
 
-### 3.4 不丢失保证
+### 3.4 No-loss guarantee
 
-- 入队后事件**只能被 Layer 3 pop_all 取走**，不会因 tick 边界丢失。
-- Layer 3 一次处理全部 pop 出的事件，可能生成 0~N 条 Command 入 Layer 4。
-- Layer 4 是跨 tick FIFO，sim_bridge 每 tick 消费到空为止（或最多 N 条防爆炸）。
+- Once queued, events are only removed by `Layer 3 pop_all()`.
+- Layer 3 may emit 0..N commands into Layer 4.
+- Layer 4 is a cross-tick FIFO; sim_bridge drains each tick until empty (or a cap to prevent runaway).
 
 ---
 
-## 4. Layer 2 — Input 状态机（View 侧 FSM）
+## 4. Layer 2 — Input state machine (View-side FSM)
 
-### 4.1 双正交状态轴
+### 4.1 Two orthogonal axes
 
-为支持"施法模式可在移动状态下进入，不会打断移动"，采用**双正交轴**而非单 FSM：
+To support "enter cast mode without breaking move", use **two orthogonal axes** rather than a single FSM:
 
 ```
-MoveAxis（移动轴）：
-  NotMoving  — 无活动 MovePath
-  Moving     — Sim 侧玩家正在自主移动（右键寻路 / 普攻追击 / 技能 Chasing）
-                  由 snapshot `is_moving` 字段判定（非 MovePath.Following，见 §12.1 注意）
+MoveAxis (movement axis):
+  NotMoving  — no active MovePath
+  Moving     — Sim-side player is self-moving (right-click pathing / basic attack chase / skill Chasing)
+                  Determined by snapshot `is_moving` field (NOT MovePath.Following — see §12.1 note)
 
-CommandAxis（命令轴）：
-  Idle          — 无待确认命令
-  SkillAiming   — Normal cast 等待左键确认（绿线显示）
-  AttackAiming  — A 键 / 右键点敌 等待左键确认（独立模式）
-  CastLocked    — Sim 侧 CastState != None（Aiming/Chasing/Casting/Channeling/Dashing）
-                  input 层镜像，仅响应 cancel/interrupt
+CommandAxis (command axis):
+  Idle          — no pending command
+  SkillAiming   — Normal cast awaiting left-click confirm (green line shown)
+  AttackAiming  — A / right-click enemy awaiting left-click confirm (independent mode)
+  CastLocked    — Sim-side CastState != None (Aiming/Chasing/Casting/Channeling/Dashing)
+                  input-layer mirror; only responds to cancel/interrupt
 ```
 
-**正交含义**：
+**Orthogonality**:
 
-- `Moving + SkillAiming` 合法 → 玩家右键移动中按 Q 进入瞄准，**移动继续**。
-- `Moving + CastLocked` 合法 → Sim 侧 Chasing 阶段，玩家**正在边走边追**以施法。
-- `NotMoving + CastLocked` 合法 → Sim 侧 Casting/Channeling/Dashing，玩家**站定施法**。
+- `Moving + SkillAiming` is valid → player presses Q while moving → enters aiming, **movement continues**.
+- `Moving + CastLocked` is valid → Sim-side Chasing; player is **walking toward the target while casting**.
+- `NotMoving + CastLocked` is valid → Sim-side Casting/Channeling/Dashing; player **stands still to cast**.
 
-### 4.2 状态转移表
+### 4.2 Transition tables
 
 #### 4.2.1 MoveAxis
 
-| 当前      | 事件                      | 目标              | 备注                                                          |
-| --------- | ------------------------- | ----------------- | ------------------------------------------------------------- |
-| NotMoving | 右键空地                  | Moving            | 入 MoveCmd                                                    |
-| NotMoving | snapshot is_moving==true  | Moving            | Sim 反向同步                                                  |
-| Moving    | snapshot is_moving==false | NotMoving         | Sim 反向同步（到达 / Stop / cancel / 目标死亡）               |
-| Moving    | 右键空地                  | Moving            | 重发 MoveCmd（覆盖目标）                                      |
-| Moving    | S 键 press                | NotMoving（请求） | 入 StopCmd，Sim 清 Following 后下一 snap 才真正切回 NotMoving |
+| Current | Event | Target | Note |
+| --- | --- | --- | --- |
+| NotMoving | right-click ground | Moving | emit MoveCmd |
+| NotMoving | snapshot is_moving == true | Moving | Sim reverse sync |
+| Moving | snapshot is_moving == false | NotMoving | Sim reverse sync (arrived / stop / cancel / target died) |
+| Moving | right-click ground | Moving | re-issue MoveCmd (overwrite target) |
+| Moving | S press | NotMoving (request) | emit StopCmd; Sim clears Following → next snap flips to NotMoving |
 
-**重要**：MoveAxis **不因进入 SkillAiming/AttackAiming 而改变**。仅由 Sim snapshot 决定（除"右键空地"主动入 Moving 外）。
+**Important**: MoveAxis **does not change** on entering SkillAiming / AttackAiming. Only snapshot `is_moving` (and the right-click-active edge) decides it.
 
 #### 4.2.2 CommandAxis
 
-| 当前         | 事件                        | 目标                      | 备注                                                                 |
-| ------------ | --------------------------- | ------------------------- | -------------------------------------------------------------------- |
-| Idle         | 技能键 press（normal cast） | SkillAiming               | 记录 ActiveSlot=Q/W/E/R                                              |
-| Idle         | 技能键 press（quick cast）  | CastLocked（待 Sim 确认） | 立即入 SkillCmd{confirm=true}                                        |
-| Idle         | A 键 press                  | AttackAiming              | 进入普攻瞄准模式                                                     |
-| Idle         | 右键 press + hover 敌       | AttackAiming              | 直接连敌（入 AttackCmd）                                             |
-| Idle         | snapshot cast_state != None | CastLocked                | Sim 反向同步                                                         |
-| SkillAiming  | 左键 press                  | CastLocked（待 Sim 确认） | 入 SkillCmd{confirm=true}                                            |
-| SkillAiming  | 右键 press                  | Idle                      | 入 CancelCmd（仅 cancel skill，**不影响 MoveAxis**）                 |
-| SkillAiming  | S / ESC / H press           | Idle                      | 入 CancelCmd                                                         |
-| SkillAiming  | 其他技能键 press            | SkillAiming               | 切 ActiveSlot                                                        |
-| SkillAiming  | snapshot cast_state != None | CastLocked                | 确认成功，Sim 进 Aiming→Chasing/Casting                              |
-| SkillAiming  | snapshot cast_error > 0     | SkillAiming（保留！）     | 指向性 no target 报错，**保留施法模式**                              |
-| AttackAiming | 左键 press + hover 敌       | Idle                      | 入 AttackCmd{target_id=hover}（MoveAxis 由 Sim 决定是否进 Moving）   |
-| AttackAiming | 左键 press + 空地           | Idle                      | 入 AttackCmd{ground_pos}（找最近敌）                                 |
-| AttackAiming | 右键 / S / ESC / H press    | Idle                      | 入 CancelCmd                                                         |
-| AttackAiming | A 键 release（可选）        | AttackAiming              | A 键按住 vs 单击由设置决定，默认 **press 触发模式，需左键确认**      |
-| CastLocked   | snapshot cast_state == None | Idle                      | Sim 反向同步（施法结束/打断/取消）                                   |
-| CastLocked   | 右键 press                  | CastLocked                | 入 CancelCmd（Sim 判断阶段是否可打断，仅 Aiming/Chasing/Casting 可） |
-| CastLocked   | S / H press                 | CastLocked                | 入 CancelCmd（同上）                                                 |
-| CastLocked   | 技能键 press                | CastLocked                | 忽略（施法中不能换技能）                                             |
-| CastLocked   | A 键 press                  | CastLocked                | 忽略（施法中不能普攻）                                               |
+| Current | Event | Target | Note |
+| --- | --- | --- | --- |
+| Idle | skill key press (normal cast) | SkillAiming | record `active_skill_slot = Q/W/E/R` |
+| Idle | skill key press (quick cast) | CastLocked (pending Sim) | immediately emit `SKILL{confirm=true}` |
+| Idle | A press | AttackAiming | enter basic attack aim |
+| Idle | right-click + hover enemy | AttackAiming | direct lock-on (emits AttackCmd) |
+| Idle | snapshot cast_state != None | CastLocked | Sim reverse sync |
+| SkillAiming | left-click press | CastLocked (pending Sim) | emit `SKILL{confirm=true}` |
+| SkillAiming | right-click press | Idle | emit `CANCEL{scope=skill}` (**MoveAxis unchanged**) |
+| SkillAiming | S / ESC / H press | Idle | emit `CANCEL{scope=skill}` |
+| SkillAiming | other skill key press | SkillAiming | switch `active_skill_slot` |
+| SkillAiming | snapshot cast_state != None | CastLocked | confirmed; Sim Aiming → Chasing / Casting |
+| SkillAiming | snapshot cast_error > 0 | SkillAiming (preserved!) | targeted no-target error; **keep aiming** |
+| AttackAiming | left-click + hover enemy | Idle | emit `ATTACK{target_id=hover}` (MoveAxis decided by Sim) |
+| AttackAiming | left-click + ground | Idle | emit `ATTACK{ground_pos}` (find nearest enemy) |
+| AttackAiming | right-click / S / ESC / H | Idle | emit `CANCEL{scope=attack}` |
+| AttackAiming | A release (optional) | AttackAiming | press-triggered; A release doesn't cancel by default |
+| CastLocked | snapshot cast_state == None | Idle | Sim reverse sync (cast ended / interrupted / cancelled) |
+| CastLocked | right-click press | CastLocked | emit `CANCEL{scope=skill}` (Sim decides if interruptible) |
+| CastLocked | S / H press | CastLocked | emit `CANCEL{scope=skill}` (same) |
+| CastLocked | skill key press | CastLocked | ignored (no skill switch mid-cast) |
+| CastLocked | A press | CastLocked | ignored (no basic attack mid-cast) |
 
-### 4.3 与 Sim 的反向同步
+### 4.3 Reverse sync from Sim
 
-每个 `_process` 帧从 `last_snapshot.players[0]` 读取：
+Each `_process` frame reads from `last_snapshot.heroes[local_idx]` (or `players[0]` legacy fallback):
 
 ```gdscript
 var snap_cast_state: int = p.cast_state   # 0=None 1=Aiming 2=Chasing 3=Casting 4=Channeling 5=Dashing
-var snap_is_moving: bool = ...             # 新增 snapshot 字段 SimPlayerSnap.is_moving
+var snap_is_moving: bool = ...
 var snap_attack_target: int = p.attack_target_id
 
-# MoveAxis 同步
+# MoveAxis sync
 move_axis = MoveAxis.Moving if snap_is_moving else MoveAxis.NotMoving
 
-# CommandAxis 同步
+# CommandAxis sync
 if snap_cast_state != 0:
     command_axis = CommandAxis.CastLocked
 else:
-    # Sim 侧 None 时，若 View 仍是 CastLocked → 解除
     if command_axis == CommandAxis.CastLocked:
         command_axis = CommandAxis.Idle
-    # SkillAiming 保留（指向性 no target 报错时 Sim 状态仍可能为 None）
+    # SkillAiming is preserved (normal cast Aiming keeps Sim state None)
 ```
 
-**关键**：`SkillAiming` 是 View 侧独立状态，Sim 侧可能仍是 `None`（因为 normal cast 的 Aiming 由 View 维护，直到左键确认才推 Sim 进 Aiming→Chasing/Casting）。需仔细区分两种 Aiming：
+**Key**: `SkillAiming` is a View-side independent state. Sim-side state may still be `None` (normal cast Aiming is maintained by View until left-click confirm). Two Aiming states:
 
-- **View Aiming（SkillAiming 状态）**：normal cast 等左键，**Sim 不知情**，sim_bridge 仅持续传 cast_slot + cast_aim。
-- **Sim Aiming（snapshot cast_state==Aiming）**：quick cast 或 confirm 后的瞬时阶段，**几乎不可见**（下一 tick 就进 Chasing/Casting）。
+- **View Aiming (SkillAiming state)**: normal cast awaiting left-click; **Sim doesn't know**; sim_bridge keeps sending `cast_slot` + `cast_aim` per frame.
+- **Sim Aiming (snapshot cast_state == Aiming)**: quick cast or post-confirm same-tick transit; **barely visible** (next tick goes to Chasing / Casting).
 
-**简化决策**：Sim 侧 `Aiming` 阶段**仅用于 quick cast 与 confirm 的同一 tick 内中转**，View 不应观察到 Sim 的 Aiming。Normal cast 的"等左键"完全由 View 维护。详见 §7。
+**Simplification**: Sim-side `Aiming` is **only a same-tick transit** for quick cast / confirm. The "await left-click" of normal cast is fully owned by View. See §7.
 
 ---
 
-## 5. Layer 3 — 命令翻译（Command Builder）
+## 5. Layer 3 — Command translation (Command Builder)
 
-### 5.1 命令类型
+### 5.1 Command types
 
 ```gdscript
 # scripts/input/command.gd
@@ -288,125 +288,124 @@ var type: int
 # MOVE
 var move_target: Vector2
 # SKILL / SKILL_UPGRADE
-var skill_slot: int           # 0-3 = Q/W/E/R 技能槽
-                              # 预留扩展：10-15 = 装备主动技能槽（P1-8 装备系统，详见 §5.4）
-var skill_confirm: bool       # true=确认, false=仅设 Aiming（normal cast 持续传）
+var skill_slot: int           # 0-3 (QWER); 10-15 reserved for equipment (P1-8)
+var skill_confirm: bool       # true = confirm, false = Aiming only
 var skill_aim: Vector2
-var skill_target_id: int      # hover 单位 NetworkId，-1=无
+var skill_target_id: int      # targeted skill NetworkId; -1 = none
 # ATTACK
-var attack_target_id: int     # -1=ground
+var attack_target_id: int     # -1 = ground
 var attack_ground: Vector2
 # CANCEL
-var cancel_scope: int         # 0=skill, 1=attack, 2=all
+var cancel_scope: int         # 0 = skill, 1 = attack, 2 = all
 ```
 
-### 5.2 翻译规则（按 FSM 状态 + 事件）
+### 5.2 Translation rules (by FSM state + event)
 
-每帧 Layer 3 从 Layer 1 `pop_all()` 取全部事件，结合 Layer 2 当前状态，生成 0~N 条 Command 入 Layer 4。
+Every frame Layer 3 takes all events from Layer 1 `pop_all()`, combines with Layer 2 state, and emits 0..N Commands into Layer 4.
 
-| FSM 状态      | 事件                          | 生成的 Command                                                                                                                               |
-| ------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Idle          | 右键空地 press                | `MOVE{target=mouse_world}`                                                                                                                   |
-| Moving        | 右键空地 press                | `MOVE{target=mouse_world}`（覆盖）                                                                                                           |
-| Moving        | 右键空地 held（长按连点节流） | `MOVE{target=mouse_world}`（按 6Hz 节流）                                                                                                    |
-| Idle / Moving | S press                       | `STOP`                                                                                                                                       |
-| Idle / Moving | A press                       | 不发命令，**仅切 CommandAxis=AttackAiming**                                                                                                  |
-| AttackAiming  | 左键 press + hover 敌         | `ATTACK{target_id=hover}` → 切 Idle                                                                                                          |
-| AttackAiming  | 左键 press + 空地             | `ATTACK{ground=mouse_world}` → 切 Idle                                                                                                       |
-| Idle / Moving | 技能键 press（quick cast）    | `SKILL{slot, confirm=true, aim, target_id}` → 切 CastLocked                                                                                  |
-| Idle / Moving | 技能键 press（normal cast）   | `SKILL{slot, confirm=false, aim, target_id}` → 切 SkillAiming                                                                                |
-| SkillAiming   | 技能键 press（其他槽）        | `SKILL{slot, confirm=false, aim, target_id}` → 切 SkillAiming（换槽）                                                                        |
-| SkillAiming   | 左键 press                    | `SKILL{slot, confirm=true, aim, target_id}` → 切 CastLocked                                                                                  |
-| SkillAiming   | 右键 / S / ESC / H press      | `CANCEL{scope=skill}` → 切 Idle（**MoveAxis 不变**）                                                                                         |
-| SkillAiming   | 每帧持续                      | `SKILL{slot, confirm=false, aim=mouse_world, target_id=hover}`（维持 Sim 侧 Aiming 更新 aim）                                                |
-| CastLocked    | 右键 / S / H press            | `CANCEL{scope=skill}`（Sim 自判是否可打断）                                                                                                  |
-| AttackAiming  | 右键 / S / ESC / H press      | `CANCEL{scope=attack}` → 切 Idle                                                                                                             |
-| Moving        | 右键点敌 press                | `ATTACK{target_id=hover}` → 切 AttackAiming？**否**：直接发 AttackCmd，CommandAxis 保持 Idle（右键点敌 = 立即攻击，无需左键确认，详见 §9.2） |
-| Idle / Moving | Ctrl+技能键 press             | `SKILL_UPGRADE{slot}`（详见 §5.4）                                                                                                           |
-| CastLocked    | Ctrl+技能键 press             | 忽略（施法中不能升级）                                                                                                                       |
+| FSM state | Event | Command emitted |
+| --- | --- | --- |
+| Idle | right-click ground press | `MOVE{target=mouse_world}` |
+| Moving | right-click ground press | `MOVE{target=mouse_world}` (overwrite) |
+| Moving | right-click ground held (throttled) | `MOVE{target=mouse_world}` (6Hz) |
+| Idle / Moving | S press | `STOP` |
+| Idle / Moving | A press | (no command; only switch to `AttackAiming`) |
+| AttackAiming | left-click + hover enemy | `ATTACK{target_id=hover}` → Idle |
+| AttackAiming | left-click + ground | `ATTACK{ground=mouse_world}` → Idle |
+| Idle / Moving | skill key (quick) | `SKILL{slot, confirm=true, aim, target_id}` → CastLocked |
+| Idle / Moving | skill key (normal) | `SKILL{slot, confirm=false, aim, target_id}` → SkillAiming |
+| SkillAiming | skill key (other slot) | `SKILL{slot, confirm=false, aim, target_id}` → SkillAiming (switch) |
+| SkillAiming | left-click | `SKILL{slot, confirm=true, aim, target_id}` → Idle |
+| SkillAiming | right-click / S / ESC / H | `CANCEL{scope=skill}` → Idle (**MoveAxis unchanged**) |
+| SkillAiming | per frame (persistent) | `SKILL{slot, confirm=false, aim=mouse_world, target_id=hover}` (keep Sim Aiming aim updated) |
+| CastLocked | right-click / S / H | `CANCEL{scope=skill}` (Sim decides interruptibility) |
+| AttackAiming | right-click / S / ESC / H | `CANCEL{scope=attack}` → Idle |
+| Moving | right-click enemy press | `ATTACK{target_id=hover}` (direct lock-on, no AttackAiming) |
+| Idle / Moving | Ctrl + skill key | `SKILL_UPGRADE{slot}` (see §5.5) |
+| CastLocked | Ctrl + skill key | ignored (no upgrade mid-cast) |
 
-### 5.3 Quick vs Normal Cast 配置
+### 5.3 Quick vs Normal cast configuration
 
 ```gdscript
-# scripts/input/cast_settings.gd（autoload 或并入 GameSettings）
+# scripts/input/cast_settings.gd (autoload or merged into GameSettings)
 enum CastMode { NORMAL, QUICK }
-var skill_cast_mode: Array[int] = [NORMAL, NORMAL, NORMAL, NORMAL]  # per-slot
-# 或全局：var global_cast_mode: CastMode = NORMAL
+var skill_cast_mode: Array[int] = [NORMAL, NORMAL, NORMAL, NORMAL]  # per slot
+# or global: var global_cast_mode: CastMode = NORMAL
 ```
 
-- **可按技能槽单独配置**（如 Q=quick, W=normal），玩家可在设置面板调。
-- 默认全 NORMAL（保留指示器，新手友好）。
-- Layer 3 翻译时按槽查表分支。
+- **Configurable per slot** (e.g. Q = quick, W = normal); settable in the settings panel.
+- Default all NORMAL (preserves indicator; beginner-friendly).
+- Layer 3 branches by per-slot lookup.
 
-### 5.4 技能槽命名空间与扩展预留
+### 5.4 Skill slot namespace and extension reservation
 
-`skill_slot` 字段采用分段命名空间，**为已规划但未实施的功能预留**，避免后期 retrofit：
+`skill_slot` uses a partitioned namespace to **reserve space for planned but un-implemented features**, avoiding retrofit:
 
-| 段            | slot 值 | 用途                          | 状态     |
-| ------------- | ------- | ----------------------------- | -------- |
-| QWER 主动技能 | 0-3     | 玩家 4 技能槽（Q/W/E/R）      | 当前实施 |
-| 装备主动技能  | 10-15   | 装备主动效果（P1-8 装备系统） | **预留** |
+| Segment | Slot value | Purpose | Status |
+| --- | --- | --- | --- |
+| QWER active skills | 0-3 | 4 skill slots (Q/W/E/R) | Implemented |
+| Equipment active skills | 10-15 | Equipment actives (P1-8) | **Reserved** |
 
-**普攻虚拟槽移除（已定）**：
+**Basic-attack virtual slot removed (decided)**:
 
-- v1 在 `SkillComponent.Slots[5]` 中用 slot 4 作"普攻虚拟槽"（`SkillId=5, SkillKind::Attack`），由 `skill_cast` 处理。
-- v2 **移除此虚拟槽**：普攻走独立 `ATTACK` 命令（§9），不占用 `skill_slot` 命名空间。
-- `SkillComponent.Slots[5]` → `Slots[4]`（仅 QWER）。
-- `skill_defs.h` 删除 id=5 Attack 行；`SkillKind::Attack` 枚举可移除（普攻不再走 skill_cast）。
-- `skill_cast.h` 的 `cast_slot < 5` 判断改为 `< 4`，删除 Attack 分支（v1 的 157-182 行）。
-- `world.cpp _spawn_player` 删除 slot 4 初始化。
-- **未来 P1-8 装备槽**：`SkillComponent` 保持 `Slots[4]`，新增独立 `EquipmentSkillComponent`（6 槽，slot 10-15 映射）。`get_skill_def(id)` 的 SkillId 命名空间与 slot 解耦：QWER=1-4，装备主动=100+。Layer 3 翻译装备主动键时生成 `SKILL{slot=10+i, ...}`，Sim 侧 `skill_cast` 通过 slot 反查 `EquipmentSkillComponent.Slots[i]` → SkillId。
-- **本方案不实现装备槽**，仅约定命名空间；实施 P1-8 时无需改 Layer 1-4 框架。
+- v1 used `SkillComponent.Slots[5]` as a "basic attack virtual slot" (`SkillId = 5, SkillKind::Attack`), processed by `skill_cast`.
+- v2 **removes this slot**: basic attack uses the independent `ATTACK` command (§9), no `skill_slot` namespace consumption.
+- `SkillComponent.Slots[5]` → `Slots[4]` (QWER only).
+- `skill_defs.h` id=5 Attack row removed; `SkillKind::Attack` enum removed (basic attack no longer in `skill_cast`).
+- `skill_cast.h` `cast_slot < 5` check changed to `< 4`; Attack branch deleted (v1 lines 157-182).
+- `world.cpp _spawn_player` no longer initializes slot 4.
+- **Future P1-8 equipment slots**: `SkillComponent` stays at `Slots[4]`; add a separate `EquipmentSkillComponent` (6 slots, slot 10-15 mapped). `get_skill_def(id)` SkillId namespace decoupled from slot: QWER = 1-4, equipment active = 100+. Layer 3 emits `SKILL{slot=10+i, ...}`; Sim-side `skill_cast` resolves slot → `EquipmentSkillComponent.Slots[i]` → SkillId.
+- **This plan does not implement equipment slots**, only reserves the namespace; P1-8 can be added without touching Layers 1-4.
 
-### 5.5 技能升级命令（SKILL_UPGRADE）
+### 5.5 Skill upgrade command (SKILL_UPGRADE)
 
-> **事实修正**：v1 代码中 `SkillPoints` 组件与 `SkillSlot::Level` 字段**均不存在**（`sim_system_reference.md` 的描述是设计意图，未落地）。本方案需新增。
+> **Historical note (v1)**: `SkillPoints` component and `SkillSlot::Level` field **did not exist in v1** (the `sim_system_reference.md` description was design intent, never implemented). The v2 refactor added them.
 
-`SkillPoints` 组件 + `SkillSlot::Level` 字段是 MOBA 核心玩法（升级加技能等级）的基础，v1 完全缺失输入路径。本方案补齐。
+`SkillPoints` + `SkillSlot::Level` are the basis of MOBA skill-point allocation; v1 had no input path. v2 closes the gap.
 
-**新增组件/字段**：
+**New component / field**:
 
 ```cpp
-// components.h 新增
+// components.h — new
 struct SkillPoints {
     int Available = 0;
 };
 
-// SkillSlot 加字段
+// SkillSlot gets a new field
 struct SkillSlot {
     int SkillId = 0;
-    int Level = 1;                 // ← 新增（当前默认 1 级）
+    int Level = 1;                 // ← new (default 1)
     float CooldownTimer = 0.0f;
     float MaxCooldown = 0.0f;
     float ManaCost = 0.0f;
 };
 ```
 
-**命令**：
+**Command**:
 
 ```gdscript
 # command.gd
 # SKILL_UPGRADE
-var skill_slot: int   # 0-3，复用 SKILL 的 slot 字段
+var skill_slot: int   # 0-3, reuses SKILL's slot field
 ```
 
-**触发**：`Ctrl + Q/W/E/R`（边沿 press）。选 Ctrl 修饰键避免与 cast 触发冲突（裸 Q = 施法，Ctrl+Q = 升级）。
+**Trigger**: `Ctrl + Q/W/E/R` (edge press). Ctrl modifier chosen to avoid clashing with cast (bare Q = cast, Ctrl+Q = upgrade).
 
-**Layer 3 翻译**：
+**Layer 3 translation**:
 
-- 检测 `Ctrl held + 技能键 press` → 生成 `SKILL_UPGRADE{slot=i}`，**不进入 SkillAiming**，CommandAxis 保持当前状态。
-- CastLocked 状态下忽略（施法中不能升级）。
+- Detect `Ctrl held + skill key press` → emit `SKILL_UPGRADE{slot=i}`; **does not enter SkillAiming**; CommandAxis unchanged.
+- Ignored during CastLocked.
 
-**Sim 消费**（新增 `systems/skill_level.h`，独立 system 不并入 skill_cast）：
+**Sim consumer** (new `systems/skill_level.h`):
 
 ```cpp
 // systems/skill_level.h
 inline void skill_level_system(entt::registry &reg) {
-    auto view = reg.view<PlayerTag, PlayerInputState, SkillComponent, SkillPoints>();
+    auto view = reg.view<HeroTag, HeroInputState, SkillComponent, SkillPoints>();
     for (auto e : view) {
-        auto &tag = view.get<PlayerTag>(e);
-        if (!tag.IsLocal) continue;
-        auto &input = view.get<PlayerInputState>(e);
+        auto &tag = view.get<HeroTag>(e);
+        if (tag.IsLocal) continue;
+        auto &input = view.get<HeroInputState>(e);
         auto &skills = view.get<SkillComponent>(e);
         auto &sp = view.get<SkillPoints>(e);
         if (input.SkillUpgradeSlot < 0 || input.SkillUpgradeSlot >= 4) continue;
@@ -419,36 +418,35 @@ inline void skill_level_system(entt::registry &reg) {
 }
 ```
 
-**LocalInputSingleton 新增字段**：`int SkillUpgradeSlot = -1;`（脉冲）。
+**`LocalInputSingleton` new field**: `int SkillUpgradeSlot = -1;` (pulse).
 
-**SimServer API**：`void set_skill_upgrade_command(int slot);`
+**SimServer API**: `void set_skill_upgrade_command(int slot);`
 
-**Snapshot 修正**：
+**Snapshot fix**:
 
-- `SimSkillSlotSnap.level` **语义修正**：v1 在 `snapshot_builder.cpp:33` 填的是 `char_level`（玩家等级）——这是 bug，View 若拿来当技能等级显示会出错。v2 改为填 `slot.Level`（技能等级）。
-- `SimPlayerSnap.skill_points` 新增（§12.1 已加），= `SkillPoints.Available`，用于 BottomHUD 显示可分配点数提示。
+- `SimSkillSlotSnap.level` **semantic fix**: v1 was incorrectly filled with `char_level` in `snapshot_builder.cpp:33` (player level) — a bug; v2 fills `slot.Level` (skill level).
+- `SimPlayerSnap.skill_points` **new** (added §12.1) = `SkillPoints.Available`; BottomHUD uses it for the allocatable-points prompt.
 
-**`_spawn_player` 补齐**：
+**`_spawn_player` patches**:
 
 ```cpp
-_reg.emplace<SkillPoints>(e, 0);   // 初始 0 点，升级时 progression 增加
-// SkillSlot 初始化加 Level=1
+_reg.emplace<SkillPoints>(e, 0);   // start at 0; progression adds on level up
 for (int i = 0; i < 4; ++i) {
     sc.Slots[i].SkillId = ...;
-    sc.Slots[i].Level = 1;          // ← 新增
+    sc.Slots[i].Level = 1;          // ← new
     ...
 }
 ```
 
-**`progression_system` 配套**：玩家升级时 `SkillPoints.Available++`（当前 progression 不处理这个，需补；非本方案核心，可后续补但建议同期实施）。
+**`progression_system` companion**: on level-up, `SkillPoints.Available++` (current `progression` doesn't do this — needs a follow-up; recommended to ship together).
 
-**不在本方案范围**：升级数值曲线、升级时刷新 CD/Mana 的具体策略（由 `skill_defs.h` 后续扩展）。本方案仅打通"按键 → Sim 升级 → snapshot 回写"链路 + 修正 SimSkillSlotSnap.level 语义 bug。
+**Not in scope**: numeric upgrade curve, per-upgrade CD/Mana refresh policy. This plan only wires "press → Sim upgrade → snapshot echo" + fixes the v1 `SimSkillSlotSnap.level` semantic bug.
 
 ---
 
-## 6. Layer 4 — 命令缓冲与 Sim 消费
+## 6. Layer 4 — Command buffer and Sim consumption
 
-### 6.1 GDScript 端队列
+### 6.1 GDScript queue
 
 ```gdscript
 # scripts/input/command_buffer.gd
@@ -460,54 +458,55 @@ var _q: Array[Command] = []
 func push(cmd: Command) -> void
 func pop_all() -> Array[Command]
 func empty() -> bool
+func clear() -> void
 ```
 
-Layer 3 生成的命令 `push` 进来，sim_bridge 每 tick `pop_all` 全部消费。
+Layer 3's commands push here; sim_bridge pops all per tick.
 
-### 6.2 sim_bridge 消费逻辑
+### 6.2 sim_bridge consumption
 
 ```gdscript
 func _physics_process(delta: float) -> void:
     elapsed += delta
     while elapsed >= TICK:
         var cmds := command_buffer.pop_all()
-        # 按 type 合并/去重：
-        #   - 同帧多条 MOVE → 只保留最后一条
-        #   - 同帧多条 SKILL 同 slot → 只保留最后一条
-        #   - SKILL confirm + 后续 SKILL no-confirm → 只保留 confirm
-        #   - CANCEL → 保留
-        #   - ATTACK → 保留最后一条
-        #   - STOP → 保留
+        # Merge rules:
+        #   - same-frame multiple MOVE → keep only the last
+        #   - same-frame multiple SKILL on the same slot → keep the last
+        #   - SKILL confirm + later SKILL no-confirm → keep confirm
+        #   - CANCEL → preserve
+        #   - ATTACK → keep last
+        #   - STOP → preserve
         var merged := merge_commands(cmds)
         for cmd in merged:
-            sim.set_command(cmd)   # 统一入口，详见 §11
+            sim.set_command(cmd)   # unified entry; see §11
         sim.tick(TICK)
         ...
         elapsed -= TICK
 ```
 
-### 6.3 不丢失 + 不重复
+### 6.3 No loss + no duplication
 
-- **不丢失**：事件队列 + 命令缓冲跨 tick 持续。
-- **不重复**：边沿事件只入队一次；持续状态（held keys）不生成重复命令，仅 mouse_world 更新由 SkillAiming 的"每帧持续传 aim"机制覆盖。
-- **节流**：MOVE 长按连点 6Hz，在 Layer 3 翻译时按时间窗过滤，不入队。
-- **去重**：合并规则在 §6.2，防止一帧内多次右键导致 Sim 重复 A*。
+- **No loss**: event queue + command buffer persist across ticks.
+- **No duplication**: edge events queue once; persistent state (held keys) doesn't generate repeated commands; only `mouse_world` updates via SkillAiming's per-frame "send aim" mechanism.
+- **Throttling**: long-press right-click 6Hz, throttled at Layer 3 translation (not queued).
+- **Dedup**: merge rules in §6.2 prevent repeated A* in the same tick.
 
 ---
 
-## 7. Sim 侧 CastState 重构（含 Chasing 跟随施法）
+## 7. Sim-side CastState refactor (incl. Chasing)
 
-### 7.1 新的 Phase 枚举
+### 7.1 New `Phase` enum
 
 ```cpp
 struct CastState {
     enum class Phase : uint8_t {
         None       = 0,
-        Aiming     = 1,  // 仅 quick cast 同 tick 中转，或 normal cast confirm 后的瞬时阶段
-        Chasing    = 2,  // 新：confirm 但超出范围，A* 追随目标
-        Casting    = 3,  // 前摇
-        Channeling = 4,  // 引导（R）
-        Dashing    = 5,  // 位移（E）
+        Aiming     = 1,  // same-tick transit only (quick cast / post-confirm instant)
+        Chasing    = 2,  // confirmed but out of range; A* follow
+        Casting    = 3,  // cast time
+        Channeling = 4,  // channel (F)
+        Dashing    = 5,  // displacement (R)
     };
     Phase State = Phase::None;
     int ActiveSlot = -1;
@@ -519,358 +518,339 @@ struct CastState {
     Vec2 DashTarget{0.0f};
     int HitTargetId = -1;
     int CastError = 0;
-    entt::entity TargetEntity = entt::null;   // 指向性技能锁定目标
+    entt::entity TargetEntity = entt::null;   // targeted skill locked target
     int TargetNetworkId = -1;
-    bool QuickCast = false;                   // 标记本次施法来源
+    bool QuickCast = false;                   // marks cast source
     float RejectTimer = 0.0f;
 };
 ```
 
-### 7.2 状态转移（Sim 权威）
+### 7.2 State transitions (Sim authoritative)
 
 ```
-Phase::None + 收到 SKILL{confirm=true}
-  ├─ SkillKind=MeleeSingle 且 target 无效 → CastError=4，保持 None（View 显示 "No target"，SkillAiming 保留）
-  ├─ CD > 0 → CastError=1，保持 None
-  ├─ Mana 不足 → CastError=2，保持 None
-  ├─ Stun → CastError=3，保持 None
-  ├─ 范围内/无需目标 → 扣蓝、设 CD → Phase::Casting（Timer=CastTime）
-  └─ 超出范围（MeleeSingle 有 target 但 dist>Range / 非指向性 dist>Range 且有 chase target）
-       → 扣蓝、设 CD → Phase::Chasing（Timer=0，TargetEntity 锁定）
+Phase::None + received SKILL{confirm=true}
+  ├─ SkillKind=MeleeSingle and target invalid → CastError=4, stay None (View shows "No target"; SkillAiming preserved)
+  ├─ CD > 0 → CastError=1, stay None
+  ├─ Mana insufficient → CastError=2, stay None
+  ├─ Stun → CastError=3, stay None
+  ├─ in range / no target needed → deduct mana, set CD → Phase::Casting (Timer = CastTime)
+  └─ out of range (MeleeSingle has target but dist > Range / non-targeted dist > Range with chase target)
+       → deduct mana, set CD → Phase::Chasing (Timer = 0, TargetEntity locked)
 
-Phase::None + 收到 SKILL{confirm=false}
-  → 不进 Aiming（Sim 侧不再维护 normal cast 的"等左键"阶段）
-  → 仅更新 ActiveSlot / AimPos / TargetEntity（供下次 confirm 用）
-  → 状态保持 None
+Phase::None + received SKILL{confirm=false}
+  → no Aiming (Sim no longer maintains normal cast "await left-click")
+  → only update ActiveSlot / AimPos / TargetEntity (for next confirm)
+  → state stays None
 
-Phase::Chasing + 每 tick（在 skill_cast 内处理，详见 §13 tick 顺序）
-   ├─ 目标死亡 → refund + Phase::None + CastError=5
-   ├─ 目标在范围内 → Phase::Casting（Timer=CastTime）
-   ├─ 收到 CANCEL → refund + Phase::None
-   ├─ 移动：本 tick #3 skill_cast 设 Chasing 后，#4 player_pathfinding 同 tick 用 A* 朝 TargetEntity/AimPos 寻路写 MovePath，#5 player_movement 同 tick 跟随（无 1 tick 延迟）
-   └─ 非指向性技能：AimPos 每 tick 由 input.SkillAim 更新（追随鼠标）
+Phase::Chasing + each tick (handled inside skill_cast; see §13 tick order)
+   ├─ target dead → refund + Phase::None + CastError=5
+   ├─ target in range → Phase::Casting (Timer = CastTime)
+   ├─ CANCEL received → refund + Phase::None
+   ├─ movement: this tick #3 skill_cast sets Chasing; #4 pathfinding uses A* to TargetEntity / AimPos, writes MovePath; #5 movement follows (no 1-tick delay)
+   └─ non-targeted: AimPos updated each tick by input.SkillAim (follows mouse)
 
-Phase::Casting + Timer<=0 → 触发 effect → 按 SkillKind 转 Channeling/Dashing/None
-Phase::Casting + CANCEL + 非 ChannelBurst → refund + None
-Phase::Channeling → 不可打断（CANCEL 无效），Timer 到 → None
-Phase::Dashing → 位移推进，到点/撞墙 → None
+Phase::Casting + Timer <= 0 → trigger effect → per SkillKind transition to Channeling / Dashing / None
+Phase::Casting + CANCEL + not ChannelBurst → refund + None
+Phase::Channeling → uninterruptible (CANCEL ignored); Timer ends → None
+Phase::Dashing → position advance; on arrival / wall hit → None
 ```
 
-### 7.3 跟随施法（Chasing）的核心规则
+### 7.3 Chasing rules
 
-| 技能类型                       | Chasing 进入条件                          | Chasing 期间移动 | 结束条件                                       |
-| ------------------------------ | ----------------------------------------- | ---------------- | ---------------------------------------------- |
-| MeleeSingle（指向性）          | confirm 时 target alive 但 `dist > Range` | A\* 朝 target    | 到 Range 内 → Casting；target 死 → refund+None |
-| AoEField（非指向性，鼠标落点） | confirm 时 `dist(AimPos, pos) > Range`    | A\* 朝 AimPos    | 到 Range 内 → Casting                          |
-| Dash（位移）                   | 不进 Chasing（dash 自身就是位移）         | —                | 直接 Casting → Dashing                         |
-| ChannelBurst（自身周围）       | 无需 Chasing（无范围概念）                | —                | 直接 Casting → Channeling                      |
+| Skill type | Chasing entry condition | Chasing movement | End condition |
+| --- | --- | --- | --- |
+| MeleeSingle (targeted) | confirm with target alive but `dist > Range` | A* to target | in Range → Casting; target dead → refund + None |
+| AoEField (non-targeted, ground) | confirm with `dist(AimPos, pos) > Range` | A* to AimPos | in Range → Casting |
+| Dash (displacement) | no Chasing (dash is the displacement) | — | direct Casting → Dashing |
+| ChannelBurst (self) | no Chasing (no range concept) | — | direct Casting → Channeling |
 
-### 7.4 "No target 报错 + 保留施法模式"
+### 7.4 "No target" error + preserve aiming
 
-用户明确要求：**指向性技能 confirm 时点不到人 → 报错 "No target" → 保留 SkillAiming 模式，不退出**。
+User requirement: **targeted skill confirm with no valid target → "No target" error → keep SkillAiming, don't exit**.
 
-实现：
+Implementation:
 
-- Sim 侧：`Phase::None + SKILL{confirm=true}` 验证失败 → `CastError=4`，状态保持 `None`。
-- View 侧：检测到 `snapshot.cast_error == 4` 且 `cast_state == None` → **不解除 SkillAiming**（仅显示红色 "No target" 字样），允许玩家继续瞄 + 左键重试。
-- View 侧：CastError 由 sim_bridge 检测 `prev_error != cur_error` 触发显示，避免重复弹。
-- 解除 SkillAiming 仅由用户主动 cancel（右键 / S / ESC / H）或 confirm 成功（进 CastLocked）。
+- Sim: `Phase::None + SKILL{confirm=true}` validation failure → `CastError = 4`; state stays `None`.
+- View: sees `snapshot.cast_error == 4` and `cast_state == None` → **does not exit SkillAiming** (only shows red "No target" text); player can keep aiming + left-click to retry.
+- View: `CastError` is detected by `sim_bridge` via `prev_error != cur_error` to avoid duplicate toasts.
+- SkillAiming is only exited by explicit user cancel (right-click / S / ESC / H) or successful confirm (→ CastLocked).
 
-### 7.5 打断施法的统一处理
+### 7.5 Unified cast interruption
 
-打断不再是"散落在各处的 flag"：
+No more "scattered flags":
 
-| Sim 阶段             | CANCEL 消费   | 行为                                      |
-| -------------------- | ------------- | ----------------------------------------- |
-| None                 | 忽略          | —                                         |
-| Aiming（Sim 内瞬时） | refund + None | 几乎不发生                                |
-| Chasing              | refund + None | **退蓝退 CD**（玩家主动取消，未触发效果） |
-| Casting              | refund + None | **退蓝退 CD**（前摇打断，v2 默认宽容）    |
-| Channeling           | **忽略**      | R 引导不可打断                            |
-| Dashing              | **忽略**      | E 位移不可打断                            |
+| Sim phase | CANCEL handling | Behavior |
+| --- | --- | --- |
+| None | ignored | — |
+| Aiming (Sim instant) | refund + None | barely happens |
+| Chasing | refund + None | **refund mana + CD** (player-initiated, no effect triggered) |
+| Casting | refund + None | **refund mana + CD** (cast-time interrupt; v2 default is forgiving) |
+| Channeling | **ignored** | F channel uninterruptible |
+| Dashing | **ignored** | R displacement uninterruptible |
 
-**refund 策略（已定）**：Chasing/Casting 取消都 **退蓝退 CD**（v2 默认，与 v1 的"前摇打断不退"不同——v1 是惩罚性设计，v2 改为宽容，符合现代 MOBA 趋势且原型阶段对新手友好）。**配置化保留口**：`GameConfig::RefundOnCastInterrupt = true` / `RefundOnChaseInterrupt = true`，后续可调为 false 启用惩罚。
+**Refund policy (decided)**: Chasing / Casting cancel both **refund mana + CD** (v2 default; differs from v1's "no refund on cast-time interrupt" — v1 was punitive, v2 is forgiving per modern MOBA norms and prototype-stage friendliness). **Configurable knob**: `GameConfig::RefundOnCastInterrupt = true` / `RefundOnChaseInterrupt = true`; can later flip to false for penalty mode.
 
-### 7.6 input 层镜像的意义
+### 7.6 Why the input-layer mirror matters
 
-View 的 `CastLocked` 状态直接由 `snapshot.cast_state != None` 决定，意味着：
+View's `CastLocked` is directly determined by `snapshot.cast_state != None`:
 
-- 玩家按 H/S/右键 → Layer 3 生成 `CANCEL` 命令 → Sim 消费 → 下一 snapshot `cast_state=None` → View 自动解除 `CastLocked`。
-- **不存在"View 已 cancel 但 Sim 还在 Casting"的 desync**，因为 View 状态完全跟随 Sim。
-- 唯一例外：`SkillAiming`（View 维护的 normal cast 等待期）Sim 状态为 None，cancel 此阶段时 View 自行切回 Idle，**不发 CANCEL**（Sim 无需知道）。
+- Player presses H / S / right-click → Layer 3 emits `CANCEL` → Sim consumes → next snapshot `cast_state = None` → View auto-exits `CastLocked`.
+- **No "View cancelled but Sim still in Casting" desync**, because View state fully follows Sim.
+- Sole exception: `SkillAiming` (View-maintained normal-cast wait) has Sim state `None`; cancelling at that stage just flips View to Idle — **no CANCEL is emitted** (Sim doesn't need to know).
 
 ---
 
-## 8. Quick Cast 与 Normal Cast 流程
+## 8. Quick Cast and Normal Cast flow
 
-### 8.1 Quick Cast（快施）
+### 8.1 Quick cast
 
-**触发**：技能键 **press**（边沿，非 held）。
+**Trigger**: skill key **press** (edge, not held).
 
 ```
-玩家按 Q（quick cast 模式）
-  ↓ Layer 1 入队 KEY_PRESS{Q}
-  ↓ Layer 3 翻译
+Player presses Q (quick cast)
+  ↓ Layer 1 queues KEY_PRESS{Q}
+  ↓ Layer 3 translates
 SKILL{slot=0, confirm=true, aim=mouse_world, target_id=hover}
-  ↓ Layer 4 入队
-  ↓ sim_bridge 下个 tick
-sim.set_command(SKILL{slot=0, confirm=true, ...})
+  ↓ Layer 4 queues
+  ↓ sim_bridge next tick
+sim.set_skill_command(0, true, ax, ay, target_id)
   ↓ Sim skill_cast_system
-  ├─ 验证 CD/Mana/Target/Stun
-  ├─ 失败 → CastError，State=None（View 显示错误，**View 状态回 Idle**）
-  ├─ 范围内 → State=Casting
-  └─ 超出范围 → State=Chasing（A* 追随）
+  ├─ validate CD / Mana / Target / Stun
+  ├─ fail → CastError, State = None (View shows error, **View returns to Idle**)
+  ├─ in range → State = Casting
+  └─ out of range → State = Chasing (A* follow)
   ↓ snapshot
-View 看到 cast_state != None → CommandAxis = CastLocked
+View sees cast_state != None → CommandAxis = CastLocked
 ```
 
-**关键**：Quick cast **无 indicator**（用户明确要求），从按键到施法无视觉过渡，仅施法条/读条在 Casting 阶段显示。
+**Key**: quick cast has **no indicator**; from keypress to cast there's no visual transition, only the cast bar in the Casting phase.
 
-**No target 行为**：与 normal cast 一致 → 报错 + **View 回 Idle**（quick cast 无 Aiming 状态可保留）。详见 §8.3。
+**No target behavior**: same as normal cast → error + **View returns to Idle** (quick cast has no Aiming to preserve). See §8.3.
 
-### 8.2 Normal Cast（手动施法）
+### 8.2 Normal cast
 
-**触发**：技能键 **press**（边沿）→ 进入 SkillAiming（绿线显示）→ 左键确认。
+**Trigger**: skill key **press** (edge) → enter SkillAiming (green line) → left-click confirm.
 
 ```
-玩家按 Q（normal cast 模式）
-  ↓ Layer 1 入队 KEY_PRESS{Q}
-  ↓ Layer 3 翻译
+Player presses Q (normal cast)
+  ↓ Layer 1 queues KEY_PRESS{Q}
+  ↓ Layer 3 translates
 SKILL{slot=0, confirm=false, aim=mouse_world, target_id=hover}
   ↓ Layer 4
   ↓ Sim
-Sim 仅更新 ActiveSlot/AimPos/TargetEntity，State 保持 None
-  ↓ snapshot（cast_state 仍 None）
-View 切 CommandAxis = SkillAiming（由 Layer 3 在生成命令时同步切，不等 snapshot）
+Sim only updates ActiveSlot / AimPos / TargetEntity; State stays None
+  ↓ snapshot (cast_state still None)
+View switches CommandAxis = SkillAiming (by Layer 3 when generating the command; not waiting for snapshot)
 
-每帧 Layer 3 持续生成 SKILL{slot=0, confirm=false, aim=current_mouse, target_id=current_hover}
-  ↓ 维持 Sim 侧 ActiveSlot/AimPos/TargetEntity 实时跟随鼠标
+Each frame Layer 3 keeps emitting SKILL{slot=0, confirm=false, aim=current_mouse, target_id=current_hover}
+  ↓ keep Sim-side ActiveSlot / AimPos / TargetEntity in sync with mouse
 
-玩家左键
-  ↓ Layer 1 入队 MB_PRESS{LEFT}
-  ↓ Layer 3 翻译
+Player left-click
+  ↓ Layer 1 queues MB_PRESS{LEFT}
+  ↓ Layer 3 translates
 SKILL{slot=0, confirm=true, aim=mouse_world, target_id=hover}
   ↓ Sim
-  ├─ 验证 CD/Mana/Target/Stun
-  ├─ 失败 → CastError（4=No target 时 View 保留 SkillAiming）
-  ├─ 范围内 → State=Casting
-  └─ 超出范围 → State=Chasing
+  ├─ validate CD / Mana / Target / Stun
+  ├─ fail → CastError (4 = No target → View preserves SkillAiming)
+  ├─ in range → State = Casting
+  └─ out of range → State = Chasing
   ↓ snapshot
-View 看到 cast_state != None → CommandAxis = CastLocked
-（若 CastError=4 且 State=None → View 保留 SkillAiming）
+View sees cast_state != None → CommandAxis = CastLocked
+(if CastError == 4 and State == None → View preserves SkillAiming)
 ```
 
-### 8.3 两种模式行为对照表
+### 8.3 Behavior comparison
 
-| 行为                    | Normal Cast                             | Quick Cast                                     |
-| ----------------------- | --------------------------------------- | ---------------------------------------------- |
-| 触发                    | press → aiming → left-click confirm     | press（直接 confirm）                          |
-| Indicator（绿线）       | 有（SkillAiming 期间）                  | 无                                             |
-| 鼠标实时跟随            | aiming 期间 aim 实时更新                | 仅 press 瞬时 aim                              |
-| 超出范围                | confirm 后 → Sim Chasing → A\* 追       | 同                                             |
-| 指向性 no target        | **保留 SkillAiming**，弹"No target"     | **回 Idle**，弹"No target"（无 Aiming 可保留） |
-| 取消（aiming 阶段）     | 右键/S/ESC/H → 回 Idle（MoveAxis 不变） | 不存在 aiming 阶段                             |
-| 取消（Chasing/Casting） | CANCEL → refund + None                  | 同                                             |
-| Channeling/Dashing      | 不可打断                                | 同                                             |
+| Behavior | Normal cast | Quick cast |
+| --- | --- | --- |
+| Trigger | press → aiming → left-click confirm | press (direct confirm) |
+| Indicator (green line) | Yes (during SkillAiming) | No |
+| Real-time aim follow | aim updates during aiming | Only at press instant |
+| Out of range | confirm → Sim Chasing → A* follow | Same |
+| Targeted no target | **preserve SkillAiming**, show "No target" | **return to Idle**, show "No target" (no Aiming to preserve) |
+| Cancel (aiming phase) | right-click / S / ESC / H → return to Idle (MoveAxis unchanged) | No aiming phase |
+| Cancel (Chasing / Casting) | CANCEL → refund + None | Same |
+| Channeling / Dashing | uninterruptible | Same |
 
-**设计依据（用户原话）**：quickcast 的逻辑与 normalcast 中所有鼠标左键的行为一致（也需要超出范围用 A\* 追踪，指向性点不到人报错，保留移动状态）。Normal cast 的"保留 SkillAiming"是 quick cast 没有的额外行为，因 quick cast 没有显式 Aiming 状态。
+**Design basis (per user)**: quick-cast semantics match normal-cast's left-click behavior (out-of-range uses A* chase; targeted no-target errors; preserves move). Normal cast's "preserve SkillAiming" is a quick-cast-exclusive extra behavior, since quick cast has no explicit Aiming state.
 
 ---
 
-## 9. 普攻命令模式（独立分支）
+## 9. Basic attack command mode (independent branch)
 
-### 9.1 独立 FSM 分支的必要性
+### 9.1 Why a separate FSM
 
-普攻与技能是**完全不同的命令流**：
+Basic attack and skills are **completely different command flows**:
 
-- 技能：CD + Mana + CastTime + Effect 触发
-- 普攻：AttackSpeed 节流 + homing 箭 + 自动追击 + **穿墙**
+- Skill: CD + Mana + CastTime + Effect trigger
+- Basic attack: AttackSpeed throttle + homing arrow + auto-chase + **wall-piercing**
 
-强行共用 FSM 会引入大量 if/else 与 bug。**独立模式最解耦**。
+Forcing them to share an FSM would introduce a lot of if/else and bugs. **Independent mode is most decoupled.**
 
-### 9.2 进入方式（两种）
+### 9.2 Entry (two ways)
 
-| 触发               | 行为                                 | 是否需左键确认                |
-| ------------------ | ------------------------------------ | ----------------------------- |
-| **A 键 press**     | 进入 AttackAiming，等左键确认        | 是（normal-attack 模式）      |
-| **右键点敌 press** | **直接锁敌攻击，无需左键**           | 否（MOBA 标准右键点敌即攻击） |
-| 右键点空地 press   | 移动（MoveCmd）+ 清锁（AttackClear） | —                             |
+| Trigger | Behavior | Left-click confirm? |
+| --- | --- | --- |
+| **A press** | Enter AttackAiming; await left-click | Yes (normal-attack mode) |
+| **right-click enemy** | **Direct lock; no confirm needed** | No (MOBA standard: right-click enemy = attack) |
+| right-click ground | Move (MoveCmd) + clear lock (AttackClear) | — |
 
-**关键**：A 键模式 = 像 normal cast 一样的"瞄准+确认"，右键点敌 = 即时攻击（不进入 AttackAiming）。两者都生成 `ATTACK` 命令，仅 View 侧路径不同。
+**Key**: A-key mode is "aim + confirm" like normal cast; right-click enemy is instant attack (no AttackAiming). Both emit `ATTACK`; only the View path differs.
 
-### 9.3 AttackAiming 子流程
+### 9.3 AttackAiming sub-flow
 
 ```
-玩家按 A
+Player presses A
   ↓ Layer 1: KEY_PRESS{A}
-  ↓ Layer 3: 切 CommandAxis = AttackAiming（不发命令）
-  ↓ View 显示普攻 indicator（可选：射程圈）
+  ↓ Layer 3: switch CommandAxis = AttackAiming (no command)
+  ↓ View shows basic-attack indicator (optional: range circle)
 
-玩家左键
-  ├─ hover 敌 → Layer 3 生成 ATTACK{target_id=hover}
-  └─ 空地     → Layer 3 生成 ATTACK{ground=mouse_world, target_id=-1}
-  ↓ 切 CommandAxis = Idle
+Player left-click
+  ├─ hover enemy → Layer 3 emits ATTACK{target_id=hover}
+  └─ ground     → Layer 3 emits ATTACK{ground=mouse_world, target_id=-1}
+  ↓ CommandAxis = Idle
 
-Sim player_attack_command_system 消费 ATTACK
-  ├─ target_id>=0 → resolve → 设 AttackTarget{Target, TargetNetworkId}
-  └─ ground        → find_nearest_enemy(AcquisitionRange) → 设 AttackTarget 或无效
+Sim attack_command_system consumes ATTACK
+  ├─ target_id >= 0 → resolve → set AttackTarget{Target, TargetNetworkId}
+  └─ ground        → find_nearest_enemy(AcquisitionRange) → set AttackTarget or invalid
   ↓
-player_pathfinding_system: AttackTarget 有效且超 Range → A* 朝目标寻路
-player_movement_system: 跟随 MovePath 移动
-player_attack_fire_system: 到 Range 内 → 射 homing 箭
+pathfinding_system: AttackTarget valid and out of Range → A* to target; write MovePath
+movement_system: follow MovePath
+attack_fire_system: in Range → fire homing arrow
 ```
 
-### 9.4 弹道穿墙 / 角色不穿墙
+### 9.4 Projectile wall-piercing / character wall-blocking
 
-**规则**：弹道可以穿墙，角色无论如何都不能穿墙。角色所有移动都走 A\*。
+**Rule**: projectile can pierce walls; character never can. All character movement goes through A*.
 
-| 层                   | 穿墙规则                                                           |
-| -------------------- | ------------------------------------------------------------------ |
-| `player_pathfinding` | 普攻追击用 A\* 寻路（不穿墙），与技能 Chasing 一致                   |
-| `player_movement`    | 跟随 MovePath（A\* 路径），不设 `Chasing` 标志                       |
-| `wall_collision`     | Mover 分支不跳过任何玩家（仅 Dashing 除外）                          |
-| `arrow_movement`     | homing 箭矢每 tick 修正速度朝目标当前位置                            |
-| `wall_collision`     | Arrow 分支跳过有 `Homing` 组件的箭（穿墙飞行）                       |
-| `combat`             | Homing 箭只检测锁定目标的碰撞（不误伤路过的敌人）                     |
+| Layer | Wall rule |
+| --- | --- |
+| `pathfinding` | basic attack chase uses A* (around walls), same as skill Chasing |
+| `movement` | follows MovePath (A* path); does not set `Chasing` flag for right-click basic attack |
+| `wall_collision` | Mover branch: skip no one (Dashing excepted) |
+| `arrow_movement` | Homing arrows update velocity toward target each tick |
+| `wall_collision` | Arrow branch: skip arrows with `Homing` (pierce) |
+| `combat` | Homing arrows only check collision with their locked target (no incidental hits) |
 
-**注意**：弹道穿墙、角色不穿墙。技能 Chasing 与普攻追击都用 A\*（统一规则）。
+**Note**: projectile pierces, character doesn't. Skill Chasing and basic attack chase both use A* (unified rule).
 
-### 9.5 取消普攻瞄准
+### 9.5 Canceling basic attack aim
 
-| 状态                        | 取消键                  | 行为                                                                                 |
-| --------------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
-| AttackAiming                | 右键 / S / ESC / H      | 切 Idle，**不发命令**（Sim 侧无 AttackAiming 状态需清）                              |
-| 已锁敌（AttackTarget 有效） | 右键空地 / S / 移动命令 | 发 `ATTACK{clear=true}` 或 Sim 在 player_attack_command 检测 MoveIssue/Stop 自动清锁 |
+| State | Cancel key | Behavior |
+| --- | --- | --- |
+| AttackAiming | right-click / S / ESC / H | switch to Idle, **no command** (no Sim-side AttackAiming to clear) |
+| Locked (AttackTarget valid) | right-click ground / S / move command | emit `ATTACK{clear=true}` or Sim detects MoveIssue / Stop and clears in `attack_command` |
 
-### 9.6 普攻与施法的互斥
+### 9.6 Basic attack vs cast mutual exclusion
 
-- `player_attack_fire` 与 `skill_cast` 都检查 `CastState != None` 互斥（已有）。
-- AttackAiming 期间按技能键 → Layer 3 切 SkillAiming（**AttackAiming 自动取消**，不发 ATTACK）。
-- SkillAiming 期间按 A → Layer 3 生成 `CANCEL{scope=skill}` + 切 AttackAiming。
+- `attack_fire` and `skill_cast` both check `CastState != None` for mutual exclusion (already implemented).
+- During AttackAiming, pressing a skill key → Layer 3 switches to SkillAiming (**AttackAiming auto-canceled**, no ATTACK emitted).
+- During SkillAiming, pressing A → Layer 3 emits `CANCEL{scope=skill}` + switches to AttackAiming.
 
 ---
 
-## 10. 移动与寻路（A\* 追击/跟随）
+## 10. Movement and pathfinding (A* chase/follow)
 
-### 10.1 三种移动来源
+### 10.1 Three movement sources
 
-| 来源           | 触发                           | 寻路方式  | 穿墙 |
-| -------------- | ------------------------------ | --------- | ---- |
-| 玩家右键点地板 | `MOVE` 命令                    | A\*（绕墙） | 否   |
-| 技能跟随施法   | Sim `Chasing` 阶段             | A\*（绕墙） | 否   |
-| 普攻追击       | `AttackTarget` 有效 + 超 Range | A\*（绕墙） | 否   |
+| Source | Trigger | Pathfinding | Pierces walls? |
+| --- | --- | --- | --- |
+| Player right-click | `MOVE` command | A* (around walls) | No |
+| Skill chase-cast | Sim `Chasing` phase | A* (around walls) | No |
+| Basic attack chase | `AttackTarget` valid + out of Range | A* (around walls) | No |
 
-### 10.2 player_pathfinding_system 职责扩展
+> Note: basic attack chase also sets `AttackTarget.Chasing = true` each tick in `movement`; this is consumed by `wall_collision` to skip the player. The actual movement is via the MovePath written by `pathfinding`.
 
-每 tick 顺序：
+### 10.2 `pathfinding_system` responsibilities (each tick)
 
-1. **Sim Chasing 阶段**：若 `CastState.State == Chasing` → 用 A\* 朝 `CastState.TargetEntity`（MeleeSingle）或 `CastState.AimPos`（AoEField）寻路，写 `MovePath`。**优先级最高**（玩家已 confirm 施法，自动追随）。
-2. **普攻追击**：若 `AttackTarget.Target` 有效且超 Range → A\* 朝目标寻路，写 `MovePath`。`player_movement` 通过 MovePath 跟随移动。
-3. **玩家右键移动**：`input.MoveIssue == true` 且 `CastState == None` 且 `AttackTarget.Target == null` → A\* 朝 `input.MoveTarget` 寻路。
+1. **Sim Chasing phase**: if `CastState.State == Chasing` → A* to `CastState.TargetEntity` (MeleeSingle) or `CastState.AimPos` (AoEField); write `MovePath`. **Highest priority** (player confirmed cast, auto-follow).
+2. **Basic attack chase**: if `AttackTarget.Target` valid and out of Range → A* to target; write `MovePath`. `movement` follows MovePath.
+3. **Player right-click move**: `input.MoveIssue == true` and `CastState == None` and `AttackTarget.Target == null` → A* to `input.MoveTarget`; write `MovePath`.
 
-### 10.3 player_movement_system 优先级
+### 10.3 `movement_system` priority
 
 ```
-每 tick 顺序：
-1. Status gate (Root/Stun) → continue
-2. CastState gate (Casting/Channeling/Dashing) → continue
-   （Chasing 不 gate，允许移动）
-3. Stop 命令 → 清 MovePath, continue
-4. MovePath.Following → 跟随（A* 路径）：技能 Chasing / 普攻追击 / 右键移动 统一走此分支
+Each tick:
+1. Status gate (Root / Stun) → continue
+2. CastState gate (Casting / Channeling / Dashing) → continue
+   (Chasing does NOT gate; movement is allowed)
+3. Stop command → clear MovePath, continue
+4. MovePath.Following → follow (A* path): skill Chasing / basic attack chase / right-click move all use this branch
 ```
 
-### 10.4 转向速率
+### 10.4 Turn rate
 
-所有 path-following 分支用 `PathTurnRate` 平滑朝向（已有）。直线追击分支同样平滑。**仅 quick cast 瞬时转向不平滑**（dash 由 Sim 直接设朝向）。
+All path-following branches use `PathTurnRate` smoothed orientation (already implemented). The straight-chase branch also smooths. **Only quick cast's instant turn does not smooth** (dash sets orientation directly via Sim).
 
-### 10.5 寻路死区与节流
+### 10.5 Pathfinding deadzone and throttle
 
-- `RepathTargetDeadzone`（已有，1.5 单位）：右键连点同区域不重算 A\*。
-- Chasing 期间目标移动 → 每 tick 检测目标位移 > 死区才 repath。
-- View 端右键长按连点节流 `MOVE_REPEAT_INTERVAL = 0.167s`（6Hz）。
+- `RepathTargetDeadzone` (already, 1.5 units): repeated right-click in similar area doesn't trigger A* recompute.
+- During Chasing, target moves > deadzone per tick → repath.
+- View-side long-press right-click 6Hz throttle `MOVE_REPEAT_INTERVAL = 0.167s`.
 
 ---
 
-## 11. SimServer API（统一命令接口）
+## 11. SimServer API (unified command interface)
 
-### 11.1 单一统一入口（取代散落的 set_*_input）
+### 11.1 Fine-grained API (current)
 
 ```cpp
 // sim_server.h
-enum class CmdType : uint8_t {
-    Move = 0, Skill = 1, SkillUpgrade = 2, Attack = 3, Cancel = 4, Stop = 5,
-};
-
-// 单一入口，View 传 Command 对象
-void set_command(int type,
-                 int slot,              // Skill/SkillUpgrade: 0-3 (装备槽 10-15 预留, 见 §5.4)
-                 int target_id,         // Skill/Attack: NetworkId, -1=none
-                 bool confirm,          // Skill
-                 bool ground_attack,    // Attack: true=空地找最近
-                 float aim_x, float aim_y,        // Skill/Move/Attack ground
-                 bool cancel_skill,     // Cancel
-                 bool cancel_attack,
-                 int seq);
-```
-
-**或更优**：暴露多个细粒度方法，sim_bridge 按 Command.type 路由：
-
-```cpp
-void set_move_command(float tx, float ty, bool issue);
-void set_skill_command(int slot, bool confirm, float ax, float ay, int target_id);
-void set_skill_upgrade_command(int slot);                              // ← 新增
-void set_attack_command(int target_id, bool ground, float gx, float gy, bool clear);
+void set_move_command(float target_x, float target_y, bool issue);
+void set_stop_command(bool stop);
+void set_skill_command(int slot, bool confirm, float aim_x, float aim_y, int target_id);
+void set_skill_upgrade_command(int slot);
+void set_attack_command_full(int target_id, bool ground, float gx, float gy, bool clear);
 void set_cancel_command(bool skill, bool attack);
-void set_stop_command();
 ```
 
-**推荐细粒度方案**：API 自描述，CommandBuffer 合并后直接调对应方法，无需 packed struct 解码。
+**Recommended fine-grained approach**: API is self-describing; CommandBuffer can dispatch directly to the matching method after merge.
 
-### 11.2 废弃的旧 API
+### 11.2 Deprecated legacy API (kept for migration only)
 
-| 旧 API                                                                | 替代                                                           |
-| --------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `set_local_input(move, aim, fire, seq)`                               | `set_move_command` + `set_skill_command`（aim 走 skill）       |
-| `set_cast_input(slot, confirm, cancel, interrupt, ax, ay, target_id)` | `set_skill_command` + `set_cancel_command`                     |
-| `set_attack_command(target_id)`（单参数版）                           | `set_attack_command(target_id, ground, gx, gy, clear)`（扩展） |
-| `set_stop(stop)`                                                      | `set_stop_command()`                                           |
+| Legacy API | Replacement |
+| --- | --- |
+| `set_local_input(move, aim, fire, seq)` | `set_move_command` + (aim via skill) |
+| `set_cast_input(slot, confirm, cancel, interrupt, aim_x, aim_y, target_id)` | `set_skill_command` + `set_cancel_command` |
+| `set_attack_command(target_id)` (single-arg) | `set_attack_command_full(target_id, ground, gx, gy, clear)` (extended) |
+| `set_stop(stop)` | `set_stop_command()` |
 
-`fire` 字段废弃（普攻不再朝鼠标射箭，改锁敌 homing）。`PlayerInputState.Fire` 字段移除。
+`fire` field removed (basic attack no longer fires at mouse; lock-on homing). `PlayerInputState.Fire` removed.
 
-### 11.3 LocalInputSingleton 重构
+### 11.3 `LocalInputSingleton` (current)
 
 ```cpp
 struct LocalInputSingleton {
-    // ── 移动 ──
+    // ── Move ──
     Vec2 MoveTarget{0.0f};
     bool MoveIssue = false;
     bool Stop = false;
 
-    // ── 技能 ──
-    int  SkillSlot = -1;        // 当前 Aiming 槽，-1=无（0-3 QWER, 10-15 装备预留）
-    bool SkillConfirm = false;  // 本 tick 是否确认
+    // ── Skill ──
+    int  SkillSlot = -1;        // current Aiming slot, -1=none (0-3 QWER, 10-15 equipment reserved)
+    bool SkillConfirm = false;  // whether this tick confirms
     Vec2 SkillAim{0.0f};
     int  SkillTargetId = -1;
-    int  SkillUpgradeSlot = -1; // 技能升级脉冲（Ctrl+QWER），-1=无
+    int  SkillUpgradeSlot = -1; // upgrade pulse (Ctrl+QWER), -1=none
 
-    // ── 施法取消 ──
+    // ── Cancel ──
     bool CancelSkill = false;
     bool CancelAttack = false;
 
-    // ── 普攻 ──
+    // ── Basic attack ──
     int  AttackTargetId = -1;
     bool AttackGround = false;
     Vec2 AttackGroundPos{0.0f};
     bool AttackClear = false;
 
-    // ── 序号 ──
+    // ── Sequence ──
     int Seq = 0;
 };
 ```
 
-`Move` / `Aim` / `Fire` / `CastInterrupt` 字段移除（用命令式替代）。`PlayerInputState` 同步重构。
+`Move` / `Aim` / `Fire` / `CastInterrupt` fields removed (replaced by command fields). `PlayerInputState` mirrors this layout.
 
-### 11.4 World 消费命令
+### 11.4 World command consumption
 
 ```cpp
 void World::set_skill_command(int slot, bool confirm, float ax, float ay, int target_id) {
@@ -880,46 +860,49 @@ void World::set_skill_command(int slot, bool confirm, float ax, float ay, int ta
     li.SkillAim = {ax, ay};
     li.SkillTargetId = target_id;
 }
-// ... 其他同理
+// ... other set_*_command follow the same pattern
 ```
 
-每 tick 起始 `local_input_injection_system` 复制到 `PlayerInputState`，tick 末清脉冲字段（SkillConfirm / SkillUpgradeSlot / MoveIssue / Stop / CancelSkill / CancelAttack / AttackGround / AttackClear）。
+Each tick start: `local_input_injection_system` copies to `PlayerInputState`; tick end clears pulse fields (`SkillConfirm` / `SkillUpgradeSlot` / `MoveIssue` / `Stop` / `CancelSkill` / `CancelAttack` / `AttackGround` / `AttackClear`).
 
 ---
 
-## 12. Snapshot 扩展（状态回写同步）
+## 12. Snapshot extensions (state echo sync)
 
-### 12.1 SimPlayerSnap 新增字段
+### 12.1 `SimHeroSnap` (and `SimPlayerSnap` legacy) new fields
 
-| 字段               | 类型  | 来源                             | 用途                                                       |
-| ------------------ | ----- | -------------------------------- | ---------------------------------------------------------- |
-| `cast_state`       | int   | CastState.Phase                  | 0=None 1=Aiming 2=Chasing 3=Casting 4=Channeling 5=Dashing |
-| `cast_slot`        | int   | CastState.ActiveSlot             | View 显示哪个槽                                            |
-| `cast_progress`    | float | Timer / max                      | 进度条                                                     |
-| `cast_aim_x/y`     | float | CastState.AimPos                 | VFX 位置                                                   |
-| `cast_target_id`   | int   | CastState.TargetNetworkId        | View 高亮跟随目标                                          |
-| `cast_error`       | int   | CastState.CastError              | 错误弹窗                                                   |
-| `dash_sx/sy/tx/ty` | float | DashStart/Target                 | dash 路径 VFX                                              |
-| `hit_target_id`    | int   | HitTargetId                      | C 命中 VFX                                                 |
-| `attack_target_id` | int   | AttackTarget.TargetNetworkId     | 红色锁定指示器                                             |
-| `skill_points`     | int   | SkillPoints.Available            | **新增**：View 显示可分配点数 / 升级提示（P0-2 配套）      |
-| `is_moving`        | bool  | 玩家是否正在自主移动（见下注意） | **新增**：View MoveAxis 反向同步                           |
+| Field | Type | Source | Purpose |
+| --- | --- | --- | --- |
+| `cast_state` | int | `CastState.Phase` | 0=None 1=Aiming 2=Chasing 3=Casting 4=Channeling 5=Dashing |
+| `cast_slot` | int | `CastState.ActiveSlot` | Which slot View shows |
+| `cast_progress` | float | `Timer / max` | Progress bar |
+| `cast_aim_x/y` | float | `CastState.AimPos` | VFX position |
+| `cast_target_id` | int | `CastState.TargetNetworkId` | View highlight follow target |
+| `cast_error` | int | `CastState.CastError` | Error code |
+| `dash_sx/sy/tx/ty` | float | `DashStart/Target` | dash path VFX |
+| `hit_target_id` | int | `HitTargetId` | C hit VFX |
+| `attack_target_id` | int | `AttackTarget.TargetNetworkId` | Red lock indicator |
+| `skill_points` | int | `SkillPoints.Available` | **New** — allocatable points / upgrade prompt |
+| `is_moving` | bool | derived (see note) | **New** — View MoveAxis reverse sync |
+| `tier` | int | `BotTier` | Bot-specific |
+| `is_local` | bool | `HeroTag.IsLocal` | Sole local player |
+| `hero_def_id` | int | `HeroDefId.Value` | View prefab selection |
 
-**`is_moving` 字段来源注意**：不可简单取 `MovePath.Following`——普攻追击（§9.4）是直线移动**不走 MovePath**，技能 Chasing 期间 MovePath 由 pathfinding 切换更新。正确来源应在 `player_movement_system` 末尾（或 snapshot_export）按"本 tick 是否实际推进了位置"判定：
+**`is_moving` source note**: must not simply be `MovePath.Following` — basic attack chase (§9.4) is straight-line and does not go through `MovePath`; during skill Chasing, `MovePath` is rewritten by `pathfinding` each tick. Correct source is in `player_movement_system` (or `snapshot_export`) at end of tick, based on "this tick did we actually advance position":
 
 ```cpp
-// snapshot_builder.cpp _build_players 伪代码
-s->is_moving = (path.Following)                      // A* 寻路跟随中
-    || (at.Chasing)                                   // 普攻直线追击中
-    || (cs.State == CastState::Phase::Chasing);       // 技能跟随施法中
-// 注：Casting/Channeling/Dashing 不算 is_moving（站定/位移由 dash 自管）
+// snapshot_builder.cpp _build_heroes (illustrative)
+s->is_moving = (path.Following)                      // A* path-following
+    || (at.Chasing)                                   // basic attack straight chase
+    || (cs.State == CastState::Phase::Chasing);       // skill chase-cast
+// note: Casting/Channeling/Dashing do NOT count as is_moving (stand still / dash self-managed)
 ```
 
-### 12.2 View 同步流程
+### 12.2 View sync
 
 ```gdscript
 # input_state_machine.gd
-func sync_from_snapshot(p: SimPlayerSnap) -> void:
+func sync_from_snapshot(p: SimHeroSnap) -> void:
     # MoveAxis
     move_axis = MoveAxis.Moving if p.is_moving else MoveAxis.NotMoving
 
@@ -929,10 +912,10 @@ func sync_from_snapshot(p: SimPlayerSnap) -> void:
     else:
         if command_axis == CommandAxis.CastLocked:
             command_axis = CommandAxis.Idle
-        # SkillAiming 由 View 自维护，不解除（除非收到 cancel 事件）
+        # SkillAiming is self-maintained; do not exit here
 ```
 
-### 12.3 错误显示
+### 12.3 Error display
 
 ```gdscript
 # sim_bridge.gd
@@ -941,50 +924,65 @@ if prev_cast_error != p.cast_error and p.cast_error > 0:
 prev_cast_error = p.cast_error
 ```
 
-错误码：1=On Cooldown, 2=Not enough Mana, 3=Stunned, 4=No target, 5=Target unavailable（confirm 后目标死亡）。
+Error codes: 1=On Cooldown, 2=Not enough Mana, 3=Stunned, 4=No target, 5=Target unavailable (target died after confirm).
 
 ---
 
-## 13. tick 顺序
+## 13. Tick order
+
+> **Important**: this section's order matches the **v4** implementation (`world.cpp::tick` with 22 systems). Earlier drafts of this doc showed 20 systems; the v4 Bot refactor added `bot_combat_state_system` (between `bot_ai_system` and `bot_skill_decider_system`). For the canonical sequence, see `docs/DATA_FLOW.md §3`.
 
 ```
-local_input_injection        #  1. 注入命令到 PlayerInputState
-player_attack_command        #  2. 处理 ATTACK 命令 + pending + 目标验证 + 清锁
-skill_cast                   #  3. 施法状态机（None→Aiming/Chasing/Casting；Casting timer 推进+effect；Channeling；Dashing）
-player_pathfinding           #  4. A* 寻路（右键移动 + 技能 Chasing 跟随）—— 同 tick 看到 #3 设的 Chasing
-player_movement              #  5. 移动（Chasing 用 MovePath 跟随；AttackTarget 直线追击 + 设 Chasing 标志；Casting/Channeling/Dashing gate）
-player_attack_fire           #  6. 锁定目标射 homing 箱
-bot_targeting                #  7
-bot_ai                       #  8
-bot_combat                   #  9
-arrow_movement               # 10. +Homing 追踪
-wall_collision               # 11. 跳过 AttackTarget.Chasing 玩家 + Dashing 玩家 + Homing 箭
-combat                       # 12. Homing 只命中锁定目标
-pickup                       # 13
-aoe                          # 14
-status_effect                # 15
-mana_regen                   # 16
-skill_cooldown               # 17
-skill_level                  # 18. 消费 SkillUpgradeSlot → SkillPoints-- + slot.Level++（新增，§5.5）
-progression                  # 19
-snapshot_export              # 20
+# Input phase
+1.  local_input_injection_system    # copy LocalInputSingleton → HeroInputState (local heroes only)
+
+# Bot AI phase (5 systems)
+2.  bot_targeting_system            # pick TargetEntity (prefer local player)
+3.  bot_ai_system                   # Goal FSM + respawn roll
+4.  bot_combat_state_system         # v4 combat phase FSM
+5.  bot_skill_decider_system        # v4 score-based skill selection → BotCastRequest
+6.  bot_input_injection_system      # BotAIState + BotCastRequest → HeroInputState
+
+# Unified combat phase (treats all HeroTag; player or AI)
+7.  attack_command_system           # ATTACK command → AttackTarget (generalized)
+8.  skill_cast_system               # CastState state machine (None → Aiming / Chasing / Casting / Channeling / Dashing)
+9.  pathfinding_system              # A* pathfinding → MovePath — same tick sees #8 setting Chasing
+10. movement_system                 # MovePath follow + AttackTarget chase + Dashing — sets is_moving
+11. attack_fire_system              # in range → fire homing arrow
+
+# Physics
+12. arrow_movement_system           # position advance + Homing tracking
+13. wall_collision_system           # AABB resolve + arrow destroy; skip Chasing + Dashing + Homing
+14. combat_system                   # arrow collision + damage + kill events
+
+# Game systems
+15. pickup_system                   # spawner + pickup overlap
+16. aoe_system                      # AoE entity lifecycle
+17. status_effect_system            # Root / Stun timer decrement
+18. mana_regen_system               # Mana.Cur regen
+19. skill_cooldown_system           # CooldownTimer decrement
+20. skill_level_system              # consume SKILL_UPGRADE → Level++ / Available--
+21. progression_system              # KillEventBuffer → XP / Level / ATK
+22. snapshot_export_system          # build SimSnapshot
 ```
 
-**顺序要点（无 1 tick 延迟设计）**：
+**Order constraints (no 1-tick delay design)**:
 
-- `skill_cast`(#3) 必须在 `player_pathfinding`(#4) 与 `player_movement`(#5) **之前**：confirm 本 tick 在 #3 设 `State=Chasing` + `TargetEntity`/`AimPos`，#4 同 tick 看到 Chasing → 调 `nav.find_path` 写 MovePath，#5 同 tick 跟随 MovePath 移动。**confirm → A\* → 移动全在同 tick 完成，无 33ms 延迟**。
-- `player_movement`(#5) 在 `skill_cast`(#3) 之后：读 CastState 是本 tick 最新值（Casting/Channeling/Dashing 即时 gate；effect 触发后 State=None 即时解除 gate）。
-- `player_attack_command`(#2) 在 `skill_cast`(#3) 之前：先处理 AttackCmd 设/清 AttackTarget，再由 skill_cast 决定施法（施法中 AttackCmd 走 pending，下 tick CastState=None 时消费）。
-- `player_attack_fire`(#6) 在 `skill_cast`(#3) 之后：读 CastState!=None 即时 skip 普攻。
-- `wall_collision`(#11) 在 `player_movement`(#5) 之后：读 `AttackTarget.Chasing` 标志跳过穿墙追击，读 `CastState::Dashing` 跳过 dash 位移。
-- `combat`(#12) 在 `arrow_movement`(#10) 之后：Homing 箭已追踪到目标附近。
-- `skill_level`(#18) 独立于 skill_cast，放 skill_cooldown 附近；不参与状态机，仅消费 SkillUpgradeSlot 脉冲。
+- `skill_cast` (#8) must run **before** `pathfinding` (#9) and `movement` (#10): confirm this tick sets `State = Chasing` + `TargetEntity` / `AimPos` in #8; #9 same tick sees Chasing → `nav.find_path` → MovePath; #10 same tick follows MovePath. **Confirm → A* → movement all in the same tick; no 33ms delay.**
+- `movement` (#10) runs after `skill_cast` (#8): reads the latest CastState this tick (Casting / Channeling / Dashing gate immediately; effect trigger flips State to None → gate released immediately).
+- `attack_command` (#7) before `skill_cast` (#8): processes ATTACK first, sets / clears AttackTarget; skill_cast then decides casting (during cast AttackCmd is queued, consumed next tick when CastState = None).
+- `attack_fire` (#11) after `skill_cast` (#8): reads `CastState != None` → skip basic attack immediately.
+- `wall_collision` (#13) after `movement` (#10): reads `AttackTarget.Chasing` flag to skip wall-piercing chase; reads `CastState::Dashing` to skip dash displacement.
+- `combat` (#14) after `arrow_movement` (#12): Homing arrows have already tracked to the target vicinity.
+- `skill_level` (#20) independent of `skill_cast`; placed near `skill_cooldown`; doesn't participate in state machine, only consumes the upgrade pulse.
 
 ---
 
-## 14. 组件变更清单
+## 14. Component change list (historical — fully implemented)
 
-### 14.1 新增
+> All changes in this section were applied during the v1 → v2 refactor and are now part of the codebase. Listed here for traceability.
+
+### 14.1 New
 
 ```cpp
 struct Homing {
@@ -992,364 +990,365 @@ struct Homing {
     int TargetNetId = -1;
 };
 
-struct SkillPoints {        // ← 新增（v1 缺失，sim_system_reference.md 描述但未落地）
+struct SkillPoints {        // ← new (v1 was missing)
     int Available = 0;
 };
 ```
 
-### 14.2 修改
+### 14.2 Modified
 
 ```cpp
 struct CastState {
     enum class Phase : uint8_t {
-        None = 0, Aiming = 1, Chasing = 2,  // ← 新增 Chasing
+        None = 0, Aiming = 1, Chasing = 2,  // ← added Chasing
         Casting = 3, Channeling = 4, Dashing = 5,
     };
-    // ... 新增 TargetNetworkId, QuickCast
+    // ... added TargetNetworkId, QuickCast
 };
 
 struct AttackTarget {
     entt::entity Target = entt::null;
     int TargetNetworkId = -1;
-    bool Chasing = false;   // 每 tick 由 player_movement 设置，wall_collision 读取
+    bool Chasing = false;   // set by movement; consumed by wall_collision
 };
 
 struct SkillSlot {
     int SkillId = 0;
-    int Level = 1;                  // ← 新增字段（v1 缺失）
+    int Level = 1;                  // ← new (v1 was missing)
     float CooldownTimer = 0.0f;
     float MaxCooldown = 0.0f;
     float ManaCost = 0.0f;
 };
 
 struct SkillComponent {
-    SkillSlot Slots[4];             // ← Slots[5] → Slots[4]（移除普攻虚拟槽）
+    SkillSlot Slots[4];             // ← Slots[5] → Slots[4] (basic-attack virtual slot removed)
 };
 
 struct LocalInputSingleton {
-    // 完全重构为命令式，见 §11.3（含 SkillUpgradeSlot）
+    // fully refactored to command-style, see §11.3 (includes SkillUpgradeSlot)
 };
-// PlayerInputState 同步重构（含 SkillUpgradeSlot）
+// PlayerInputState mirrors the same
 ```
 
-### 14.3 移除
+### 14.3 Removed
 
-- `PlayerInputState.Move / Aim / Fire / CastInterrupt / CastSlot / CastConfirm / CastCancel / CastAim / CastTargetId` → 全部移除，由命令字段替代。
-- `LocalInputSingleton` 同上。
-- `SkillComponent.Slots[4]`（普攻虚拟槽，`SkillId=5`）→ 移除，`Slots[5]` 缩为 `Slots[4]`。
-- `skill_defs.h` id=5 Attack 行 → 移除。
-- `SkillKind::Attack` 枚举 → 移除（普攻不再走 skill_cast）。
-- `game_config.h` `SkillCooldowns[4]` / `SkillManaCosts[4]` / `SkillCount` → 移除（统一读 `skill_defs.h`）。
-- `ArrowTag.LifestealRatio` 保留（F 大招吸血仍需要）。
+- `PlayerInputState.Move / Aim / Fire / CastInterrupt / CastSlot / CastConfirm / CastCancel / CastAim / CastTargetId` → all removed, replaced by command fields.
+- `LocalInputSingleton` same.
+- `SkillComponent.Slots[4]` (basic-attack virtual slot, `SkillId = 5`) → removed; `Slots[5]` shrinks to `Slots[4]`.
+- `skill_defs.h` id=5 Attack row → removed.
+- `SkillKind::Attack` enum → removed (basic attack no longer in `skill_cast`).
+- `game_config.h` `SkillCooldowns[4]` / `SkillManaCosts[4]` / `SkillCount` → removed (unified in `skill_defs.h`, which itself is now removed in favor of `SkillRegistry`).
+- `ArrowTag.LifestealRatio` **preserved** (F ultimate lifesteal still needs it).
 
 ---
 
-## 15. 文件改动清单
+## 15. File change list (historical)
 
-### 15.1 GDScript 新增
+> All changes below were applied during the v1 → v2 refactor. Listed for traceability.
 
-| 文件                                   | 职责                                  |
-| -------------------------------------- | ------------------------------------- |
-| `scripts/input/input_event_queue.gd`   | Layer 1：原始事件队列 + 持续状态采样  |
-| `scripts/input/input_state_machine.gd` | Layer 2：双轴 FSM + snapshot 反向同步 |
-| `scripts/input/command.gd`             | Command 数据类                        |
-| `scripts/input/command_builder.gd`     | Layer 3：FSM + 事件 → Command         |
-| `scripts/input/command_buffer.gd`      | Layer 4：跨 tick FIFO                 |
-| `scripts/input/cast_settings.gd`       | Quick / Normal cast 偏好（per-slot）  |
+### 15.1 GDScript — new
 
-### 15.2 GDScript 修改
+| File | Responsibility |
+| --- | --- |
+| `scripts/input/input_event_queue.gd` | Layer 1: raw event queue + persistent state |
+| `scripts/input/input_state_machine.gd` | Layer 2: dual-axis FSM + snapshot reverse sync |
+| `scripts/input/command.gd` | Command data class |
+| `scripts/input/command_builder.gd` | Layer 3: FSM + events → Command |
+| `scripts/input/command_buffer.gd` | Layer 4: cross-tick FIFO |
+| `scripts/input/cast_settings.gd` | Quick / Normal cast preferences (per-slot) |
 
-| 文件                                | 改动                                                                                                                                                   |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `scripts/input/input_collector.gd`  | **完全重写**为 input_event_queue + input_state_machine + command_builder + command_buffer 的组合入口（或拆分为上述多文件，原 input_collector.gd 删除） |
-| `scripts/sim_bridge.gd`             | 改为从 command_buffer pop 命令 → 调 `set_*_command`；移除 set_local_input/set_cast_input/set_attack_command 旧调用                                     |
-| `scripts/autoload/game_settings.gd` | 移除 move_mode/MoveMode/mode_changed（已废弃），保留 camera/fullscreen 配置                                                                            |
-| `scripts/ui/settings_panel.gd/tscn` | 移除模式切换 OptionButton；新增 quick/normal cast 偏好设置                                                                                             |
-| `scripts/ui/bottom_hud.gd`          | 移除 KEY_HINTS 按模式切换逻辑，固定 QWER + A 普攻                                                                                                      |
-| `scripts/view/skill_vfx.gd`         | 绿线仅在 SkillAiming 显示（normal cast）；Chasing 期间可显示"路径线"或保持绿线                                                                         |
-| `scripts/view/entity_view.gd`       | attack_targeted 红色指示器（已有，保留）                                                                                                               |
+### 15.2 GDScript — modified
 
-### 15.3 C++ 修改
+| File | Change |
+| --- | --- |
+| `scripts/input/input_collector.gd` | **Fully rewritten** as the composite of Layers 1-4 (or split into the files above) |
+| `scripts/sim_bridge.gd` | Pop from `command_buffer` → call `set_*_command`; remove old `set_local_input` / `set_cast_input` / `set_attack_command` calls |
+| `scripts/autoload/game_settings.gd` | Remove `move_mode` / `MoveMode` / `mode_changed` (deprecated); keep camera / fullscreen config |
+| `scripts/ui/settings_panel.gd/.tscn` | Remove mode switch OptionButton; add per-slot cast mode preference |
+| `scripts/ui/bottom_hud.gd` | Remove per-mode `KEY_HINTS` switch; fixed QWER + A |
+| `scripts/view/skill_vfx.gd` | Green line only in normal-cast SkillAiming; Chasing can show "path line" or keep green line |
+| `scripts/view/entity_view.gd` | `attack_targeted` red indicator (already present; preserved) |
 
-| 文件                              | 改动                                                                                                                                                                                                                                                                                                     |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `components.h`                    | CastState +Chasing/TargetNetworkId/QuickCast；AttackTarget +Chasing；**新增 `SkillPoints` 组件**；`SkillSlot` +`Level` 字段；`SkillComponent.Slots[5]`→`Slots[4]`（移除普攻虚拟槽）；LocalInputSingleton/PlayerInputState 完全重构（含 SkillUpgradeSlot）；移除 Move/Aim/Fire/CastInterrupt；新增 Homing |
-| `game_config.h`                   | +RefundOnCastInterrupt(=true) / RefundOnChaseInterrupt(=true) / SkillChaseRepathDeadzone / MaxSkillLevel(=4)；移除 SkillCooldowns/SkillManaCosts/SkillCount（统一读 skill_defs.h）                                                                                                                       |
-| `skill_defs.h`                    | 删 id=5 Attack 行；移除 `SkillKind::Attack` 枚举                                                                                                                                                                                                                                                         |
-| `systems/local_input_injection.h` | 复制新命令字段（含 SkillUpgradeSlot）                                                                                                                                                                                                                                                                    |
-| `systems/player_pathfinding.h`    | +技能 Chasing 分支（A\* 朝 TargetEntity/AimPos）；**移除现有 AttackTarget A\* 追击分支**（v1 的 50-82 行，普攻改直线穿墙交给 player_movement）                                                                                                                                                           |
-| `systems/player_movement.h`       | +Chasing 阶段移动（用 MovePath）；+AttackTarget 直线追击 + 设 Chasing=true；移除 WASD 分支；**末尾写 is_moving 标志供 snapshot**                                                                                                                                                                         |
-| `systems/player_attack_command.h` | 重构为消费 AttackCmd；处理 clear / ground / target_id                                                                                                                                                                                                                                                    |
-| `systems/player_attack_fire.h`    | 保留（homing 箭逻辑）                                                                                                                                                                                                                                                                                    |
-| `systems/skill_cast.h`            | **内加 Chasing 分支**（不拆分独立 system，无 1 tick 延迟）：None+confirm 超范围→Chasing；Chasing+目标进范围→Casting；Chasing+目标死→refund+None；Chasing+CANCEL→refund+None；`cast_slot<5`→`<4`；删 Attack 分支（v1 157-182 行）；refund 读 `RefundOnCastInterrupt`/`RefundOnChaseInterrupt` 配置        |
-| `systems/skill_level.h`           | **新增**：消费 SkillUpgradeSlot → SkillPoints.Available-- + slot.Level++（§5.5）                                                                                                                                                                                                                         |
-| `systems/wall_collision.h`        | +跳过 AttackTarget.Chasing 玩家（穿墙追击）+ 跳过 Homing 箭；保留现有跳过 Dashing                                                                                                                                                                                                                        |
-| `systems/combat.h`                | +Homing 只命中锁定目标                                                                                                                                                                                                                                                                                   |
-| `systems/arrow_movement.h`        | +Homing 追踪                                                                                                                                                                                                                                                                                             |
-| `arrow_spawner.h`                 | ArrowSpawnContext +homing 字段                                                                                                                                                                                                                                                                           |
-| `world.h/.cpp`                    | tick 顺序（§13：skill_cast 提前到 player_pathfinding 之前；插 skill_level_system）；set_*_command 实现（含 set_skill_upgrade_command）；_spawn_player emplace `SkillPoints{0}` + slot.Level=1 + 移除 slot 4 初始化；移除 set_local_input/set_cast_input/set_skill_input                                  |
-| `sim_server.h/.cpp`               | +set_move_command / set_skill_command / set_skill_upgrade_command / set_attack_command / set_cancel_command / set_stop_command；移除旧 API                                                                                                                                                               |
-| `register_types.cpp`              | 绑定新 API                                                                                                                                                                                                                                                                                               |
-| `snapshot_types.h`                | SimPlayerSnap +is_moving/cast_target_id/skill_points                                                                                                                                                                                                                                                     |
-| `snapshot_bindings.cpp`           | 注册新字段                                                                                                                                                                                                                                                                                               |
-| `snapshot_builder.cpp`            | 填新字段（is_moving 来源见 §12.1 注意）；**修正 `SimSkillSlotSnap.level` 语义 bug**：`char_level` → `slot.Level`                                                                                                                                                                                         |
+### 15.3 C++ — modified
 
-### 15.4 C++ 删除
+| File | Change |
+| --- | --- |
+| `components.h` | `CastState` + Chasing / TargetNetworkId / QuickCast; `AttackTarget` + Chasing; **new `SkillPoints`**; `SkillSlot` + `Level`; `SkillComponent.Slots[5]` → `Slots[4]`; `LocalInputSingleton` / `PlayerInputState` full refactor; remove Move / Aim / Fire / CastInterrupt; **new `Homing`** |
+| `game_config.h` | + `RefundOnCastInterrupt`(=true) / `RefundOnChaseInterrupt`(=true) / `SkillChaseRepathDeadzone` / `MaxSkillLevel`(=4) |
+| `skill_defs.h` | **Deleted** (replaced by `SkillRegistry` + `ISkill`) |
+| `systems/local_input_injection.h` | Copy new command fields (including `SkillUpgradeSlot`) |
+| `systems/pathfinding.h` | + Chasing branch (A* to TargetEntity / AimPos); basic-attack chase is straight-line (set in movement) |
+| `systems/movement.h` | + Chasing phase movement (uses MovePath); + AttackTarget straight chase + sets `Chasing=true`; removed WASD; **sets `is_moving` at end** for snapshot |
+| `systems/attack_command.h` | Consumes `ATTACK` command; clear / ground / target_id |
+| `systems/attack_fire.h` | Preserved (homing arrow logic) |
+| `systems/skill_cast.h` | **Chasing branch added internally** (no 1-tick delay): None+confirm out of range → Chasing; Chasing+in range → Casting; Chasing+target dead → refund+None; Chasing+CANCEL → refund+None; `cast_slot<4`; Attack branch removed; refund reads `RefundOnCastInterrupt` / `RefundOnChaseInterrupt` |
+| `systems/skill_level.h` | **New**: consumes `SkillUpgradeSlot` → `SkillPoints.Available--` + `slot.Level++` |
+| `systems/wall_collision.h` | + Skip `AttackTarget.Chasing` players (wall-piercing chase) + skip Homing arrows; preserves existing Dashing skip |
+| `systems/combat.h` | + Homing only hits locked target |
+| `systems/arrow_movement.h` | + Homing tracking |
+| `arrow_spawner.h` | `ArrowSpawnContext` +homing field |
+| `world.h/.cpp` | tick order (§13); `set_*_command` impls (incl. `set_skill_upgrade_command`); `_spawn_player` emplaces `SkillPoints{0}` + `slot.Level=1` + removes slot 4 init; remove `set_local_input` / `set_cast_input` / `set_skill_input` |
+| `sim_server.h/.cpp` | + `set_move_command` / `set_skill_command` / `set_skill_upgrade_command` / `set_attack_command_full` / `set_cancel_command` / `set_stop_command`; remove legacy API |
+| `register_types.cpp` | Bind new API |
+| `snapshot_types/` | `SimHeroSnap` + `is_moving` / `cast_target_id` / `skill_points` / `is_local` / `hero_def_id` / `tier` |
+| `snapshot_bindings.cpp` | Register new fields |
+| `snapshot_builder.cpp` | Populate new fields (`is_moving` source: see §12.1 note); **fix `SimSkillSlotSnap.level` semantic bug** (`char_level` → `slot.Level`) |
 
-| 文件                                | 原因                                     |
-| ----------------------------------- | ---------------------------------------- |
-| `src_cpp/sim/systems/skill_input.h` | 已被 skill_cast 取代（若仍存在）         |
-| `src_cpp/sim/systems/player_fire.h` | 已被 player_attack_fire 取代（若仍存在） |
+### 15.4 C++ — deleted
+
+| File | Reason |
+| --- | --- |
+| `src_cpp/sim/systems/skill_input.h` | Replaced by `skill_cast` (if still present) |
+| `src_cpp/sim/systems/player_fire.h` | Replaced by `attack_fire` (if still present) |
 
 ### 15.5 Scene
 
-| 文件                            | 改动                                                                                                                                |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `scenes/main.tscn`              | 拆分 InputCollector 节点为 InputEventQueue / InputStateMachine / CommandBuilder / CommandBuffer 子节点（或保持单节点 + 多脚本组合） |
-| `scenes/ui/settings_panel.tscn` | 移除模式 OptionButton，新增 cast mode 偏好                                                                                          |
+| File | Change |
+| --- | --- |
+| `scenes/main.tscn` | Split InputCollector into InputEventQueue / InputStateMachine / CommandBuilder / CommandBuffer subnodes (or keep one node with composite script) |
+| `scenes/ui/settings_panel.tscn` | Remove mode OptionButton; add cast mode preference |
 
 ---
 
-## 16. 实施阶段
+## 16. Implementation phases (historical — all complete)
 
-### 阶段 A — Layer 1+2+3+4 框架（View 侧，无 Sim 改动）
+> All phases below were completed during the v1 → v2 refactor. Documented for traceability.
 
-| 步骤 | 文件                     | 说明                                                           |
-| ---- | ------------------------ | -------------------------------------------------------------- |
-| A1   | `input_event_queue.gd`   | 事件队列 + 持续状态采样                                        |
-| A2   | `command.gd`             | Command 数据类                                                 |
-| A3   | `input_state_machine.gd` | 双轴 FSM（仅 Idle/Moving/SkillAiming/AttackAiming/CastLocked） |
-| A4   | `command_builder.gd`     | FSM + 事件 → Command（quick/normal cast 分支）                 |
-| A5   | `command_buffer.gd`      | FIFO 队列                                                      |
-| A6   | `cast_settings.gd`       | per-slot 偏好                                                  |
-| A7   | `sim_bridge.gd` 临时适配 | command_buffer pop → 仍调旧 set_*_input（兼容）                |
+### Phase A — Layers 1+2+3+4 (View side, no Sim changes)
 
-**验收**：编译通过，事件队列不丢指令（按 Q 100 次 → Sim 收到 100 条 skill 命令）。
+| Step | File | Note |
+| --- | --- | --- |
+| A1 | `input_event_queue.gd` | Event queue + persistent state |
+| A2 | `command.gd` | Command data class |
+| A3 | `input_state_machine.gd` | Dual-axis FSM (Idle / Moving / SkillAiming / AttackAiming / CastLocked) |
+| A4 | `command_builder.gd` | FSM + events → Command (quick / normal cast branch) |
+| A5 | `command_buffer.gd` | FIFO |
+| A6 | `cast_settings.gd` | per-slot preference |
+| A7 | `sim_bridge.gd` temporary | `command_buffer.pop` → still calls legacy `set_*_input` (compat) |
 
-### 阶段 B — Sim 命令 API 重构
+**Acceptance**: builds; event queue loses no commands (100 Q presses → 100 skill commands to Sim).
 
-| 步骤 | 文件                                                  | 说明                                                             |
-| ---- | ----------------------------------------------------- | ---------------------------------------------------------------- |
-| B1   | `components.h`                                        | LocalInputSingleton/PlayerInputState 重构（含 SkillUpgradeSlot） |
-| B2   | `sim_server.h/.cpp` + `world.h/.cpp`                  | set_*_command 系列（含 set_skill_upgrade_command）               |
-| B3   | `local_input_injection.h`                             | 复制新字段                                                       |
-| B4   | `sim_bridge.gd`                                       | 切换到 set_*_command                                             |
-| B5   | 移除旧 set_local_input/set_cast_input/set_skill_input | —                                                                |
+### Phase B — Sim command API refactor
 
-**验收**：编译通过，旧 input_collector 删除，新链路工作。
+| Step | File | Note |
+| --- | --- | --- |
+| B1 | `components.h` | `LocalInputSingleton` / `PlayerInputState` refactor (incl. `SkillUpgradeSlot`) |
+| B2 | `sim_server.h/.cpp` + `world.h/.cpp` | `set_*_command` series (incl. `set_skill_upgrade_command`) |
+| B3 | `local_input_injection.h` | Copy new fields |
+| B4 | `sim_bridge.gd` | Switch to `set_*_command` |
+| B5 | Remove legacy `set_local_input` / `set_cast_input` / `set_skill_input` | — |
 
-### 阶段 C — Sim CastState + Chasing（skill_cast 内加分支，无 1 tick 延迟）
+**Acceptance**: builds; old `input_collector` deleted; new pipeline works.
 
-| 步骤 | 文件                                | 说明                                                                                                                                                                                                                                |
-| ---- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C1   | `components.h` CastState            | +Chasing/TargetNetworkId/QuickCast                                                                                                                                                                                                  |
-| C2   | `skill_cast.h`                      | **内加 Chasing 分支**（不拆分独立 system）：None+confirm 超范围→Chasing；Chasing+进范围→Casting；Chasing+目标死→refund+None；Chasing+CANCEL→refund+None；refund 读 `RefundOnCastInterrupt`/`RefundOnChaseInterrupt` 配置（均=true） |
-| C3   | `world.cpp`                         | **tick 顺序调整**：`skill_cast` 提前到 `player_pathfinding` 之前（§13），保证 confirm 同 tick 算 A\* + 移动                                                                                                                         |
-| C4   | `player_pathfinding.h`              | +Chasing 分支 A\* 寻路（同 tick 看到 skill_cast 设的 Chasing）；移除现有 AttackTarget A\* 追击分支                                                                                                                                  |
-| C5   | `player_movement.h`                 | +Chasing 移动（用 MovePath）；移除 WASD 分支；末尾写 is_moving                                                                                                                                                                      |
-| C6   | `snapshot_types.h/bindings/builder` | +cast_state(含 Chasing)/cast_target_id/is_moving/skill_points                                                                                                                                                                       |
+### Phase C — Sim CastState + Chasing
 
-**验收（关键：无 1 tick 延迟）**：
+| Step | File | Note |
+| --- | --- | --- |
+| C1 | `components.h` CastState | + Chasing / TargetNetworkId / QuickCast |
+| C2 | `skill_cast.h` | **Add Chasing branch internally** (no system split): None+confirm out of range → Chasing; Chasing+in range → Casting; Chasing+target dead → refund+None; Chasing+CANCEL → refund+None; refund reads `RefundOnCastInterrupt` / `RefundOnChaseInterrupt` (both = true) |
+| C3 | `world.cpp` | **Tick order adjustment**: `skill_cast` moved before `pathfinding` (§13), same-tick A* + movement |
+| C4 | `pathfinding.h` | + Chasing branch A* (same-tick sees `skill_cast` Chasing) |
+| C5 | `movement.h` | + Chasing movement (uses MovePath); remove WASD; set `is_moving` at end |
+| C6 | `snapshot_types.h` / `bindings` / `builder` | + `cast_state` (incl. Chasing) / `cast_target_id` / `is_moving` / `skill_points` |
 
-- Q（MeleeSingle）确认超 Range → **同 tick** Sim 进 Chasing + player_pathfinding 算 A* + player_movement 跟随 → 后续 tick 到 Range → Casting → effect
-- Chasing 中按右键 → refund（退蓝退 CD）+ None
-- Chasing 中目标死亡 → refund + None + CastError=5
+**Acceptance (key: no 1-tick delay)**:
 
-### 阶段 D — Quick Cast / Normal Cast 双模式
+- Q (MeleeSingle) confirm out of Range → **same tick** Sim enters Chasing + `pathfinding` A* + `movement` follow → subsequent ticks in Range → Casting → effect.
+- Pressing right-click during Chasing → refund (mana + CD) + None.
+- Target dies during Chasing → refund + None + CastError = 5.
 
-| 步骤 | 文件                                             | 说明                                            |
-| ---- | ------------------------------------------------ | ----------------------------------------------- |
-| D1   | `command_builder.gd`                             | 按 cast_settings 分支                           |
-| D2   | `skill_vfx.gd`                                   | 绿线仅 normal cast SkillAiming 期间显示         |
-| D3   | `cast_settings.gd` + settings_panel              | 玩家可切换 per-slot                             |
-| D4   | No target 报错 + 保留 SkillAiming（normal cast） | sim_bridge 检测 cast_error=4 不解除 SkillAiming |
+### Phase D — Quick Cast / Normal Cast dual mode
 
-**验收**：
+| Step | File | Note |
+| --- | --- | --- |
+| D1 | `command_builder.gd` | Branch by `cast_settings` |
+| D2 | `skill_vfx.gd` | Green line only in normal-cast SkillAiming |
+| D3 | `cast_settings.gd` + settings panel | Player can switch per-slot |
+| D4 | No-target error + preserve SkillAiming (normal cast) | `sim_bridge` detects `cast_error=4` → does not exit SkillAiming |
 
-- Normal cast Q → 绿线 → 左键 → 范围内 → Casting → 命中
-- Normal cast Q → 绿线 → 左键 → 超 Range → Chasing → 追到 → Casting
-- Normal cast Q → 绿线 → 左键空地（MeleeSingle）→ "No target" 红字，**绿线保留**
-- Quick cast Q → 无绿线 → 直接 Casting
-- Quick cast Q 超 Range → Chasing → 追到 → Casting
+**Acceptance**:
 
-### 阶段 E — 普攻命令模式
+- Normal cast Q → green line → left-click → in range → Casting → hit.
+- Normal cast Q → green line → left-click → out of Range → Chasing → catch up → Casting.
+- Normal cast Q → green line → left-click on ground (MeleeSingle) → "No target" red text; **green line preserved**.
+- Quick cast Q → no green line → direct Casting.
+- Quick cast Q out of Range → Chasing → catch up → Casting.
 
-| 步骤 | 文件                                               | 说明                                           |
-| ---- | -------------------------------------------------- | ---------------------------------------------- |
-| E1   | `components.h` AttackTarget +Chasing；+Homing 组件 | —                                              |
-| E2   | `player_attack_command.h`                          | 消费 ATTACK 命令（target/ground/clear）        |
-| E3   | `player_pathfinding.h`                             | 普攻追击**不走 A\***，由 player_movement 直线  |
-| E4   | `player_movement.h`                                | +普攻追击分支 + 设 Chasing=true                |
-| E5   | `player_attack_fire.h`                             | homing 箭（已有，保留）                        |
-| E6   | `wall_collision.h`                                 | 跳过 Chasing 玩家 + Homing 箭                  |
-| E7   | `combat.h` + `arrow_movement.h`                    | Homing 命中 + 追踪                             |
-| E8   | `command_builder.gd`                               | A 键 → AttackAiming；右键点敌 → 直接 AttackCmd |
-| E9   | `entity_view.gd`                                   | 红色锁定指示器（已有，保留）                   |
+### Phase E — Basic attack command mode
 
-**验收**：
+| Step | File | Note |
+| --- | --- | --- |
+| E1 | `components.h` `AttackTarget` + Chasing; + `Homing` component | — |
+| E2 | `attack_command.h` | Consumes ATTACK (target / ground / clear) |
+| E3 | `pathfinding.h` | Basic-attack chase **uses A***, sets `MovePath`; `movement` follows |
+| E4 | `movement.h` | + basic-attack chase branch + sets `Chasing = true` |
+| E5 | `attack_fire.h` | homing arrow (preserved) |
+| E6 | `wall_collision.h` | skip Chasing players + Homing arrows |
+| E7 | `combat.h` + `arrow_movement.h` | Homing hit + tracking |
+| E8 | `command_builder.gd` | A → AttackAiming; right-click enemy → direct AttackCmd |
+| E9 | `entity_view.gd` | Red lock indicator (preserved) |
 
-- A → 左键点 bot → 锁定 → 直线穿墙追击 → 到 Range → homing 箭命中
-- 右键点 bot → 直接锁定（无 A 键）→ 同上
-- 右键空地 → 移动 + 清锁
-- A → 右键 → 取消 AttackAiming
+**Acceptance**:
 
-### 阶段 E2 — 技能升级链路（SKILL_UPGRADE）
+- A → left-click bot → lock → straight wall-piercing chase → in Range → homing arrow hits.
+- Right-click bot → direct lock (no A) → same.
+- Right-click ground → move + clear lock.
+- A → right-click → cancel AttackAiming.
 
-> 独立小阶段，不依赖 D/E，可在 B 后任意时机插入。补齐 v1 完全缺失的 SkillPoints 输入路径 + SimSkillSlotSnap.level 语义 bug。
+### Phase E2 — Skill upgrade link (SKILL_UPGRADE)
 
-| 步骤 | 文件                                       | 说明                                                                                                                            |
-| ---- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| E2-1 | `components.h`                             | **新增 `SkillPoints` 组件**；`SkillSlot` +`Level` 字段；LocalInputSingleton/PlayerInputState +SkillUpgradeSlot（B1 已加则跳过） |
-| E2-2 | `game_config.h`                            | +MaxSkillLevel(=4)                                                                                                              |
-| E2-3 | `systems/skill_level.h` **新增**           | 消费 SkillUpgradeSlot：验证 SkillPoints.Available>0 && slot.Level<Max → Level++ / Available--                                   |
-| E2-4 | `world.cpp`                                | tick 顺序插 `skill_level_system`（§13 #18，skill_cooldown 之后）；`_spawn_player` emplace `SkillPoints{0}` + slot.Level=1       |
-| E2-5 | `progression.h`                            | 玩家升级时 `SkillPoints.Available++`（当前 progression 不处理，需补）                                                           |
-| E2-6 | `sim_server.h/.cpp` + `register_types.cpp` | +set_skill_upgrade_command 绑定                                                                                                 |
-| E2-7 | `command_builder.gd`                       | Ctrl+Q/W/E/R press → SKILL_UPGRADE{slot}                                                                                        |
-| E2-8 | `snapshot_types.h/bindings/builder`        | SimPlayerSnap +skill_points；**修正 `SimSkillSlotSnap.level` 语义 bug**：`char_level` → `slot.Level`                            |
-| E2-9 | `bottom_hud.gd`                            | 显示可分配点数提示（skill_points>0 时高亮技能槽）                                                                               |
+> Independent of D / E; closes the v1 SkillPoints input gap + SimSkillSlotSnap.level semantic bug.
 
-**验收**：
+| Step | File | Note |
+| --- | --- | --- |
+| E2-1 | `components.h` | **New `SkillPoints` component**; `SkillSlot` + `Level`; `LocalInputSingleton` / `PlayerInputState` + `SkillUpgradeSlot` |
+| E2-2 | `game_config.h` | + `MaxSkillLevel` (= 4) |
+| E2-3 | `systems/skill_level.h` **new** | consume `SkillUpgradeSlot`; validate `SkillPoints.Available>0 && slot.Level<Max` → `Level++ / Available--` |
+| E2-4 | `world.cpp` | insert `skill_level_system` in tick order (§13 #20, after `skill_cooldown`); `_spawn_player` emplaces `SkillPoints{0}` + `slot.Level=1` |
+| E2-5 | `progression.h` | level-up: `SkillPoints.Available++` (current progression doesn't; add) |
+| E2-6 | `sim_server.h/.cpp` + `register_types.cpp` | + `set_skill_upgrade_command` binding |
+| E2-7 | `command_builder.gd` | Ctrl + Q/W/E/R press → `SKILL_UPGRADE{slot}` |
+| E2-8 | `snapshot_types.h` / `bindings` / `builder` | `SimPlayerSnap` + `skill_points`; **fix `SimSkillSlotSnap.level` semantic bug** |
+| E2-9 | `bottom_hud.gd` | show allocatable-points prompt (highlight skill slot when `skill_points>0`) |
 
-- 升级后击杀 bot 拿 XP → level up → SkillPoints.Available++ → Ctrl+Q → Q 技能 Level++ → snapshot 回写 → HUD 显示
-- 无点数时 Ctrl+Q 忽略
-- 满级时 Ctrl+Q 忽略
-- 施法中 Ctrl+Q 忽略（CommandAxis=CastLocked）
+**Acceptance**:
 
-### 阶段 F — 打磨与回归
+- After level-up → kill bot → XP → level up → `SkillPoints.Available++` → Ctrl+Q → Q skill Level++ → snapshot echo → HUD updates.
+- No points: Ctrl+Q ignored.
+- Max level: Ctrl+Q ignored.
+- Mid-cast: Ctrl+Q ignored (CommandAxis = CastLocked).
 
-| #   | 项目                | 方法                                                    |
-| --- | ------------------- | ------------------------------------------------------- |
-| 1   | Refund 策略         | 试 Casting 不退蓝 vs 退蓝，选手感                       |
-| 2   | Chasing repath 死区 | 防目标抖动导致每 tick repath                            |
-| 3   | A 键 hold vs press  | 按 A 持续 vs 单击行为差异                               |
-| 4   | ESC 行为            | 施法中 ESC = cancel；非施法 ESC = 设置面板              |
-| 5   | S 键语义            | Stop（停止移动）+ Cancel（取消施法/普攻瞄准）的双重角色 |
-| 6   | 跨 tick 命令合并    | 同帧多条 MOVE/SKILL 合并正确                            |
-| 7   | 失焦恢复            | 窗口失焦后 held_keys 校准                               |
+### Phase F — Polish and regression
 
----
-
-## 17. 边界情况与陷阱
-
-### 17.1 跨 tick 命令丢失
-
-- **场景**：60Hz 渲染帧内按 Q + 左键（同帧），Sim tick 30Hz，下一 tick 才跑。
-- **风险**：若 Q press 与 left-click press 同帧入队 → Layer 3 生成两条 SKILL（confirm=false + confirm=true）→ Layer 4 合并 → Sim 收到 confirm=true 一条 → 正常。
-- **风险**：若 left-click 在 Q press 的下一渲染帧（同一 Sim tick 内）→ 同上合并 → 正常。
-- **风险**：若 left-click 在 Q press 的下一 Sim tick 之后 → 两条 SKILL 分属不同 tick → Sim 第一 tick 收到 confirm=false（进 SkillAiming 但 Sim 不维护）→ 第二 tick 收到 confirm=true → 正常。
-- **保证**：CommandBuffer 跨 tick 持续，不丢失。
-
-### 17.2 Sim Aiming 阶段的瞬时性
-
-- v2 中 Sim 的 `Aiming` 仅用于 quick cast 同 tick 中转（confirm 后立即转 Chasing/Casting）。
-- **Normal cast 的"等左键"由 View 维护**，Sim 状态保持 None。
-- 这避免了 v1 中"Sim Aiming 与 View Aiming 双源真值"的 desync bug。
-
-### 17.3 No target 报错后的状态保留
-
-- View SkillAiming 期间收到 `cast_error=4` 且 `cast_state=None` → **不解除 SkillAiming**。
-- 实现要点：sim_bridge 检测到该条件时**不触发"CastLocked → Idle"的转移**，仅显示错误。
-- 玩家继续左键重试 → 新 SKILL{confirm=true} → Sim 再次验证。
-- 玩家按右键/S/ESC/H → Layer 3 生成 CANCEL{scope=skill} → 切 Idle。
-
-### 17.4 移动状态进入施法不打断移动
-
-- 玩家右键移动中按 Q（normal cast）→ MoveAxis 保持 Moving，CommandAxis 切 SkillAiming。
-- Sim 侧：MovePath.Following 保持（is_moving=true），player_pathfinding 看到 `CastState==None` 不清 Following → 玩家继续走。
-- 玩家左键确认 → Sim 进 Chasing/Casting：
-  - Chasing：player_pathfinding 切换为朝 TargetEntity/AimPos 的 A\*（覆盖原 MovePath）→ 玩家改向施法目标走。
-  - Casting：player_movement gate → 玩家停步前摇。
-- **关键**：MoveAxis 仅由 snapshot `is_moving` 决定，不受 CommandAxis 影响。
-
-### 17.5 S 键双重语义
-
-- 非施法/非瞄准：S = Stop（清 MovePath，停步）。
-- SkillAiming：S = Cancel skill（回 Idle）。
-- AttackAiming：S = Cancel attack（回 Idle）。
-- CastLocked（Chasing/Casting）：S = Cancel skill（refund + None）。
-- CastLocked（Channeling/Dashing）：S 忽略。
-- **Layer 3 翻译时按 CommandAxis 分支决定 S 的语义**，不传到 Sim 再判断。
-
-### 17.6 ESC 键三重语义
-
-- SkillAiming：ESC = Cancel skill。
-- AttackAiming：ESC = Cancel attack。
-- CastLocked：ESC = Cancel skill（若可打断）。
-- Idle/Moving：ESC = 打开/关闭设置面板（settings_panel._unhandled_input 接管）。
-- **优先级**：input_event_queue 入队后，Layer 3 先消费 ESC；若 CommandAxis != Idle → 生成 CANCEL，**accept 事件阻止 settings_panel 收到**；若 CommandAxis == Idle → 不消费，事件继续传到 settings_panel。
-
-### 17.7 Refund 策略
-
-| 阶段                       | 默认                     | 备注                               |
-| -------------------------- | ------------------------ | ---------------------------------- |
-| Chasing cancel             | 退蓝退 CD                | 玩家主动放弃，未触发效果           |
-| Casting cancel             | **退蓝退 CD**（v2 默认） | v1 是不退（惩罚），可配置          |
-| Channeling cancel          | 不可打断                 | —                                  |
-| Dashing cancel             | 不可打断                 | —                                  |
-| No target (MeleeSingle)    | 不扣蓝不设 CD            | 验证失败，从未进入 Chasing/Casting |
-| Target dead during Chasing | 退蓝退 CD                | 非玩家过错                         |
-
-### 17.8 homing 箭与墙
-
-- Homing 箭穿墙飞行（wall_collision 跳过）。
-- Homing 箭只命中锁定目标（combat 过滤）。
-- 目标死亡 → Homing 箭保持当前速度直线飞 → Lifetime 过期销毁。
-
-### 17.9 普攻追击穿墙 vs 技能 Chasing 绕墙
-
-- **普攻追击**：直线移动 + Chasing=true + wall_collision 跳过 = **穿墙**。
-- **技能 Chasing**：A\* 寻路 + MovePath 跟随 = **绕墙**。
-- 用户明确两者不同，**不要统一**。
-
-### 17.10 失焦与 held_keys 漂移
-
-- 窗口失焦时 Godot 可能不触发 release 事件 → held_keys 残留。
-- Layer 1 每帧用 `Input.is_key_pressed` 校准 held_keys，防止残留。
-- 失焦时不生成新的 press 事件（仅校准）。
+| # | Item | Method |
+| --- | --- | --- |
+| 1 | Refund policy | test Casting no-refund vs refund; pick feel |
+| 2 | Chasing repath deadzone | prevent target jitter triggering per-tick repath |
+| 3 | A-key hold vs press | press-triggered vs hold behavior |
+| 4 | ESC behavior | mid-cast ESC = cancel; not-casting ESC = settings panel |
+| 5 | S-key semantics | Stop (stop moving) + Cancel (cancel cast / basic attack aim) dual role |
+| 6 | Cross-tick command merge | correct merge of same-frame multiple MOVE / SKILL |
+| 7 | Focus recovery | `held_keys` reconciled after window focus loss |
 
 ---
 
-## 18. 与 Bot 单位的关系澄清
+## 17. Edge cases and pitfalls
 
-### 18.1 当前状态
+### 17.1 Cross-tick command loss
 
-- Bot 与 Player 是**不同的单位类型**：
-  - Player：`PlayerTag` + `PlayerInputState` + `CastState` + `AttackTarget` + `SkillComponent`（4 技能槽）
-  - Bot：`BotTag` + `BotAIState` + `BotBehaviorState` + `SkillComponent`（占位，不施法）+ 无 `AttackTarget`
-- Bot 的"攻击"是 `bot_combat_system` 调 `try_fire` 朝 `BotAIState.TargetEntity` 方向直射箭矢（**非指向性技能占位**，**不是普攻**）。
-- Bot 不走 `skill_cast_system`，不走 `player_attack_command_system`，不走 `player_pathfinding_system`。
+- **Scenario**: 60Hz render frame presses Q + left-click (same frame); Sim tick 30Hz, runs next tick.
+- **Risk**: if Q press and left-click press queue in the same frame → Layer 3 generates two SKILL (confirm=false + confirm=true) → Layer 4 merges → Sim receives confirm=true one → normal.
+- **Risk**: if left-click happens on the next render frame (still within the same Sim tick) → same merge → normal.
+- **Risk**: if left-click happens on the next Sim tick → two SKILL on different ticks → Sim first tick receives confirm=false (enters SkillAiming but Sim doesn't maintain it) → second tick receives confirm=true → normal.
+- **Guarantee**: CommandBuffer persists across ticks, no loss.
 
-### 18.2 未来重构方向（不在本方案范围）
+### 17.2 Sim-side `Aiming` is instantaneous
 
-- Bot 将重构为**与玩家完全相同的英雄单位**：
-  - 共用 `PlayerTag`（或泛化的 `HeroTag`）+ `CastState` + `AttackTarget` + `SkillComponent`
-  - Bot AI 通过注入 `LocalInputSingleton` 等价物（per-bot input singleton）下达命令
-  - Bot 走同一套 skill_cast / player_attack_command / player_pathfinding
-- **因此 input_controller 设计必须假设未来 Bot 也会走同一套命令流**，View 侧的 input 链路与 Bot AI 完全解耦——input_controller 只服务本地玩家，Bot AI 通过 Sim 内部注入命令，不经过 View。
+- v2 Sim-side `Aiming` is **only same-tick transit** for quick cast / post-confirm.
+- **Normal cast "await left-click" is owned by View**; Sim state stays None.
+- This avoids v1's "Sim Aiming vs View Aiming dual source of truth" desync bug.
 
-### 18.3 设计约束
+### 17.3 State preservation after no-target error
 
-- **不要**为了适配当前 Bot 行为而在 input_controller 中加 special case。
-- **不要**假设 Bot 不会施法 / 不会普攻追击。
-- Sim 侧的 skill_cast / player_attack_command 等系统**已经按 `PlayerTag.IsLocal` 过滤**，未来 Bot 重构时只需放宽此过滤或加 `IsAI` 标志。
-- input_controller 的所有状态与命令都是"本地玩家"概念，与 Sim 的单位类型层正交。
+- During View `SkillAiming`, see `cast_error=4` and `cast_state=None` → **do not exit SkillAiming**.
+- Implementation: `sim_bridge` detects this condition and **does not trigger** the "CastLocked → Idle" transition; only shows the error.
+- Player keeps left-clicking to retry → new `SKILL{confirm=true}` → Sim validates again.
+- Player presses right-click / S / ESC / H → Layer 3 emits `CANCEL{scope=skill}` → switches to Idle.
+
+### 17.4 Movement continues when entering cast
+
+- Player right-click moving, presses Q (normal cast) → MoveAxis stays Moving; CommandAxis switches to SkillAiming.
+- Sim-side: `MovePath.Following` preserved (`is_moving=true`); `pathfinding` sees `CastState==None` and does not clear Following → player keeps walking.
+- Player left-click confirms → Sim enters Chasing / Casting:
+  - Chasing: `pathfinding` switches to A* toward TargetEntity / AimPos (overwrites MovePath) → player turns and walks to cast target.
+  - Casting: `movement` gates → player stops for cast time.
+- **Key**: MoveAxis is determined only by snapshot `is_moving`; not affected by CommandAxis.
+
+### 17.5 S-key dual semantics
+
+- Not casting / not aiming: S = Stop (clear MovePath, stop).
+- SkillAiming: S = Cancel skill (return to Idle).
+- AttackAiming: S = Cancel attack (return to Idle).
+- CastLocked (Chasing / Casting): S = Cancel skill (refund + None).
+- CastLocked (Channeling / Dashing): S ignored.
+- **Layer 3 branches by CommandAxis to decide S's semantics**; not decided downstream in Sim.
+
+### 17.6 ESC-key triple semantics
+
+- SkillAiming: ESC = Cancel skill.
+- AttackAiming: ESC = Cancel attack.
+- CastLocked: ESC = Cancel skill (if interruptible).
+- Idle / Moving: ESC = open / close settings panel (`settings_panel._unhandled_input` takes over).
+- **Priority**: input_event_queue queues first, Layer 3 consumes ESC; if CommandAxis != Idle → emits CANCEL, **accepts event** to prevent settings_panel from receiving it; if CommandAxis == Idle → does not consume, event continues to settings_panel.
+
+### 17.7 Refund policy
+
+| Phase | Default | Note |
+| --- | --- | --- |
+| Chasing cancel | refund mana + CD | Player-initiated, no effect triggered |
+| Casting cancel | **refund mana + CD** (v2 default) | v1 was no-refund (punitive); configurable |
+| Channeling cancel | uninterruptible | — |
+| Dashing cancel | uninterruptible | — |
+| No target (MeleeSingle) | no mana / no CD | Validation failed, never entered Chasing / Casting |
+| Target dead during Chasing | refund mana + CD | Not the player's fault |
+
+### 17.8 Homing arrows and walls
+
+- Homing arrows pierce walls (wall_collision skip).
+- Homing arrows only hit their locked target (combat filter).
+- Target dies → Homing arrow keeps current velocity straight → Lifetime expires → destroyed.
+
+### 17.9 Basic attack chase (wall-piercing) vs skill Chasing (A*)
+
+- **Basic attack chase**: straight movement + `Chasing=true` + wall_collision skip = **wall-piercing**.
+- **Skill Chasing**: A* path + MovePath follow = **around walls**.
+- The user explicitly required these to be different; **do not unify**.
+
+### 17.10 Focus loss and held_keys drift
+
+- When Godot window loses focus, release events may not fire → `held_keys` residue.
+- Layer 1 reconciles each frame with `Input.is_key_pressed` to clear drift.
+- No new press events during focus loss (only reconciliation).
 
 ---
 
-## 19. 总结
+## 18. Clarifications on Bot units
 
-本方案的核心改进：
+### 18.1 Current state (post v4)
 
-1. **四层分离**：事件队列 / 状态机 / 命令翻译 / 命令缓冲，各司其职。
-2. **双正交状态轴**：MoveAxis × CommandAxis，支持"施法模式不打断移动"。
-3. **Sim Chasing 阶段**：跟随施法的权威实现，View 不参与寻路逻辑；**skill_cast 内加分支，tick 顺序 skill_cast 提前到 player_pathfinding 之前，confirm 同 tick 算 A\* + 移动，无 1 tick 延迟**。
-4. **Quick / Normal cast 双模式**：per-slot 可配置，行为统一（左键 confirm 语义一致）。
-5. **普攻独立模式**：AttackAiming + homing 箭 + 直线穿墙追击（区别于技能 Chasing 的 A\* 绕墙），与技能解耦；**移除 v1 普攻虚拟槽**。
-6. **不丢指令**：CommandBuffer 跨 tick 持续，统一处理 30Hz vs 60Hz 差异。
-7. **状态镜像**：View CastLocked 完全由 snapshot 决定，打断施法是状态转移而非 flag。
-8. **WASD 模式彻底移除**：单一 MOBA 模式，文档与代码一致。
-9. **技能升级链路补齐**：新增 `SkillPoints` 组件 + `SkillSlot::Level` 字段 + `skill_level.h` + `SKILL_UPGRADE` 命令，修正 v1 完全缺失的输入路径 + `SimSkillSlotSnap.level` 语义 bug。
-10. **Refund 宽容**：Chasing/Casting 取消均退蓝退 CD（v2 默认，配置化留口）。
+- Bot and Player are **unified Hero units**:
+  - Player: `HeroTag{IsLocal=true}` + `HeroInputState` + `CastState` + `AttackTarget` + `SkillComponent` (4 slots)
+  - Bot: `HeroTag{IsLocal=false}` + `HeroInputState` (filled by `bot_input_injection`) + `CastState` + `AttackTarget` + `SkillComponent`
+- Bot's "attack" is `bot_input_injection_system` writing `AttackTargetId` → `attack_fire_system` fires a Homing arrow at the target — **a real basic attack**, not a placeholder.
+- Bot uses skills: `bot_skill_decider_system` writes `BotCastRequest` → `bot_input_injection_system` translates to `HeroInputState.SkillSlot + SkillConfirm + SkillAim + SkillTargetId` → `skill_cast_system` dispatches the same `ISkill` instances as the player.
+- Bot goes through `pathfinding` + `movement` + `attack_fire` (generalized for all HeroTag).
 
-实施按 §16 阶段 A→F + E2 推进，最大风险在阶段 C（Sim Chasing 的 tick 顺序——skill_cast 必须在 player_pathfinding 之前保证无延迟）与阶段 D（No target 报错后 SkillAiming 保留的状态同步）。建议每阶段独立验收后再合并。
+### 18.2 Constraints
+
+- **Don't** add Bot-specific special cases in `input_controller` to accommodate current Bot behavior.
+- **Don't** assume Bots won't use skills or basic-attack chase.
+- Sim-side `skill_cast` / `attack_command` are still filtered by `HeroTag.IsLocal` in some places; for Bot use the generalized `HeroTag` view (without `IsLocal` filter) — this is already done in the v3 refactor.
+- `input_controller` states and commands are all "local player" concepts, orthogonal to the Sim's entity-type layer.
+
+### 18.3 For more on Bot AI
+
+See `bot_ai.md` for the three-layer state machine (Goal / Combat / Skill) and scoring-based skill selection.
+
+---
+
+## 19. Summary
+
+Key improvements of this design:
+
+1. **Four-layer separation**: event queue / state machine / command translation / command buffer; each layer has a single responsibility.
+2. **Two orthogonal state axes**: MoveAxis × CommandAxis; supports "cast mode does not break movement".
+3. **Sim-side Chasing phase**: authoritative chase-cast; View does not participate in pathfinding logic; **Chasing branch added inside `skill_cast` with tick order `skill_cast` before `pathfinding`; same-tick A* + movement, no 1-tick delay**.
+4. **Quick / Normal cast dual mode**: per-slot configurable; consistent behavior (left-click confirm semantics).
+5. **Independent basic-attack mode**: AttackAiming + homing arrow + straight wall-piercing chase (distinct from skill Chasing's A*); decoupled from skills; **basic-attack virtual slot removed**.
+6. **No command loss**: CommandBuffer persists across ticks; handles 30Hz vs 60Hz difference uniformly.
+7. **State mirror**: View's `CastLocked` is fully determined by snapshot; cast interruption is a state transition, not a flag.
+8. **WASD mode completely removed**: single MOBA mode; docs and code consistent.
+9. **Skill upgrade link filled**: new `SkillPoints` + `SkillSlot::Level` + `skill_level.h` + `SKILL_UPGRADE` command; fixes the v1 missing input path + `SimSkillSlotSnap.level` semantic bug.
+10. **Forgiving refund**: Chasing / Casting cancel both refund mana + CD (v2 default; configurable).
+
+The original implementation followed phases A → F + E2 in order. The biggest risk was in phase C (Sim-side Chasing tick order — `skill_cast` must precede `pathfinding` to avoid the 1-tick delay) and phase D (preserve SkillAiming after no-target error). Each phase was validated independently before merging.
