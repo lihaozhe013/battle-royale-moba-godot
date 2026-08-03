@@ -57,17 +57,31 @@ func _ready() -> void:
 	stats_file.close()
 
 	# Auto-create input layer nodes
-	input_event_queue = _ensure_node("InputEventQueue", &"res://scripts/input/input_event_queue.gd")
-	input_state_machine = _ensure_node("InputStateMachine", &"res://scripts/input/input_state_machine.gd")
-	command_buffer = _ensure_node("CommandBuffer", &"res://scripts/input/command_buffer.gd")
-	command_builder = _ensure_node("CommandBuilder", &"res://scripts/input/command_builder.gd")
-	cast_settings = _ensure_node("CastSettings", &"res://scripts/input/cast_settings.gd")
-	command_builder.setup(input_event_queue, input_state_machine, command_buffer, cast_settings)
+	input_event_queue = _ensure_node(
+		"InputEventQueue", &"res://scripts/input/input_event_queue.gd"
+	)
+	input_state_machine = _ensure_node(
+		"InputStateMachine", &"res://scripts/input/input_state_machine.gd"
+	)
+	command_buffer = _ensure_node(
+		"CommandBuffer", &"res://scripts/input/command_buffer.gd"
+	)
+	command_builder = _ensure_node(
+		"CommandBuilder", &"res://scripts/input/command_builder.gd"
+	)
+	cast_settings = _ensure_node(
+		"CastSettings", &"res://scripts/input/cast_settings.gd"
+	)
+	command_builder.setup(
+		input_event_queue, input_state_machine, command_buffer, cast_settings
+	)
 
 	_spawn_wall_visuals(map_json)
 
 	health_bar_manager.entity_manager = entity_manager
-	health_bar_manager.health_bar_scene = preload("res://scenes/ui/health_bar_ui.tscn")
+	health_bar_manager.health_bar_scene = preload(
+		"res://scenes/ui/health_bar_ui.tscn"
+	)
 
 	sim = SimServer.new()
 	if not sim.initialize(map_json, stats_yaml):
@@ -142,19 +156,44 @@ func _physics_process(delta: float) -> void:
 			_apply_command(c)
 
 		# New Sim API (unconditional, C++ side must always receive cleared values)
-		sim.set_skill_command(_tmp_cast_slot, _tmp_cast_confirm, _tmp_cast_aim.x, _tmp_cast_aim.y, _tmp_cast_target_id)
+		sim.set_skill_command(
+			_tmp_cast_slot,
+			_tmp_cast_confirm,
+			_tmp_cast_aim.x,
+			_tmp_cast_aim.y,
+			_tmp_cast_target_id
+		)
 		sim.set_skill_upgrade_command(_tmp_upgrade_slot)
-		sim.set_attack_command_full(_tmp_attack_target_id, _tmp_attack_ground, _tmp_attack_ground_pos.x, _tmp_attack_ground_pos.y, _tmp_attack_clear)
-		sim.set_cancel_command(_tmp_cancel_skill, _tmp_cancel_attack)
-		sim.set_move_command(_tmp_move_target.x, _tmp_move_target.y, _tmp_move_issue and first_tick)
-		sim.set_stop_command(_tmp_stop and first_tick)
-		print("[TICK] send: skill(slot=%d,confirm=%s) cancel(skill=%s,atk=%s) move(issue=%s,to=(%.1f,%.1f)) atk(id=%d) stop=%s" % [
-			_tmp_cast_slot, _tmp_cast_confirm,
-			_tmp_cancel_skill, _tmp_cancel_attack,
-			_tmp_move_issue and first_tick, _tmp_move_target.x, _tmp_move_target.y,
+		sim.set_attack_command_full(
 			_tmp_attack_target_id,
-			_tmp_stop and first_tick
-		])
+			_tmp_attack_ground,
+			_tmp_attack_ground_pos.x,
+			_tmp_attack_ground_pos.y,
+			_tmp_attack_clear
+		)
+		sim.set_cancel_command(_tmp_cancel_skill, _tmp_cancel_attack)
+		sim.set_move_command(
+			_tmp_move_target.x,
+			_tmp_move_target.y,
+			_tmp_move_issue and first_tick
+		)
+		sim.set_stop_command(_tmp_stop and first_tick)
+		print(
+			(
+				"[TICK] send: skill(slot=%d,confirm=%s) cancel(skill=%s,atk=%s) move(issue=%s,to=(%.1f,%.1f)) atk(id=%d) stop=%s"
+				% [
+					_tmp_cast_slot,
+					_tmp_cast_confirm,
+					_tmp_cancel_skill,
+					_tmp_cancel_attack,
+					_tmp_move_issue and first_tick,
+					_tmp_move_target.x,
+					_tmp_move_target.y,
+					_tmp_attack_target_id,
+					_tmp_stop and first_tick
+				]
+			)
+		)
 		sim.tick(TICK_RATE)
 
 		# Clear pulse fields
@@ -184,7 +223,9 @@ func _physics_process(delta: float) -> void:
 		if last_snapshot.has_method("get_local_hero_index"):
 			local_idx = last_snapshot.get_local_hero_index()
 		if local_idx >= 0 and last_snapshot.heroes.size() > 0:
-			input_state_machine.sync_from_snapshot(last_snapshot.heroes[local_idx])
+			input_state_machine.sync_from_snapshot(
+				last_snapshot.heroes[local_idx]
+			)
 		elif last_snapshot.players.size() > 0:
 			input_state_machine.sync_from_snapshot(last_snapshot.players[0])
 
@@ -250,7 +291,11 @@ func _process(_delta: float) -> void:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
 		health_bar_manager.sync_bars(last_snapshot)
-		var local_idx = last_snapshot.get_local_hero_index() if last_snapshot.has_method("get_local_hero_index") else -1
+		var local_idx = (
+			last_snapshot.get_local_hero_index()
+			if last_snapshot.has_method("get_local_hero_index")
+			else -1
+		)
 		if local_idx == -1 and last_snapshot.players.size() > 0:
 			local_idx = 0
 		if local_idx >= 0 and last_snapshot.heroes.size() > 0:
@@ -258,7 +303,11 @@ func _process(_delta: float) -> void:
 			if p:
 				entity_manager.set_attack_target_id(p.attack_target_id)
 
-				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
+				if (
+					_prev_player_cast_state == 2
+					and p.cast_state == 0
+					and _prev_player_cast_slot == 0
+				):
 					if p.hit_target_id >= 0:
 						_trigger_c_slash(p.hit_target_id)
 			_prev_player_cast_state = p.cast_state
@@ -273,7 +322,11 @@ func _process(_delta: float) -> void:
 			if p:
 				entity_manager.set_attack_target_id(p.attack_target_id)
 
-				if _prev_player_cast_state == 2 and p.cast_state == 0 and _prev_player_cast_slot == 0:
+				if (
+					_prev_player_cast_state == 2
+					and p.cast_state == 0
+					and _prev_player_cast_slot == 0
+				):
 					if p.hit_target_id >= 0:
 						_trigger_c_slash(p.hit_target_id)
 			_prev_player_cast_state = p.cast_state
@@ -295,21 +348,46 @@ func _process(_delta: float) -> void:
 			else:
 				cast_bar_layer.hide_cast()
 			var ev = entity_manager.get_entity(p.id)
-			_skill_vfx.set_skill_aiming(input_state_machine.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING)
+			_skill_vfx.set_skill_aiming(
+				(
+					input_state_machine.command_axis
+					== InputStateMachine.CommandAxis.SKILL_AIMING
+				)
+			)
 			_skill_vfx.sync(last_snapshot, ev)
 
 			if p.cast_slot != _log_prev_cast_slot:
-				print("[CAST] slot=%d state=%d err=%d" % [p.cast_slot, p.cast_state, p.cast_error])
+				print(
+					(
+						"[CAST] slot=%d state=%d err=%d"
+						% [p.cast_slot, p.cast_state, p.cast_error]
+					)
+				)
 				_log_prev_cast_slot = p.cast_slot
 			if p.cast_state != _log_prev_cast_state:
-				print("[CAST] state %d->%d slot=%d err=%d prog=%.2f" % [_log_prev_cast_state, p.cast_state, p.cast_slot, p.cast_error, p.cast_progress])
+				print(
+					(
+						"[CAST] state %d->%d slot=%d err=%d prog=%.2f"
+						% [
+							_log_prev_cast_state,
+							p.cast_state,
+							p.cast_slot,
+							p.cast_error,
+							p.cast_progress
+						]
+					)
+				)
 				_log_prev_cast_state = p.cast_state
 			if p.cast_error > 0:
 				print("[CAST] ERROR=%d" % p.cast_error)
 			if p.hit_target_id >= 0:
 				print("[CAST] HIT target=%d" % p.hit_target_id)
 	elif last_snapshot.heroes.size() > 0:
-		var local_idx = last_snapshot.get_local_hero_index() if last_snapshot.has_method("get_local_hero_index") else 0
+		var local_idx = (
+			last_snapshot.get_local_hero_index()
+			if last_snapshot.has_method("get_local_hero_index")
+			else 0
+		)
 		if local_idx >= 0 and local_idx < last_snapshot.heroes.size():
 			var p = last_snapshot.heroes[local_idx] as SimHeroSnap
 			if p:
@@ -321,14 +399,35 @@ func _process(_delta: float) -> void:
 				else:
 					cast_bar_layer.hide_cast()
 				var ev = entity_manager.get_entity(p.id)
-				_skill_vfx.set_skill_aiming(input_state_machine.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING)
+				_skill_vfx.set_skill_aiming(
+					(
+						input_state_machine.command_axis
+						== InputStateMachine.CommandAxis.SKILL_AIMING
+					)
+				)
 				_skill_vfx.sync(last_snapshot, ev)
 
 				if p.cast_slot != _log_prev_cast_slot:
-					print("[CAST] slot=%d state=%d err=%d" % [p.cast_slot, p.cast_state, p.cast_error])
+					print(
+						(
+							"[CAST] slot=%d state=%d err=%d"
+							% [p.cast_slot, p.cast_state, p.cast_error]
+						)
+					)
 					_log_prev_cast_slot = p.cast_slot
 				if p.cast_state != _log_prev_cast_state:
-					print("[CAST] state %d->%d slot=%d err=%d prog=%.2f" % [_log_prev_cast_state, p.cast_state, p.cast_slot, p.cast_error, p.cast_progress])
+					print(
+						(
+							"[CAST] state %d->%d slot=%d err=%d prog=%.2f"
+							% [
+								_log_prev_cast_state,
+								p.cast_state,
+								p.cast_slot,
+								p.cast_error,
+								p.cast_progress
+							]
+						)
+					)
 					_log_prev_cast_state = p.cast_state
 				if p.cast_error > 0:
 					print("[CAST] ERROR=%d" % p.cast_error)

@@ -17,6 +17,7 @@ var _entities = {}  # id -> EntityView
 var _hovered_id := -1
 var _attack_target_id := -1
 
+
 func sync_entities(snap: SimSnapshot) -> void:
 	var seen = {}
 
@@ -55,6 +56,7 @@ func sync_entities(snap: SimSnapshot) -> void:
 		_entities[id].queue_free()
 		_entities.erase(id)
 
+
 func _get_or_spawn(id: int, type: int, ptype: int) -> EntityView:
 	if _entities.has(id):
 		return _entities[id]
@@ -63,6 +65,7 @@ func _get_or_spawn(id: int, type: int, ptype: int) -> EntityView:
 	add_child(view)
 	_entities[id] = view
 	return view
+
 
 func get_entity(id: int) -> EntityView:
 	return _entities.get(id)
@@ -77,8 +80,10 @@ func set_hover_id(id: int) -> void:
 	if id >= 0 and _entities.has(id):
 		_entities[id].set_hovered(true)
 
+
 func get_hovered_id() -> int:
 	return _hovered_id
+
 
 func set_attack_target_id(id: int) -> void:
 	if _attack_target_id == id:

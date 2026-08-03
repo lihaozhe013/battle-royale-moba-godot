@@ -36,20 +36,25 @@ var _attack_target_mat: Material
 
 var skill_vfx_attachment: Node3D
 
-const SKILL_VFX_ATTACHMENT_SCRIPT := preload("res://scripts/view/skill_vfx_attachment.gd")
+const SKILL_VFX_ATTACHMENT_SCRIPT := preload(
+	"res://scripts/view/skill_vfx_attachment.gd"
+)
 
 # Sim uses 2D math angles: atan2(y, x) where 0=+x, π/2=+y.
 # Godot rotation.y rotates +X toward -Z (not +Z), so we negate to fix the Z flip.
 # Model faces +Z at rest, so offset by +π/2 to align +X as the zero-angle reference.
 const MODEL_FACING_OFFSET := PI / 2.0
 
+
 static func sim_to_godot_yaw(sim_ang: float) -> float:
 	return -sim_ang + MODEL_FACING_OFFSET
+
 
 func init(id: int, type: int, ptype: int = 0) -> void:
 	entity_id = id
 	entity_type = type
 	pickup_type = ptype
+
 
 func _ready() -> void:
 	_red_mat = StandardMaterial3D.new()
@@ -82,6 +87,7 @@ func _ready() -> void:
 	skill_vfx_attachment.set_script(SKILL_VFX_ATTACHMENT_SCRIPT)
 	add_child(skill_vfx_attachment)
 
+
 func _find_anim_path(anim_name: String) -> String:
 	if not _anim_player:
 		return ""
@@ -91,7 +97,10 @@ func _find_anim_path(anim_name: String) -> String:
 			return anim_name if lib_name == "" else lib_name + "/" + anim_name
 	return ""
 
-func apply_snapshot(x: float, z: float, ang: float, hp: int, max_hp: int, dead: bool) -> void:
+
+func apply_snapshot(
+	x: float, z: float, ang: float, hp: int, max_hp: int, dead: bool
+) -> void:
 	if dead:
 		if not _dead:
 			_dead = true
@@ -137,13 +146,16 @@ func apply_snapshot(x: float, z: float, ang: float, hp: int, max_hp: int, dead: 
 
 	_moving = _curr_pos.distance_to(_prev_pos) > 0.01
 
+
 func _process(delta: float) -> void:
 	if _first_snap:
 		return
 	var elapsed := Time.get_ticks_msec() / 1000.0 - _snap_time
 	var t := clampf(elapsed / LERP_DURATION, 0.0, 1.0)
 	position = _prev_pos.lerp(_curr_pos, t)
-	rotation = Vector3(0, sim_to_godot_yaw(lerp_angle(_prev_ang, _curr_ang, t)), 0)
+	rotation = Vector3(
+		0, sim_to_godot_yaw(lerp_angle(_prev_ang, _curr_ang, t)), 0
+	)
 
 	# 材质优先级：受击红闪 > 攻击锁定(红) > 悬停高亮(黄) > 无
 	if _flash_timer > 0.0:
@@ -151,11 +163,19 @@ func _process(delta: float) -> void:
 		for m in _child_meshes:
 			m.material_override = _red_mat
 		if _flash_timer <= 0.0:
-			var mat = _attack_target_mat if _attack_targeted else (_highlight_mat if _hovered else null)
+			var mat = (
+				_attack_target_mat
+				if _attack_targeted
+				else (_highlight_mat if _hovered else null)
+			)
 			for m in _child_meshes:
 				m.material_override = mat
 	else:
-		var mat = _attack_target_mat if _attack_targeted else (_highlight_mat if _hovered else null)
+		var mat = (
+			_attack_target_mat
+			if _attack_targeted
+			else (_highlight_mat if _hovered else null)
+		)
 		for m in _child_meshes:
 			m.material_override = mat
 
@@ -167,6 +187,7 @@ func _process(delta: float) -> void:
 
 func set_hovered(v: bool) -> void:
 	_hovered = v
+
 
 func set_attack_targeted(v: bool) -> void:
 	_attack_targeted = v
@@ -205,9 +226,12 @@ func _create_fallback_mesh(type: int, ptype: int) -> void:
 			m.mesh.size = Vector3(0.5, 0.5, 0.5)
 			var mat = StandardMaterial3D.new()
 			match ptype:
-				0: mat.albedo_color = Color(0.6, 0.2, 0.8)
-				1: mat.albedo_color = Color(0.2, 1.0, 0.2)
-				2: mat.albedo_color = Color(0.2, 0.8, 0.6)
+				0:
+					mat.albedo_color = Color(0.6, 0.2, 0.8)
+				1:
+					mat.albedo_color = Color(0.2, 1.0, 0.2)
+				2:
+					mat.albedo_color = Color(0.2, 0.8, 0.6)
 			m.mesh.surface_set_material(0, mat)
 			m.position.y = 0.5
 	add_child(m)

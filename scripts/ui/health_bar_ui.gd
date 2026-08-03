@@ -62,7 +62,9 @@ func _update_color() -> void:
 		_fill.color = Color(1.0, 0.3, 0.3)
 		return
 	if _hp_ratio > 0.6:
-		_fill.color = Color(0.2, 1.0, 0.2) if _team == 0 else Color(0.2, 0.6, 1.0)
+		_fill.color = (
+			Color(0.2, 1.0, 0.2) if _team == 0 else Color(0.2, 0.6, 1.0)
+		)
 	elif _hp_ratio > 0.25:
 		_fill.color = Color(1.0, 0.8, 0.2)
 	else:
@@ -75,7 +77,12 @@ func set_team(team: int) -> void:
 
 
 func set_screen_position(screen_pos: Vector2) -> void:
-	position = screen_pos - Vector2(BAR_OFFSET_X + BAR_WIDTH * 0.5, BAR_OFFSET_Y + BAR_HEIGHT * 0.5)
+	position = (
+		screen_pos
+		- Vector2(
+			BAR_OFFSET_X + BAR_WIDTH * 0.5, BAR_OFFSET_Y + BAR_HEIGHT * 0.5
+		)
+	)
 
 
 func reset() -> void:
@@ -94,5 +101,7 @@ func reset() -> void:
 
 
 func _process(delta: float) -> void:
-	_damage_ratio = move_toward(_damage_ratio, _hp_ratio, DAMAGE_LERP_SPEED * delta)
+	_damage_ratio = move_toward(
+		_damage_ratio, _hp_ratio, DAMAGE_LERP_SPEED * delta
+	)
 	_damage_bar.size = Vector2(BAR_WIDTH * _damage_ratio, BAR_HEIGHT)

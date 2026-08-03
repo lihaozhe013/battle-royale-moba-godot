@@ -62,7 +62,9 @@ func sync(snap: SimSnapshot, _player_view = null) -> void:
 	_sync_aoes(snap.aoes)
 
 
-func _draw_cast_line(from_x: float, from_y: float, to_x: float, to_y: float) -> void:
+func _draw_cast_line(
+	from_x: float, from_y: float, to_x: float, to_y: float
+) -> void:
 	var dx := to_x - from_x
 	var dz := to_y - from_y
 	var len := sqrt(dx * dx + dz * dz)
@@ -81,7 +83,9 @@ func _draw_cast_line(from_x: float, from_y: float, to_x: float, to_y: float) -> 
 	var thickness := 0.3
 	var quad := _cast_mesh.mesh as QuadMesh
 	quad.size = Vector2(thickness, len)
-	_cast_mesh.position = Vector3((from_x + to_x) * 0.5, 0.1, (from_y + to_y) * 0.5)
+	_cast_mesh.position = Vector3(
+		(from_x + to_x) * 0.5, 0.1, (from_y + to_y) * 0.5
+	)
 	_cast_mesh.rotation = Vector3(-PI * 0.5, atan2(dx, dz), 0.0)
 	_cast_mesh.visible = true
 

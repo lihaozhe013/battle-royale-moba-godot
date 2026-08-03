@@ -47,7 +47,9 @@ func set_cooldown_text(seconds: float) -> void:
 
 func set_mana_state(enough: bool) -> void:
 	_mana_enough = enough
-	_mana_label.modulate = Color(1, 1, 1, 1) if enough else Color(1, 0.3, 0.3, 0.6)
+	_mana_label.modulate = (
+		Color(1, 1, 1, 1) if enough else Color(1, 0.3, 0.3, 0.6)
+	)
 
 
 func set_key_hint(text: String) -> void:

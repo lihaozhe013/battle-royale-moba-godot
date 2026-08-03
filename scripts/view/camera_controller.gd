@@ -77,7 +77,11 @@ func _on_smooth_pan_changed(on: bool) -> void:
 
 
 func follow_target(x: float, z: float) -> void:
-	if not _needs_center_snap and absf(_target_x - x) < 0.001 and absf(_target_z - z) < 0.001:
+	if (
+		not _needs_center_snap
+		and absf(_target_x - x) < 0.001
+		and absf(_target_z - z) < 0.001
+	):
 		return
 	_target_x = x
 	_target_z = z
@@ -93,7 +97,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_Y:
 		GameSettings.camera_mode = (_mode + 1) % 2
 
-	if event is InputEventKey and (event.keycode == KEY_F1 or event.keycode == KEY_SPACE) and not event.echo:
+	if (
+		event is InputEventKey
+		and (event.keycode == KEY_F1 or event.keycode == KEY_SPACE)
+		and not event.echo
+	):
 		if event.pressed:
 			if _mode != CAM_LOCKED:
 				GameSettings.camera_mode = CAM_LOCKED
@@ -123,7 +131,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var delta: Vector2 = event.position - _drag_start_mouse
 		if delta.length() > 2.0:
 			var ratio: Vector2 = _world_per_pixel_ratio()
-			_look_at = _drag_start_look_at + Vector3(delta.x * ratio.x, 0, delta.y * ratio.y)
+			_look_at = (
+				_drag_start_look_at
+				+ Vector3(delta.x * ratio.x, 0, delta.y * ratio.y)
+			)
 
 
 func _zoom(amount: float) -> void:
@@ -179,8 +190,11 @@ func _ok_for_edge_pan() -> bool:
 	if _dragging:
 		return false
 	var mode: int = DisplayServer.window_get_mode()
-	return mode in [
-		DisplayServer.WINDOW_MODE_FULLSCREEN,
-		DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN,
-		DisplayServer.WINDOW_MODE_MAXIMIZED,
-	]
+	return (
+		mode
+		in [
+			DisplayServer.WINDOW_MODE_FULLSCREEN,
+			DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN,
+			DisplayServer.WINDOW_MODE_MAXIMIZED,
+		]
+	)

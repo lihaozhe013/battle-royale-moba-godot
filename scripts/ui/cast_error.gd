@@ -28,5 +28,16 @@ func show_error(code: int) -> void:
 		_tween.kill()
 	_tween = create_tween()
 	_tween.tween_property(_label, "scale", Vector2(1.3, 1.3), 0.08)
-	_tween.tween_property(_label, "scale", Vector2(1, 1), 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	_tween.tween_property(_label, "modulate", Color(1, 0.3, 0.2, 0), ERROR_DURATION).set_delay(0.3)
+	(
+		_tween
+		. tween_property(_label, "scale", Vector2(1, 1), 0.35)
+		. set_ease(Tween.EASE_OUT)
+		. set_trans(Tween.TRANS_BACK)
+	)
+	(
+		_tween
+		. tween_property(
+			_label, "modulate", Color(1, 0.3, 0.2, 0), ERROR_DURATION
+		)
+		. set_delay(0.3)
+	)

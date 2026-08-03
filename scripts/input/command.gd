@@ -19,12 +19,19 @@ var attack_ground: Vector2
 # CANCEL
 var cancel_scope: int
 
+
 func get_type_name() -> String:
 	match type:
-		CmdType.MOVE: return "MOVE"
-		CmdType.SKILL: return "SKILL"
-		CmdType.SKILL_UPGRADE: return "SKILL_UPGRADE"
-		CmdType.ATTACK: return "ATTACK"
-		CmdType.CANCEL: return "CANCEL"
-		CmdType.STOP: return "STOP"
+		CmdType.MOVE:
+			return "MOVE"
+		CmdType.SKILL:
+			return "SKILL"
+		CmdType.SKILL_UPGRADE:
+			return "SKILL_UPGRADE"
+		CmdType.ATTACK:
+			return "ATTACK"
+		CmdType.CANCEL:
+			return "CANCEL"
+		CmdType.STOP:
+			return "STOP"
 	return "UNKNOWN"

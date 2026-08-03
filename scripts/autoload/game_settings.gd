@@ -63,11 +63,21 @@ func _ready() -> void:
 func _load() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(CFG_PATH) == OK:
-		camera_mode   = cfg.get_value(CFG_SECTION_CTRL, "camera_mode", int(CamMode.LOCKED)) as CamMode
-		edge_pan      = bool(cfg.get_value(CFG_SECTION_CTRL, "edge_pan", false))
-		edge_pan_speed = float(cfg.get_value(CFG_SECTION_CTRL, "edge_pan_speed", 14.0))
-		smooth_pan    = bool(cfg.get_value(CFG_SECTION_CTRL, "smooth_pan", true))
-		fullscreen    = cfg.get_value(CFG_SECTION_DISP, "fullscreen", int(FullscreenMode.WINDOWED)) as FullscreenMode
+		camera_mode = (
+			cfg.get_value(CFG_SECTION_CTRL, "camera_mode", int(CamMode.LOCKED))
+			as CamMode
+		)
+		edge_pan = bool(cfg.get_value(CFG_SECTION_CTRL, "edge_pan", false))
+		edge_pan_speed = float(
+			cfg.get_value(CFG_SECTION_CTRL, "edge_pan_speed", 14.0)
+		)
+		smooth_pan = bool(cfg.get_value(CFG_SECTION_CTRL, "smooth_pan", true))
+		fullscreen = (
+			cfg.get_value(
+				CFG_SECTION_DISP, "fullscreen", int(FullscreenMode.WINDOWED)
+			)
+			as FullscreenMode
+		)
 
 
 func _save() -> void:

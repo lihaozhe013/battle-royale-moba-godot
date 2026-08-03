@@ -3,19 +3,24 @@ extends Node
 
 var _q: Array[Command] = []
 
+
 func push(cmd: Command) -> void:
 	_q.append(cmd)
+
 
 func pop_all() -> Array[Command]:
 	var result = _q.duplicate()
 	_q.clear()
 	return result
 
+
 func empty() -> bool:
 	return _q.is_empty()
 
+
 func clear() -> void:
 	_q.clear()
+
 
 func merge_commands(cmds: Array[Command]) -> Array[Command]:
 	var merged: Array[Command] = []
@@ -67,7 +72,11 @@ func merge_commands(cmds: Array[Command]) -> Array[Command]:
 	if has_cancel_skill or has_cancel_attack:
 		var c := Command.new()
 		c.type = Command.CmdType.CANCEL
-		c.cancel_scope = (0 if has_cancel_skill else 1) if not (has_cancel_skill and has_cancel_attack) else 2
+		c.cancel_scope = (
+			(0 if has_cancel_skill else 1)
+			if not (has_cancel_skill and has_cancel_attack)
+			else 2
+		)
 		merged.append(c)
 
 	return merged

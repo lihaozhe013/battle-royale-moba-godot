@@ -16,13 +16,16 @@ rebuild:
 	uv run build.py rebuild
 	
 # ---- Formatting ----
-format: format-sim format-table
+format: format-sim format-table format-godot
 
 format-sim:
 	uv run python scripts/format_sim.py
 
 format-table:
 	uv run python scripts/format_table.py
+
+format-godot:
+	gdformat -l 80 .
 
 # ---- Map Editor ----
 edit-map:
