@@ -2,6 +2,7 @@
 .godot/
 *.import
 *.uid
+debug.log
 .ipynb_checkpoints/
 
 # Python / uv
