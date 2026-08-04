@@ -1,4 +1,4 @@
-.PHONY: build clean distclean godot rebuild package package-windows package-macos run format format-sim format-table edit-map help
+.PHONY: build clean rebuild format format-sim format-godot edit-map help
 
 default: build
 
@@ -9,17 +9,11 @@ JOBS ?= 0
 build:
 	uv run build.py build --target $(TARGET) --jobs $(JOBS)
 
-godot:
-	godot -e
-
 clean:
-	uv run build.py clean
+	rm -rf src_cpp/build
 
 rebuild:
 	uv run build.py rebuild --target $(TARGET) --jobs $(JOBS)
-
-distclean:
-	uv run build.py distclean
 
 # ---- Formatting ----
 format: format-sim format-godot
