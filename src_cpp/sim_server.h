@@ -36,6 +36,7 @@ public:
 
     void tick(double delta);
     bool is_game_over();
+    int get_hero_capacity() const;
     godot::Ref<godot::RefCounted> pop_snapshot();
 
 private:

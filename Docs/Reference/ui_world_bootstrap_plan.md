@@ -1,20 +1,20 @@
 # UI and World Bootstrap Refactor Plan
 
-**Status:** Proposed design; implementation not started.
+**Status:** Implemented on 2026-08-04; retained as the implementation contract.
 
 **Scope:** Godot view-layer UI and static root-world visuals. The C++ simulation architecture, input command flow, entity scenes, and gameplay behavior remain unchanged except for one read-only capacity getter required for deterministic UI preallocation.
 
 ## 1. Current Assessment
 
-The current `main.tscn` contains several permanent presentation nodes:
+Before the migration, `main.tscn` contained several permanent presentation nodes:
 
 - `BottomHUD` is a `CanvasLayer` scene and instantiates four skill-slot scenes and six item-slot scenes.
 - `SettingsPanel`, `CastBarLayer`, and `CastErrorLayer` are separate `CanvasLayer` scenes.
 - `HealthBarManager` is a scene-authored `Node`, but its implementation already contains a code fallback for constructing `HealthBarUI`.
-- `HealthBarManager` still preloads `health_bar_ui.tscn` from `sim_bridge.gd`, so the fallback is not the authoritative path.
+- Before the migration, `HealthBarManager` still preloaded `health_bar_ui.tscn` from `sim_bridge.gd`, so its code fallback was not the authoritative path.
 - The root scene also owns a directional light, a `WorldEnvironment`, a 100 x 100 ground plane, and an unused `CanvasLayer`.
 
-`sim_bridge.gd` currently depends on direct child paths such as `$BottomHUD`, `$CastBarLayer`, `$CastErrorLayer`, and `$HealthBarManager`. This couples the bridge to the authored scene tree and makes visual hierarchy changes more fragile than they need to be.
+Before the migration, `sim_bridge.gd` depended on direct child paths such as `$BottomHUD`, `$CastBarLayer`, `$CastErrorLayer`, and `$HealthBarManager`. The implemented bridge now binds the composition root explicitly.
 
 The current light, environment, and ground have no runtime script dependencies. They are static root-world configuration and can be built in code without changing simulation behavior. They must not be placed in the UI layer because that would mix 2D presentation ownership with 3D world-rendering ownership.
 
@@ -140,9 +140,9 @@ Startup sequence:
 
 `HealthBarManager` must not load or instantiate `health_bar_ui.tscn`. If the pool is exhausted, it reports a clear `[ui_bootstrap]` error so a capacity-contract violation is visible instead of silently reintroducing runtime allocation.
 
-## 5. `main.tscn` and Bridge Changes
+## 5. Implemented `main.tscn` and Bridge Changes
 
-Remove these scene-authored UI/world definitions from `main.tscn`:
+The implementation removed these scene-authored UI/world definitions from `main.tscn`:
 
 - `HealthBarManager`;
 - `BottomHUD`;
@@ -155,9 +155,9 @@ Remove these scene-authored UI/world definitions from `main.tscn`:
 - `WorldEnvironment`;
 - their UI/world subresources and UI scene ext-resources.
 
-Add `WorldBootstrap` and `UIRoot` as scripted children.
+`WorldBootstrap` and `UIRoot` are now scripted children.
 
-Update `sim_bridge.gd` so it:
+`sim_bridge.gd` now:
 
 - stores one typed `ui_root` reference;
 - binds runtime dependencies once;
@@ -204,7 +204,7 @@ Then perform a visual match run and verify:
 6. No direct `$BottomHUD`, `$CastBarLayer`, `$CastErrorLayer`, or `$HealthBarManager` bridge dependency remains.
 7. No C++ simulation architecture rule is violated.
 
-## 8. Rollout Order
+## 8. Implementation Order
 
 Implement in small reversible phases:
 
@@ -217,4 +217,3 @@ Implement in small reversible phases:
 7. Build, run headless validation, and perform the visual acceptance pass.
 
 If a phase fails visually, restore the previous scene owner for that phase while keeping earlier verified phases intact.
-

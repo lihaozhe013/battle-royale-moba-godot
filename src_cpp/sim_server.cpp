@@ -51,6 +51,9 @@ void SimServer::_bind_methods() {
     godot::ClassDB::bind_method(
         godot::D_METHOD("is_game_over"),
         &SimServer::is_game_over);
+    godot::ClassDB::bind_method(
+        godot::D_METHOD("get_hero_capacity"),
+        &SimServer::get_hero_capacity);
 }
 
 bool SimServer::initialize(
@@ -117,6 +120,10 @@ void SimServer::tick(double delta) {
 
 bool SimServer::is_game_over() {
     return _world.is_game_over();
+}
+
+int SimServer::get_hero_capacity() const {
+    return _world.hero_capacity();
 }
 
 godot::Ref<godot::RefCounted> SimServer::pop_snapshot() {

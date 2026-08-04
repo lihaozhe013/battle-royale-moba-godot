@@ -10,10 +10,8 @@ var _prev_player_cast_error := 0
 
 @onready var camera_controller = $CameraController
 @onready var entity_manager = $EntityManager
-@onready var health_bar_manager = $HealthBarManager
-@onready var bottom_hud = $BottomHUD
-@onready var cast_bar_layer = $CastBarLayer
-@onready var cast_error_layer = $CastErrorLayer
+@onready var camera: Camera3D = $CameraController/Camera3D
+@onready var ui_root: UIRoot = $UIRoot
 var input_event_queue: InputEventQueue
 var input_state_machine: InputStateMachine
 var command_buffer: CommandBuffer
@@ -77,17 +75,14 @@ func _ready() -> void:
 	)
 
 	_spawn_wall_visuals(map_json)
-
-	health_bar_manager.entity_manager = entity_manager
-	health_bar_manager.health_bar_scene = preload(
-		"res://scenes/ui/health_bar_ui.tscn"
-	)
+	ui_root.bind_runtime(entity_manager, camera, cast_settings)
 
 	sim = SimServer.new()
 	if not sim.initialize(map_json, stats_yaml):
 		push_error("[stats_config] SimServer initialization failed")
 		return
 	print("SimServer initialized")
+	ui_root.prewarm_health_bars(sim.get_hero_capacity())
 
 	_skill_vfx = $SkillVFX if has_node("SkillVFX") else Node3D.new()
 	_skill_vfx.name = "SkillVFX"
@@ -290,7 +285,7 @@ func _process(_delta: float) -> void:
 	if last_snapshot.seq != _last_snap_seq:
 		_last_snap_seq = last_snapshot.seq
 		entity_manager.sync_entities(last_snapshot)
-		health_bar_manager.sync_bars(last_snapshot)
+		ui_root.health_bar_manager.sync_bars(last_snapshot)
 		var local_idx = (
 			last_snapshot.get_local_hero_index()
 			if last_snapshot.has_method("get_local_hero_index")
@@ -313,7 +308,7 @@ func _process(_delta: float) -> void:
 			_prev_player_cast_state = p.cast_state
 			_prev_player_cast_slot = p.cast_slot
 			if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
-				cast_error_layer.show_error(p.cast_error)
+				ui_root.cast_error.show_error(p.cast_error)
 			_prev_player_cast_error = p.cast_error
 
 			input_state_machine.sync_from_snapshot(p)
@@ -332,7 +327,7 @@ func _process(_delta: float) -> void:
 			_prev_player_cast_state = p.cast_state
 			_prev_player_cast_slot = p.cast_slot
 			if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
-				cast_error_layer.show_error(p.cast_error)
+				ui_root.cast_error.show_error(p.cast_error)
 			_prev_player_cast_error = p.cast_error
 
 			input_state_machine.sync_from_snapshot(p)
@@ -341,12 +336,12 @@ func _process(_delta: float) -> void:
 		var p = last_snapshot.players[0] as SimPlayerSnap
 		if p:
 			camera_controller.follow_target(p.x, p.y)
-			bottom_hud.sync_player(p)
-			bottom_hud.sync_skills(p.skills)
+			ui_root.bottom_hud.sync_player(p)
+			ui_root.bottom_hud.sync_skills(p.skills)
 			if p.cast_state >= 3:
-				cast_bar_layer.sync_cast(p.cast_progress)
+				ui_root.cast_bar.sync_cast(p.cast_progress)
 			else:
-				cast_bar_layer.hide_cast()
+				ui_root.cast_bar.hide_cast()
 			var ev = entity_manager.get_entity(p.id)
 			_skill_vfx.set_skill_aiming(
 				(
@@ -392,12 +387,12 @@ func _process(_delta: float) -> void:
 			var p = last_snapshot.heroes[local_idx] as SimHeroSnap
 			if p:
 				camera_controller.follow_target(p.x, p.y)
-				bottom_hud.sync_player(p)
-				bottom_hud.sync_skills(p.skills)
+				ui_root.bottom_hud.sync_player(p)
+				ui_root.bottom_hud.sync_skills(p.skills)
 				if p.cast_state >= 3:
-					cast_bar_layer.sync_cast(p.cast_progress)
+					ui_root.cast_bar.sync_cast(p.cast_progress)
 				else:
-					cast_bar_layer.hide_cast()
+					ui_root.cast_bar.hide_cast()
 				var ev = entity_manager.get_entity(p.id)
 				_skill_vfx.set_skill_aiming(
 					(

@@ -68,6 +68,7 @@ class World {
 
     void tick(double dt);
     bool is_game_over() const { return _game_over; }
+    int hero_capacity() const;
 
     entt::registry &registry() { return _reg; }
     const entt::registry &registry() const { return _reg; }

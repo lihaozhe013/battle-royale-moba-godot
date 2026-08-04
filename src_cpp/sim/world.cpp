@@ -79,6 +79,12 @@ bool World::initialize(
     return true;
 }
 
+int World::hero_capacity() const {
+    if (!_reg.ctx().contains<StatsConfig>())
+        return 0;
+    return 1 + _reg.ctx().get<StatsConfig>().BotCount;
+}
+
 void World::tick(double dt) {
     if (_game_over)
         return;

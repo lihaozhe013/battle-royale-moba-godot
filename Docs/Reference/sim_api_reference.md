@@ -468,11 +468,14 @@ class SimServer : public godot::RefCounted {
 
     void tick(double delta);
     bool is_game_over();
+    int get_hero_capacity() const;
     godot::Ref<godot::RefCounted> pop_snapshot();
 };
 ```
 
 `initialize` parses `map_json` and `stats_yaml`; on success it creates all initial entities (player + bots + walls + pickups). On failure, `last_error` is populated.
+
+`get_hero_capacity()` is available after successful initialization and returns the configured local-hero plus bot capacity. The view uses this read-only value to prewarm the persistent health-bar pool before the first simulation tick.
 
 `tick(delta)` runs the 22-system pipeline (see §3) and stores the latest `SimSnapshot` for `pop_snapshot()`.
 

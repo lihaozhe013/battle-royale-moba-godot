@@ -739,3 +739,7 @@ sequenceDiagram
 - **Sim 权威**所有 gameplay 状态（HP/位置/施法阶段/移动路径）。
 - **View 镜像**只用于决定下一个事件如何翻译（FSM 的视图侧），**不可**作为 gameplay 真值。
 - 任何"View 想做但 Sim 不允许"的操作 → 必须通过 `set_*_command` 通知 Sim，由 Sim 在 `tick` 内推进。
+
+## Current Bootstrap Ownership (2026-08-04)
+
+The current implementation uses `WorldBootstrap` for static root-world visuals and `UIRoot` for persistent code-built UI. UI scenes under `scenes/ui/` are no longer runtime dependencies. `HealthBarManager` prewarms its code-built health-bar pool from `SimServer.get_hero_capacity()` before the first simulation tick. See `Docs/Reference/game_main_process_execution_order.md` for the authoritative startup and frame-order contract.
