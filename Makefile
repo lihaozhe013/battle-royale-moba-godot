@@ -10,7 +10,7 @@ build:
 	uv run build.py build --target $(TARGET) --jobs $(JOBS)
 
 clean:
-	rm -rf src_cpp/build
+	uv run build.py distclean
 
 rebuild:
 	uv run build.py rebuild --target $(TARGET) --jobs $(JOBS)

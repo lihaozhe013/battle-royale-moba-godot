@@ -23,10 +23,11 @@
 3. **Do not touch git config.** Do not configure git, do not respond to interactive prompts, do not force-push.
 4. **Commit only when asked.** Do not auto-commit, push, or open PRs. Before committing, check `git status` + `git diff` and stage only the intended files.
 5. **Prefer `rg` and `fd`.** Much faster than `grep` / `find`. Fall back only when they are unavailable.
-6. **Verify after changes.** Run the project's lint / typecheck / test commands. If none are obvious, ask the user.
-7. **Never build C++ on your own.** Use `make build` or `make rebuild`. Do not invoke Python or CMake directly.
-8. **Be concise.** No preamble, no recap of the user's request, no emojis. One sentence is better than two.
-9. **Docs follow code.** Architectural changes must update `CONTEXT.md` and the relevant `Docs/Reference/*.md`. Use `todowrite` to plan multi-step doc sync.
+6. **Use Git Bash by default.** Assume the user runs commands in Git Bash. Do not add or recommend PowerShell commands, and do not close, restart, or shut down Windows.
+7. **Verify after changes.** Run the project's lint / typecheck / test commands. If none are obvious, ask the user.
+8. **Never build C++ on your own.** Use `make build` or `make rebuild`. Do not invoke Python or CMake directly.
+9. **Be concise.** No preamble, no recap of the user's request, no emojis. One sentence is better than two.
+10. **Docs follow code.** Architectural changes must update `CONTEXT.md` and the relevant `Docs/Reference/*.md`. Use `todowrite` to plan multi-step doc sync.
 
 ---
 

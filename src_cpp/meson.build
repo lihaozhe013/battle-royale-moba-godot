@@ -206,15 +206,17 @@ else
 endif
 
 if host_machine.system() == 'windows'
-    godot_cpp_public_args += ['-DWINDOWS_ENABLED']
-    if cpp.get_argument_syntax() == 'msvc'
-        godot_cpp_public_args += ['-DTYPED_METHOD_BIND', '-DNOMINMAX']
-    endif
+    godot_cpp_public_args += [
+        '-DWINDOWS_ENABLED',
+        '-DTYPED_METHOD_BIND',
+        '-DNOMINMAX',
+    ]
 elif host_machine.system() == 'linux'
     godot_cpp_public_args += ['-DLINUX_ENABLED']
 elif host_machine.system() == 'darwin'
     godot_cpp_public_args += ['-DMACOS_ENABLED']
 endif
+godot_cpp_private_args += godot_cpp_public_args
 
 godot_cpp_include_dirs = include_directories(
     'godot-cpp/include',
