@@ -1,0 +1,44 @@
+option(
+    'godotcpp-target',
+    type: 'combo',
+    choices: ['editor', 'template_debug', 'template_release'],
+    value: 'template_debug',
+    description: 'Godot build target compatibility mode',
+)
+
+option(
+    'godotcpp-api-version',
+    type: 'combo',
+    choices: ['4.3', '4.4', '4.5', '4.6', '4.7'],
+    value: '4.7',
+    description: 'Godot extension API version',
+)
+
+option(
+    'godotcpp-precision',
+    type: 'combo',
+    choices: ['single', 'double'],
+    value: 'single',
+    description: 'Godot real-number precision',
+)
+
+option(
+    'godotcpp-build-profile',
+    type: 'string',
+    value: 'build_profile.json',
+    description: 'Godot API binding build profile',
+)
+
+option(
+    'godotcpp-template-get-node',
+    type: 'boolean',
+    value: false,
+    description: 'Generate the templated Node.get_node overload',
+)
+
+option(
+    'godotcpp-static-cpp',
+    type: 'boolean',
+    value: true,
+    description: 'Prefer static C++ runtime linkage where supported',
+)

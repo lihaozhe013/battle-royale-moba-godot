@@ -10,10 +10,7 @@ debug.log
 __pycache__/
 *.pyc
 
-# Per-machine build config
-build_env.yaml
-
-# SCons build artifacts
+# Native build artifacts
 *.o
 *.obj
 *.os
@@ -27,15 +24,8 @@ build_env.yaml
 compile_commands.json
 scons_debug.log
 
-# CMake build directory
+# Meson build directory
 src_cpp/build/
-
-# CMake generated files
-src_cpp/build_test_cmake/
-CMakeUserPresets.json
-
-# SCons artifacts
-src_cpp/.sconsign.dblite
 
 # godot-cpp generated files
 src_cpp/godot-cpp/gen/

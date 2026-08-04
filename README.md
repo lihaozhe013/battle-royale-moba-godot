@@ -31,18 +31,17 @@ MOBA 模式特性：右键连点节流、同区域重算跳过、转向速率平
 
 相机锁定跟随 30Hz Sim 数据时使用线性插值（LERP 1/30s），消除抖动。Smooth Pan 关闭时拖屏和推屏均为恒速无加速度。
 
-## 环境需求
+## Build requirements
 
-构建 C++ GDExtension 需要以下工具（构建脚本会自动检测）：
+The C++ GDExtension build uses Meson, Python, and `clang++` discovered from `PATH`. The game sources use C++20. No `build_env.yaml` file is required.
 
-| 工具      | 版本   | 安装方式                                                                                                                            |
-| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| CMake     | ≥ 3.17 | `brew install cmake` (macOS), `apt install cmake` (Linux), 或从 [cmake.org](https://cmake.org) 下载                                 |
-| Ninja     | ≥ 1.10 | `brew install ninja` (macOS), `apt install ninja-build` (Linux), `pip install ninja` (全平台)                                       |
-| Python    | ≥ 3.13 | 项目使用 uv 管理，参考 `pyproject.toml`                                                                                             |
-| C++编译器 | C++17  | macOS: Xcode CLT (`xcode-select --install`), Linux: GCC ≥ 8 或 Clang ≥ 7, Windows: 需从 Visual Studio Developer Command Prompt 执行 |
+| Tool | Requirement | Notes |
+| --- | --- | --- |
+| Meson | 1.4 or newer | Install from the system package manager or Python environment |
+| Python | 3.13 or newer | The project uses `uv` for Python dependencies |
+| Clang | `clang++` | Use Xcode Command Line Tools on macOS, LLVM on Linux, or LLVM/MSYS2 on Windows |
 
-首次构建前，复制对应的 `build_env.*.example` 为 `build_env.yaml` 并按需配置。
+Set `CXX` only when selecting a compiler that is not available through the normal `PATH`.
 
 ## 架构
 
@@ -66,14 +65,14 @@ sim_bridge.gd (系统调度器)
 
 - Godot 4.7 (Forward Plus, D3D12)
 - C++ GDExtension (godot-cpp + entt)
-- CMake 构建 (`src_cpp/`)
+- Meson 构建 (`src_cpp/`)
 - GDScript 视图层 (`scripts/`)
 
 ## 运行
 
 ```bash
-# 1. 构建 C++ GDExtension
-cd src_cpp && python build.py
+# 1. Build the C++ GDExtension
+make build
 
 # 2. 用 Godot 4.7 打开项目
 # 3. F5 运行

@@ -7,6 +7,7 @@
 - GDScript view and input code run at the render rate, normally 60 Hz.
 - `SimSnapshot` is the only Sim-to-View data channel.
 - Input uses the MOBA command flow: ground right-click movement, Q/W/E/R skills, and A attack commands.
+- Native builds use Meson with `clang++` discovery from `PATH`; game sources use C++20 and no `build_env.yaml` file is required.
 
 ## Main Runtime Ownership
 
