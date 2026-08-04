@@ -2,11 +2,15 @@ class_name BottomHUD
 extends Control
 
 const KEY_HINTS := ["Q", "W", "E", "R"]
+const BASE_HUD_WIDTH := 750.0
+const BASE_HUD_HEIGHT := 108.0
+const HUD_WIDTH_RATIO := 0.75
 const HP_BAR_WIDTH := 280.0
 const MANA_BAR_WIDTH := 280.0
 
 var _style: UIStyle
 var _built := false
+var _hud_panel: Control
 var _skill_slots: Array[SkillSlotUI] = []
 var _item_slots: Array[ItemSlotUI] = []
 
@@ -26,41 +30,41 @@ func build(style: UIStyle) -> void:
 	print("[ui_bootstrap] BottomHUD.build started")
 	style.set_full_rect(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	resized.connect(_on_resized)
 
-	var hud_panel := Control.new()
-	hud_panel.name = "HUDPanel"
-	hud_panel.anchor_left = 0.5
-	hud_panel.anchor_top = 1.0
-	hud_panel.anchor_right = 0.5
-	hud_panel.anchor_bottom = 1.0
-	hud_panel.offset_left = -375.0
-	hud_panel.offset_top = -108.0
-	hud_panel.offset_right = 375.0
-	hud_panel.offset_bottom = 0.0
-	hud_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	hud_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	hud_panel.scale = Vector2(1.8, 1.8)
-	hud_panel.pivot_offset = Vector2(375, 108)
-	hud_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(hud_panel)
+	_hud_panel = Control.new()
+	_hud_panel.name = "HUDPanel"
+	_hud_panel.anchor_left = 0.5
+	_hud_panel.anchor_top = 1.0
+	_hud_panel.anchor_right = 0.5
+	_hud_panel.anchor_bottom = 1.0
+	_hud_panel.offset_left = -BASE_HUD_WIDTH / 2.0
+	_hud_panel.offset_top = -BASE_HUD_HEIGHT
+	_hud_panel.offset_right = BASE_HUD_WIDTH / 2.0
+	_hud_panel.offset_bottom = 0.0
+	_hud_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_hud_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hud_panel.pivot_offset = Vector2(BASE_HUD_WIDTH / 2.0, BASE_HUD_HEIGHT)
+	_hud_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_hud_panel)
 
 	var panel := PanelContainer.new()
 	panel.name = "PanelContainer"
-	panel.position = Vector2(25, -10)
+	panel.position = Vector2(25, 0)
 	panel.size = Vector2(700, 108)
 	panel.add_theme_stylebox_override(
 		"panel", style.panel_style(style.HUD_BACKGROUND, 5)
 	)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud_panel.add_child(panel)
+	_hud_panel.add_child(panel)
 
 	var container := HBoxContainer.new()
 	container.name = "HUDContainer"
-	container.position = Vector2(36, -3)
+	container.position = Vector2(36, 0)
 	container.size = Vector2(700, 108)
 	container.add_theme_constant_override("separation", 0)
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud_panel.add_child(container)
+	_hud_panel.add_child(container)
 
 	container.add_child(style.make_spacer(Vector2(11, 0)))
 	var stats_panel := PanelContainer.new()
@@ -85,6 +89,22 @@ func build(style: UIStyle) -> void:
 			% [get_child_count(), size]
 		)
 	)
+	call_deferred("_layout_hud")
+
+
+func _on_resized() -> void:
+	_layout_hud()
+
+
+func _layout_hud() -> void:
+	if not _hud_panel:
+		return
+	var viewport_width := get_viewport_rect().size.x
+	if viewport_width <= 0.0:
+		return
+	var target_width := viewport_width * HUD_WIDTH_RATIO
+	var hud_scale := target_width / BASE_HUD_WIDTH
+	_hud_panel.scale = Vector2.ONE * hud_scale
 
 
 func log_layout() -> void:
@@ -94,13 +114,15 @@ func log_layout() -> void:
 		return
 	print(
 		(
-			"[ui_bootstrap] BottomHUD.layout visible=%s root_size=%s root_global=%s panel_position=%s panel_size=%s panel_global=%s viewport=%s"
+			"[ui_bootstrap] BottomHUD.layout visible=%s root_size=%s root_global=%s panel_position=%s panel_size=%s panel_scale=%s visual_width=%.1f panel_global=%s viewport=%s"
 			% [
 				visible,
 				size,
 				global_position,
 				hud_panel.position,
 				hud_panel.size,
+				hud_panel.scale,
+				hud_panel.size.x * hud_panel.scale.x,
 				hud_panel.global_position,
 				get_viewport().get_visible_rect().size,
 			]

@@ -40,13 +40,15 @@ Main (Node3D, SimBridge)
 2. Create one `WorldEnvironment` with one `Environment`.
 3. Create one ground `MeshInstance3D` with a `PlaneMesh` and a `StandardMaterial3D`.
 
-It must preserve the current values from `main.tscn`:
+It preserves the current structural values from `main.tscn`:
 
 - directional-light shadow enablement;
 - directional-light orientation;
 - environment background mode and color;
 - ambient light source and color;
 - ground size and material behavior.
+
+The current first-pass presentation tune keeps the original direction, ambient color, and ground material while setting directional-light energy and ambient-light energy to `1.35` so the scene is easier to read. These values are centralized at the top of `scripts/view/world_bootstrap.gd` for subsequent visual tuning.
 
 The existing directional-light translation is not meaningful for a directional light. The implementation should retain the orientation as a named static basis/configuration and omit the unused translation.
 
@@ -109,6 +111,7 @@ The migration preserves the current visual layout and behavior. It does not rede
 ### Component migration
 
 - `BottomHUD` becomes a code-built control that creates the avatar, stat text, resource bars, skill row, item rows, and backpack row.
+- `BottomHUD` keeps its 750 x 108 base composition, applies a uniform responsive scale to 75% of the viewport width, and anchors the panel to the bottom edge without changing the internal proportions.
 - Skill slots and item slots are created in loops, with their references appended when built. This also makes item synchronization deterministic instead of depending on scene children being present.
 - `SettingsPanel` builds its rows and buttons in code, connects signals directly, and keeps the current camera, edge-pan, smooth-pan, fullscreen, cast-mode, quit, close, and Escape behavior.
 - `CastBar` and `CastError` build their controls in the feedback layer and begin hidden.
