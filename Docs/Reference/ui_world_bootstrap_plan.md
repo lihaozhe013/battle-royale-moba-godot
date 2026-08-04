@@ -48,7 +48,7 @@ It preserves the current structural values from `main.tscn`:
 - ambient light source and color;
 - ground size and material behavior.
 
-The current first-pass presentation tune keeps the original direction, ambient color, and ground material while setting directional-light energy and ambient-light energy to `1.35` so the scene is easier to read. These values are centralized at the top of `scripts/view/world_bootstrap.gd` for subsequent visual tuning.
+The current presentation tune keeps the original direction and ground material while using `1.8` directional-light energy, `0.45` ambient-light energy, and a neutral `Color(0.7, 0.7, 0.7)` ambient color. This keeps direct lighting readable, restores shadow contrast, and avoids a purple floor cast. The values are centralized at the top of `scripts/view/world_bootstrap.gd` for subsequent visual tuning.
 
 The existing directional-light translation is not meaningful for a directional light. The implementation should retain the orientation as a named static basis/configuration and omit the unused translation.
 
