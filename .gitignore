@@ -33,3 +33,4 @@ src_cpp/godot-cpp/bin/
 .vscode/settings.json
 
 /dist
+*.TMP
