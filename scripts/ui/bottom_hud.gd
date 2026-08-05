@@ -277,7 +277,9 @@ func sync_skills(skills_data: Array) -> void:
 	for i in _skill_slots.size():
 		if i < skills_data.size():
 			var s = skills_data[i]
-			_skill_slots[i].set_skill(s.skill_id, s.mana_cost)
+			_skill_slots[i].set_skill(
+				s.skill_id, s.mana_cost, _style.get_skill_icon(s.skill_id)
+			)
 			var cd_ratio = (
 				s.cooldown / s.max_cooldown if s.max_cooldown > 0 else 0.0
 			)

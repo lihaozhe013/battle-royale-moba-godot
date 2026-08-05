@@ -76,10 +76,13 @@ func build(style: UIStyle) -> void:
 	add_child(_key_hint)
 
 
-func set_skill(skill_id: int, mana_cost: float = 0.0) -> void:
+func set_skill(
+	skill_id: int, mana_cost: float = 0.0, icon: Texture2D = null
+) -> void:
 	if not _built:
 		return
 	_skill_id = skill_id
+	_icon.texture = icon
 	if skill_id == 0:
 		_icon.modulate = GRAY
 		_cd_label.visible = false
@@ -124,6 +127,7 @@ func reset() -> void:
 		return
 	_skill_id = 0
 	_cooldown_ratio = 0.0
+	_icon.texture = null
 	_icon.modulate = GRAY
 	_cooldown_mask.size = Vector2.ZERO
 	_mana_label.visible = false

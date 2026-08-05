@@ -8,6 +8,12 @@ const FONT_SEMIBOLD: FontFile = preload(
 const AVATAR_TEXTURE: Texture2D = preload(
 	"res://resources/characters/protagonist/skaterMaleA.png"
 )
+const SKILL_ICONS: Dictionary = {
+	1: preload("res://data/skills/icons/melee_strike.png"),
+	2: preload("res://data/skills/icons/aoe_field.png"),
+	3: preload("res://data/skills/icons/dash.png"),
+	4: preload("res://data/skills/icons/channel_burst.png"),
+}
 
 const HUD_BACKGROUND := Color(0.114, 0.114, 0.123, 1.0)
 const PANEL_BACKGROUND := Color(0.12, 0.12, 0.14, 0.92)
@@ -54,3 +60,7 @@ func make_spacer(size: Vector2) -> Control:
 
 func set_full_rect(control: Control) -> void:
 	control.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+
+func get_skill_icon(skill_id: int) -> Texture2D:
+	return SKILL_ICONS.get(skill_id) as Texture2D
