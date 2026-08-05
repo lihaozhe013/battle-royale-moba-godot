@@ -3,10 +3,17 @@ extends Control
 
 const KEY_HINTS := ["Q", "W", "E", "R"]
 const BASE_HUD_WIDTH := 750.0
-const BASE_HUD_HEIGHT := 108.0
+const BASE_HUD_HEIGHT := 90.0
 const HUD_WIDTH_RATIO := 0.75
+const HUD_SCALE := 0.70
 const HP_BAR_WIDTH := 280.0
 const MANA_BAR_WIDTH := 280.0
+const SKILL_TOP_SPACE := 1.0
+const SKILL_BOTTOM_SPACE := 4.0
+const RESOURCE_BOTTOM_SPACE := 2.0
+const AVATAR_SECTION_SIZE := 88.0
+const STATS_PANEL_WIDTH := 96.0
+const STATS_PANEL_HEIGHT := 84.0
 
 var _style: UIStyle
 var _built := false
@@ -19,7 +26,7 @@ var _hp_fill: ColorRect
 var _hp_label: Label
 var _mana_fill: ColorRect
 var _mana_label: Label
-var _stats_label: Label
+var _stat_value_labels: Array[Label] = []
 
 
 func build(style: UIStyle) -> void:
@@ -51,7 +58,7 @@ func build(style: UIStyle) -> void:
 	var panel := PanelContainer.new()
 	panel.name = "PanelContainer"
 	panel.position = Vector2(25, 0)
-	panel.size = Vector2(700, 108)
+	panel.size = Vector2(700, BASE_HUD_HEIGHT)
 	panel.add_theme_stylebox_override(
 		"panel", style.panel_style(style.HUD_BACKGROUND, 5)
 	)
@@ -61,20 +68,55 @@ func build(style: UIStyle) -> void:
 	var container := HBoxContainer.new()
 	container.name = "HUDContainer"
 	container.position = Vector2(36, 0)
-	container.size = Vector2(700, 108)
+	container.size = Vector2(700, BASE_HUD_HEIGHT)
 	container.add_theme_constant_override("separation", 0)
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud_panel.add_child(container)
 
 	container.add_child(style.make_spacer(Vector2(11, 0)))
 	var stats_panel := PanelContainer.new()
-	stats_panel.custom_minimum_size = Vector2(100, 0)
-	stats_panel.add_theme_stylebox_override(
-		"panel", style.panel_style(style.TRANSPARENT_BACKGROUND, 10)
+	stats_panel.name = "StatsPanel"
+	stats_panel.custom_minimum_size = Vector2(
+		STATS_PANEL_WIDTH, STATS_PANEL_HEIGHT
 	)
-	_stats_label = style.make_label("Placeholder", style.FONT_REGULAR, 13)
-	_stats_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stats_panel.add_child(_stats_label)
+	var stats_panel_style := style.panel_style(style.PANEL_BACKGROUND, 6)
+	stats_panel_style.content_margin_left = 6.0
+	stats_panel_style.content_margin_top = 4.0
+	stats_panel_style.content_margin_right = 6.0
+	stats_panel_style.content_margin_bottom = 4.0
+	stats_panel.add_theme_stylebox_override("panel", stats_panel_style)
+	var stats_box := VBoxContainer.new()
+	stats_box.name = "StatsBox"
+	stats_box.add_theme_constant_override("separation", 1)
+	var stats_title := style.make_label("STATS", style.FONT_SEMIBOLD, 10)
+	stats_title.custom_minimum_size = Vector2(0, 14)
+	stats_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stats_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stats_box.add_child(stats_title)
+
+	var stats_grid := GridContainer.new()
+	stats_grid.name = "StatsGrid"
+	stats_grid.columns = 2
+	stats_grid.add_theme_constant_override("h_separation", 5)
+	stats_grid.add_theme_constant_override("v_separation", 0)
+	for stat_name in ["LV", "ATK", "ASP", "KILLS", "XP"]:
+		var name_label := style.make_label(stat_name, style.FONT_REGULAR, 9)
+		name_label.add_theme_color_override(
+			"font_color", Color(0.62, 0.66, 0.74, 1)
+		)
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stats_grid.add_child(name_label)
+
+		var value_label := style.make_label("-", style.FONT_SEMIBOLD, 10)
+		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		value_label.add_theme_color_override(
+			"font_color", Color(0.95, 0.96, 1.0, 1)
+		)
+		value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_stat_value_labels.append(value_label)
+		stats_grid.add_child(value_label)
+	stats_box.add_child(stats_grid)
+	stats_panel.add_child(stats_box)
 	container.add_child(stats_panel)
 
 	container.add_child(style.make_spacer(Vector2(11, 0)))
@@ -104,7 +146,7 @@ func _layout_hud() -> void:
 		return
 	var target_width := viewport_width * HUD_WIDTH_RATIO
 	var hud_scale := target_width / BASE_HUD_WIDTH
-	_hud_panel.scale = Vector2.ONE * hud_scale
+	_hud_panel.scale = Vector2.ONE * hud_scale * HUD_SCALE
 
 
 func log_layout() -> void:
@@ -133,8 +175,12 @@ func log_layout() -> void:
 func _build_avatar_section() -> Control:
 	var section := Control.new()
 	section.name = "AvatarSection"
-	section.custom_minimum_size = Vector2(110, 110)
-	section.custom_maximum_size = Vector2(110, 110)
+	section.custom_minimum_size = Vector2(
+		AVATAR_SECTION_SIZE, AVATAR_SECTION_SIZE
+	)
+	section.custom_maximum_size = Vector2(
+		AVATAR_SECTION_SIZE, AVATAR_SECTION_SIZE
+	)
 
 	_avatar = TextureRect.new()
 	_avatar.name = "Avatar"
@@ -145,9 +191,9 @@ func _build_avatar_section() -> Control:
 	_avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	section.add_child(_avatar)
 
-	var label := _style.make_label("Player", _style.FONT_REGULAR, 14)
-	label.position = Vector2(0, 84)
-	label.size = Vector2(110, 23)
+	var label := _style.make_label("Player", _style.FONT_REGULAR, 12)
+	label.position = Vector2(0, AVATAR_SECTION_SIZE - 20)
+	label.size = Vector2(AVATAR_SECTION_SIZE, 20)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	section.add_child(label)
@@ -157,11 +203,15 @@ func _build_avatar_section() -> Control:
 func _build_resource_section() -> Control:
 	var section := VBoxContainer.new()
 	section.name = "ResourceSection"
-	section.custom_minimum_size = Vector2(280, 0)
+	section.custom_minimum_size = Vector2(MANA_BAR_WIDTH, BASE_HUD_HEIGHT)
+	section.alignment = BoxContainer.ALIGNMENT_END
 	section.add_theme_constant_override("separation", 0)
 
+	section.add_child(_style.make_spacer(Vector2(0, SKILL_TOP_SPACE)))
 	var skill_section := HBoxContainer.new()
 	skill_section.name = "SkillSection"
+	skill_section.add_theme_constant_override("separation", 4)
+	skill_section.alignment = BoxContainer.ALIGNMENT_CENTER
 	for i in 4:
 		var slot := SkillSlotUI.new()
 		slot.slot_index = i
@@ -171,7 +221,7 @@ func _build_resource_section() -> Control:
 		skill_section.add_child(slot)
 	section.add_child(skill_section)
 
-	section.add_child(_style.make_spacer(Vector2(0, 4)))
+	section.add_child(_style.make_spacer(Vector2(0, SKILL_BOTTOM_SPACE)))
 	var hp_container := _build_resource_bar("HP")
 	_hp_fill = hp_container.get_node("Fill") as ColorRect
 	_hp_label = hp_container.get_node("Label") as Label
@@ -183,13 +233,16 @@ func _build_resource_section() -> Control:
 	_mana_fill.color = _style.MANA_FILL
 	_mana_label.add_theme_font_size_override("font_size", 11)
 	section.add_child(mana_container)
+	section.add_child(_style.make_spacer(Vector2(0, RESOURCE_BOTTOM_SPACE)))
 	return section
 
 
 func _build_resource_bar(kind: String) -> Control:
 	var container := Control.new()
 	container.name = "%sContainer" % kind
-	container.custom_minimum_size = Vector2(280, 14 if kind == "HP" else 10)
+	var base_width := HP_BAR_WIDTH if kind == "HP" else MANA_BAR_WIDTH
+	var base_height := 14.0 if kind == "HP" else 10.0
+	container.custom_minimum_size = Vector2(base_width, base_height)
 
 	var background := ColorRect.new()
 	background.name = "Background"
@@ -201,10 +254,7 @@ func _build_resource_bar(kind: String) -> Control:
 	var fill := ColorRect.new()
 	fill.name = "Fill"
 	fill.position = Vector2.ZERO
-	fill.size = Vector2(
-		HP_BAR_WIDTH if kind == "HP" else MANA_BAR_WIDTH,
-		container.custom_minimum_size.y
-	)
+	fill.size = Vector2(base_width, base_height)
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fill.color = _style.HEALTH_FILL
 	container.add_child(fill)
@@ -265,10 +315,15 @@ func sync_player(p) -> void:
 	_mana_fill.size.x = MANA_BAR_WIDTH * mana_ratio
 	_mana_label.text = "%d/%d" % [mana_val, max_mana_val]
 
-	_stats_label.text = (
-		"Lv%d\nATK:%.0f\nASP:%.2f\nKills:%d\nXP:%d/%d"
-		% [p.level, p.atk, p.asp, p.kills, p.xp, p.xp_needed]
-	)
+	var stat_values := [
+		str(p.level),
+		str(int(p.atk)),
+		"%.2f" % p.asp,
+		str(p.kills),
+		"%d/%d" % [p.xp, p.xp_needed],
+	]
+	for i in stat_values.size():
+		_stat_value_labels[i].text = stat_values[i]
 
 
 func sync_skills(skills_data: Array) -> void:

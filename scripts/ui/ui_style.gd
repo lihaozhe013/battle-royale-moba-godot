@@ -22,6 +22,10 @@ const BAR_BACKGROUND := Color(0.1, 0.1, 0.1, 0.8)
 const HEALTH_FILL := Color(0.2, 1.0, 0.2, 1.0)
 const MANA_FILL := Color(0.2, 0.4, 1.0, 1.0)
 const DARK_SLOT := Color(0.12, 0.12, 0.12, 1.0)
+const SKILL_SLOT_BACKGROUND := Color(0.045, 0.055, 0.08, 0.98)
+const SKILL_SLOT_BORDER := Color(0.36, 0.42, 0.52, 1.0)
+const SKILL_KEY_ACCENT := Color(1.0, 0.78, 0.4, 1.0)
+const SKILL_MANA_ACCENT := Color(0.32, 0.68, 1.0, 1.0)
 
 
 func panel_style(color: Color, radius: int = 0) -> StyleBoxFlat:
@@ -31,6 +35,32 @@ func panel_style(color: Color, radius: int = 0) -> StyleBoxFlat:
 	style.corner_radius_top_right = radius
 	style.corner_radius_bottom_left = radius
 	style.corner_radius_bottom_right = radius
+	return style
+
+
+func skill_slot_style() -> StyleBoxFlat:
+	var style := panel_style(SKILL_SLOT_BACKGROUND, 7)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = SKILL_SLOT_BORDER
+	style.shadow_color = Color(0, 0, 0, 0.55)
+	style.shadow_size = 2
+	return style
+
+
+func skill_badge_style(accent: Color) -> StyleBoxFlat:
+	var style := panel_style(Color(0.02, 0.03, 0.05, 0.94), 4)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = Color(accent.r, accent.g, accent.b, 0.8)
+	style.content_margin_left = 2.0
+	style.content_margin_top = 1.0
+	style.content_margin_right = 2.0
+	style.content_margin_bottom = 1.0
 	return style
 
 
