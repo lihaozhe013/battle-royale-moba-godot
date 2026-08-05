@@ -15,6 +15,32 @@ struct CastContext;
 
 namespace detail {
 
+inline void clear_cast_state(CastState &cs) {
+    cs.State = CastState::Phase::None;
+    cs.ActiveSlot = -1;
+    cs.SkillId = 0;
+    cs.Timer = 0.0f;
+    cs.SubTimer = 0.0f;
+    cs.PendingCooldown = 0.0f;
+    cs.PendingManaCost = 0.0f;
+}
+
+inline bool commit_cast_resources(
+    entt::registry &reg, CastState &cs, SkillComponent &skills, Mana &mana
+) {
+    if (cs.ActiveSlot < 0 || cs.ActiveSlot >= 4)
+        return false;
+    if (cs.PendingManaCost > mana.Cur)
+        return false;
+
+    mana.Cur -= cs.PendingManaCost;
+    mana.RegenTimer = stats(reg).ManaRegenDelay;
+    auto &slot = skills.Slots[cs.ActiveSlot];
+    slot.CooldownTimer = cs.PendingCooldown;
+    slot.MaxCooldown = cs.PendingCooldown;
+    return true;
+}
+
 inline void cast_phase_chasing(
     entt::registry &reg,
     entt::entity e,
@@ -25,14 +51,12 @@ inline void cast_phase_chasing(
 ) {
     ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
     if (!sk) {
-        cs.State = CastState::Phase::None;
+        clear_cast_state(cs);
         return;
     }
 
     if (cancel_skill && sk->can_interrupt(cs.State)) {
-        cs.State = CastState::Phase::None;
-        cs.ActiveSlot = -1;
-        cs.SkillId = 0;
+        clear_cast_state(cs);
         return;
     }
 
@@ -57,12 +81,12 @@ inline void cast_phase_casting(
 ) {
     ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
     if (!sk) {
-        cs.State = CastState::Phase::None;
+        clear_cast_state(cs);
         return;
     }
 
     if (cancel_skill && sk->can_interrupt(cs.State)) {
-        cs.State = CastState::Phase::None;
+        clear_cast_state(cs);
         return;
     }
 
@@ -70,15 +94,18 @@ inline void cast_phase_casting(
     if (cs.Timer > 0.0f)
         return;
 
+    if (!commit_cast_resources(reg, cs, skills, reg.get<Mana>(e))) {
+        clear_cast_state(cs);
+        return;
+    }
+
     sk->on_cast_complete(
         reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level
     );
 
     if (sk->kind() == SkillKind::MeleeSingle ||
         sk->kind() == SkillKind::AoEField) {
-        cs.State = CastState::Phase::None;
-        cs.ActiveSlot = -1;
-        cs.SkillId = 0;
+        clear_cast_state(cs);
     } else if (sk->kind() == SkillKind::Dash) {
         sk->on_dash_start(reg, e, cs, skills.Slots[cs.ActiveSlot].Level);
         cs.State = CastState::Phase::Dashing;
@@ -101,9 +128,7 @@ inline void cast_phase_dashing(
         sk->on_dash_update(reg, e, cs, skills.Slots[cs.ActiveSlot].Level, dt);
     Vec2 delta = cs.DashTarget - reg.get<Position2D>(e).Value;
     if (glm::length(delta) < 0.1f || cs.Timer <= 0.0f) {
-        cs.State = CastState::Phase::None;
-        cs.ActiveSlot = -1;
-        cs.SkillId = 0;
+        clear_cast_state(cs);
     }
 }
 
@@ -123,9 +148,7 @@ inline void cast_phase_channeling(
             reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level, dt
         );
     if (cs.Timer <= 0.0f) {
-        cs.State = CastState::Phase::None;
-        cs.ActiveSlot = -1;
-        cs.SkillId = 0;
+        clear_cast_state(cs);
     }
 }
 
@@ -148,9 +171,7 @@ inline void skill_cast_system(
         if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled) {
             if (reg.all_of<CastState>(e)) {
                 auto &cs = reg.get<CastState>(e);
-                cs.State = CastState::Phase::None;
-                cs.ActiveSlot = -1;
-                cs.SkillId = 0;
+                detail::clear_cast_state(cs);
             }
             continue;
         }
@@ -227,16 +248,21 @@ inline void skill_cast_system(
                 mc *= stats(reg).BotManaCostMul;
                 cd *= stats(reg).BotSkillCooldownMul;
             }
-            mana.Cur -= mc;
-            mana.RegenTimer = stats(reg).ManaRegenDelay;
-            slot.CooldownTimer = cd;
-            slot.MaxCooldown = cd;
+            if (mana.Cur < mc) {
+                if (is_local) {
+                    cs.CastError = 2;
+                    cs.RejectTimer = 0.3f;
+                }
+                continue;
+            }
 
             cs.ActiveSlot = cast_slot;
             cs.SkillId = slot.SkillId;
             cs.TargetEntity = ctx.target_entity;
             cs.TargetNetworkId = ctx.target_network_id;
             cs.AimPos = ctx.aim_pos;
+            cs.PendingCooldown = cd;
+            cs.PendingManaCost = mc;
 
             if (sk->can_enter_casting(reg, e, cs, slot.Level)) {
                 cs.State = CastState::Phase::Casting;

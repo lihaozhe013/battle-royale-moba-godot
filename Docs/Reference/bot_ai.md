@@ -724,7 +724,7 @@ After `bot_ai_system` was split, code that previously wrote `Position2D` directl
 | Risk | Description | Mitigation |
 |---|---|---|
 | Bot skill decision 0.1s lag may miss window | Skill confirm waits for next `DecisionCooldown` | 0.1s is fast enough; can lower to 0.05s if needed |
-| Goal switch while in `CastState` | Engage → Flee mid-cast | `bot_input_injection` writes `CancelSkill = true` on goal switch; `skill_cast` honors refund policy |
+| Goal switch while in `CastState` | Engage → Flee mid-cast | Any cast cancellation discards pending resources; no refund path is needed |
 | Attack vs skill conflict | Bot may set `SkillConfirm = true` and `AttackTargetId` together | `bot_input_injection` makes them mutually exclusive: with skill → `AttackTargetId = -1`; without skill → `SkillSlot = -1` |
 | Bot killed during Channeling | Channeling uninterruptible | Designed high-risk / high-reward for R skill; `bot_skill_decider` filters `hp_ratio` |
 | HeroInputState overwritten by bot | Same bot's `HeroInputState` only written in one place | `bot_input_injection` is the only writer (does not go through `local_input_injection`); no race |

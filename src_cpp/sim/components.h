@@ -201,6 +201,8 @@ struct CastState {
     float Timer = 0.0f;
     float SubTimer = 0.0f;
     float RejectTimer = 0.0f; // cooldown after None to prevent re-entry
+    float PendingCooldown = 0.0f;
+    float PendingManaCost = 0.0f;
     Vec2 AimPos{0.0f};
     Vec2 DashStart{0.0f};
     Vec2 DashTarget{0.0f};

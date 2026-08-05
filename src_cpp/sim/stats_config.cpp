@@ -154,27 +154,6 @@ bool parse_number(
     return true;
 }
 
-bool parse_bool(
-    const Values &values,
-    const std::string &key,
-    bool &target,
-    std::string &error,
-    bool required = false
-) {
-    std::string value;
-    if (!get_value(values, key, value, error, required))
-        return error.empty();
-    if (value == "true" || value == "True")
-        target = true;
-    else if (value == "false" || value == "False")
-        target = false;
-    else {
-        error = "invalid boolean for stats.yaml key: " + key;
-        return false;
-    }
-    return true;
-}
-
 bool parse_string(
     const Values &values,
     const std::string &key,
@@ -244,9 +223,6 @@ bool parse_number_value(const std::string &value, T &target) {
     return false
 #define READ_INT(path, field)                                                  \
     if (!parse_number(values, path, config.field, error, true))                \
-    return false
-#define READ_BOOL(path, field)                                                 \
-    if (!parse_bool(values, path, config.field, error, true))                  \
     return false
 
 bool parse_skill(
@@ -504,8 +480,6 @@ bool load_stats_yaml(
     READ_FLOAT("skills.cdr_min", SkillCDRMin);
     READ_FLOAT("skills.cdr_per_level", SkillCDRPerLevel);
     READ_FLOAT("skills.damage_attack_ratio", SkillDamageAtkRatio);
-    READ_BOOL("skills.refund_on_cast_interrupt", RefundOnCastInterrupt);
-    READ_BOOL("skills.refund_on_chase_interrupt", RefundOnChaseInterrupt);
     READ_FLOAT("skills.bot_damage_multiplier", BotSkillDmgMul);
     READ_FLOAT("skills.bot_cooldown_multiplier", BotSkillCooldownMul);
     READ_FLOAT("skills.bot_mana_multiplier", BotManaCostMul);
@@ -622,6 +596,5 @@ bool load_stats_yaml(
 
 #undef READ_FLOAT
 #undef READ_INT
-#undef READ_BOOL
 
 } // namespace sim

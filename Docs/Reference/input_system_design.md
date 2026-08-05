@@ -519,9 +519,11 @@ struct CastState {
     int HitTargetId = -1;
     int CastError = 0;
     entt::entity TargetEntity = entt::null;   // targeted skill locked target
-    int TargetNetworkId = -1;
-    bool QuickCast = false;                   // marks cast source
-    float RejectTimer = 0.0f;
+      int TargetNetworkId = -1;
+      bool QuickCast = false;                   // marks cast source
+      float RejectTimer = 0.0f;
+      float PendingCooldown = 0.0f;
+      float PendingManaCost = 0.0f;
 };
 ```
 
@@ -533,9 +535,9 @@ Phase::None + received SKILL{confirm=true}
   ├─ CD > 0 → CastError=1, stay None
   ├─ Mana insufficient → CastError=2, stay None
   ├─ Stun → CastError=3, stay None
-  ├─ in range / no target needed → deduct mana, set CD → Phase::Casting (Timer = CastTime)
+  ├─ in range / no target needed → store pending mana/CD → Phase::Casting (Timer = CastTime)
   └─ out of range (MeleeSingle has target but dist > Range / non-targeted dist > Range with chase target)
-       → deduct mana, set CD → Phase::Chasing (Timer = 0, TargetEntity locked)
+       → store pending mana/CD → Phase::Chasing (Timer = 0, TargetEntity locked)
 
 Phase::None + received SKILL{confirm=false}
   → no Aiming (Sim no longer maintains normal cast "await left-click")
@@ -543,14 +545,14 @@ Phase::None + received SKILL{confirm=false}
   → state stays None
 
 Phase::Chasing + each tick (handled inside skill_cast; see §13 tick order)
-   ├─ target dead → refund + Phase::None + CastError=5
+   ├─ target dead → discard pending mana/CD + Phase::None + CastError=5
    ├─ target in range → Phase::Casting (Timer = CastTime)
-   ├─ CANCEL received → refund + Phase::None
+   ├─ CANCEL received → discard pending mana/CD + Phase::None
    ├─ movement: this tick #3 skill_cast sets Chasing; #4 pathfinding uses A* to TargetEntity / AimPos, writes MovePath; #5 movement follows (no 1-tick delay)
    └─ non-targeted: AimPos updated each tick by input.SkillAim (follows mouse)
 
-Phase::Casting + Timer <= 0 → trigger effect → per SkillKind transition to Channeling / Dashing / None
-Phase::Casting + CANCEL + not ChannelBurst → refund + None
+Phase::Casting + Timer <= 0 → commit mana/CD → trigger effect → per SkillKind transition to Channeling / Dashing / None
+Phase::Casting + CANCEL + not ChannelBurst → discard pending mana/CD + None
 Phase::Channeling → uninterruptible (CANCEL ignored); Timer ends → None
 Phase::Dashing → position advance; on arrival / wall hit → None
 ```
@@ -559,7 +561,7 @@ Phase::Dashing → position advance; on arrival / wall hit → None
 
 | Skill type | Chasing entry condition | Chasing movement | End condition |
 | --- | --- | --- | --- |
-| MeleeSingle (targeted) | confirm with target alive but `dist > Range` | A* to target | in Range → Casting; target dead → refund + None |
+| MeleeSingle (targeted) | confirm with target alive but `dist > Range` | A* to target | in Range → Casting; target dead → discard pending mana/CD + None |
 | AoEField (non-targeted, ground) | confirm with `dist(AimPos, pos) > Range` | A* to AimPos | in Range → Casting |
 | Dash (displacement) | no Chasing (dash is the displacement) | — | direct Casting → Dashing |
 | ChannelBurst (self) | no Chasing (no range concept) | — | direct Casting → Channeling |
@@ -582,13 +584,13 @@ No more "scattered flags":
 | Sim phase | CANCEL handling | Behavior |
 | --- | --- | --- |
 | None | ignored | — |
-| Aiming (Sim instant) | refund + None | barely happens |
-| Chasing | refund + None | **refund mana + CD** (player-initiated, no effect triggered) |
-| Casting | refund + None | **refund mana + CD** (cast-time interrupt; v2 default is forgiving) |
+| Aiming (Sim instant) | discard pending resources + None | barely happens |
+| Chasing | discard pending resources + None | no mana/CD was committed |
+| Casting | discard pending resources + None | no mana/CD was committed before cast completion |
 | Channeling | **ignored** | F channel uninterruptible |
 | Dashing | **ignored** | R displacement uninterruptible |
 
-**Refund policy (decided)**: Chasing / Casting cancel both **refund mana + CD** (v2 default; differs from v1's "no refund on cast-time interrupt" — v1 was punitive, v2 is forgiving per modern MOBA norms and prototype-stage friendliness). **Configurable knob**: `GameConfig::RefundOnCastInterrupt = true` / `RefundOnChaseInterrupt = true`; can later flip to false for penalty mode.
+**Resource policy**: mana and cooldown are committed only when the cast-time timer completes and the skill effect is triggered. Cancelling during Chasing or Casting simply discards the pending resource values; there is nothing to refund.
 
 ### 7.6 Why the input-layer mirror matters
 
@@ -669,7 +671,7 @@ View sees cast_state != None → CommandAxis = CastLocked
 | Out of range | confirm → Sim Chasing → A* follow | Same |
 | Targeted no target | **preserve SkillAiming**, show "No target" | **return to Idle**, show "No target" (no Aiming to preserve) |
 | Cancel (aiming phase) | right-click / S / ESC / H → return to Idle (MoveAxis unchanged) | No aiming phase |
-| Cancel (Chasing / Casting) | CANCEL → refund + None | Same |
+| Cancel (Chasing / Casting) | CANCEL → discard pending resources + None | Same |
 | Channeling / Dashing | uninterruptible | Same |
 
 **Design basis (per user)**: quick-cast semantics match normal-cast's left-click behavior (out-of-range uses A* chase; targeted no-target errors; preserves move). Normal cast's "preserve SkillAiming" is a quick-cast-exclusive extra behavior, since quick cast has no explicit Aiming state.
@@ -1074,14 +1076,14 @@ struct LocalInputSingleton {
 | File | Change |
 | --- | --- |
 | `components.h` | `CastState` + Chasing / TargetNetworkId / QuickCast; `AttackTarget` + Chasing; **new `SkillPoints`**; `SkillSlot` + `Level`; `SkillComponent.Slots[5]` → `Slots[4]`; `LocalInputSingleton` / `PlayerInputState` full refactor; remove Move / Aim / Fire / CastInterrupt; **new `Homing`** |
-| `game_config.h` | + `RefundOnCastInterrupt`(=true) / `RefundOnChaseInterrupt`(=true) / `SkillChaseRepathDeadzone` / `MaxSkillLevel`(=4) |
+| `game_config.h` | + `SkillChaseRepathDeadzone` / `MaxSkillLevel`(=4) |
 | `skill_defs.h` | **Deleted** (replaced by `SkillRegistry` + `ISkill`) |
 | `systems/local_input_injection.h` | Copy new command fields (including `SkillUpgradeSlot`) |
 | `systems/pathfinding.h` | + Chasing branch (A* to TargetEntity / AimPos); basic-attack chase is straight-line (set in movement) |
 | `systems/movement.h` | + Chasing phase movement (uses MovePath); + AttackTarget straight chase + sets `Chasing=true`; removed WASD; **sets `is_moving` at end** for snapshot |
 | `systems/attack_command.h` | Consumes `ATTACK` command; clear / ground / target_id |
 | `systems/attack_fire.h` | Preserved (homing arrow logic) |
-| `systems/skill_cast.h` | **Chasing branch added internally** (no 1-tick delay): None+confirm out of range → Chasing; Chasing+in range → Casting; Chasing+target dead → refund+None; Chasing+CANCEL → refund+None; `cast_slot<4`; Attack branch removed; refund reads `RefundOnCastInterrupt` / `RefundOnChaseInterrupt` |
+| `systems/skill_cast.h` | **Chasing branch added internally** (no 1-tick delay): None+confirm out of range → Chasing; Chasing+in range → Casting; Chasing+target dead → discard pending resources + None; Chasing+CANCEL → discard pending resources + None; commit mana/CD only after Casting completes; `cast_slot<4`; Attack branch removed |
 | `systems/skill_level.h` | **New**: consumes `SkillUpgradeSlot` → `SkillPoints.Available--` + `slot.Level++` |
 | `systems/wall_collision.h` | + Skip `AttackTarget.Chasing` players (wall-piercing chase) + skip Homing arrows; preserves existing Dashing skip |
 | `systems/combat.h` | + Homing only hits locked target |
@@ -1145,7 +1147,7 @@ struct LocalInputSingleton {
 | Step | File | Note |
 | --- | --- | --- |
 | C1 | `components.h` CastState | + Chasing / TargetNetworkId / QuickCast |
-| C2 | `skill_cast.h` | **Add Chasing branch internally** (no system split): None+confirm out of range → Chasing; Chasing+in range → Casting; Chasing+target dead → refund+None; Chasing+CANCEL → refund+None; refund reads `RefundOnCastInterrupt` / `RefundOnChaseInterrupt` (both = true) |
+| C2 | `skill_cast.h` | **Add Chasing branch internally** (no system split): None+confirm out of range → Chasing; Chasing+in range → Casting; Chasing+target dead → discard pending resources + None; Chasing+CANCEL → discard pending resources + None; commit mana/CD only after Casting completes |
 | C3 | `world.cpp` | **Tick order adjustment**: `skill_cast` moved before `pathfinding` (§13), same-tick A* + movement |
 | C4 | `pathfinding.h` | + Chasing branch A* (same-tick sees `skill_cast` Chasing) |
 | C5 | `movement.h` | + Chasing movement (uses MovePath); remove WASD; set `is_moving` at end |
@@ -1154,8 +1156,8 @@ struct LocalInputSingleton {
 **Acceptance (key: no 1-tick delay)**:
 
 - Q (MeleeSingle) confirm out of Range → **same tick** Sim enters Chasing + `pathfinding` A* + `movement` follow → subsequent ticks in Range → Casting → effect.
-- Pressing right-click during Chasing → refund (mana + CD) + None.
-- Target dies during Chasing → refund + None + CastError = 5.
+- Pressing right-click during Chasing → discard pending resources + None.
+- Target dies during Chasing → discard pending resources + None + CastError = 5.
 
 ### Phase D — Quick Cast / Normal Cast dual mode
 
@@ -1222,7 +1224,7 @@ struct LocalInputSingleton {
 
 | # | Item | Method |
 | --- | --- | --- |
-| 1 | Refund policy | test Casting no-refund vs refund; pick feel |
+| 1 | Resource timing | test that Casting cancellation leaves mana and cooldown unchanged |
 | 2 | Chasing repath deadzone | prevent target jitter triggering per-tick repath |
 | 3 | A-key hold vs press | press-triggered vs hold behavior |
 | 4 | ESC behavior | mid-cast ESC = cancel; not-casting ESC = settings panel |
@@ -1269,7 +1271,7 @@ struct LocalInputSingleton {
 - Not casting / not aiming: S = Stop (clear MovePath, stop).
 - SkillAiming: S = Cancel skill (return to Idle).
 - AttackAiming: S = Cancel attack (return to Idle).
-- CastLocked (Chasing / Casting): S = Cancel skill (refund + None).
+- CastLocked (Chasing / Casting): S = Cancel skill (discard pending resources + None).
 - CastLocked (Channeling / Dashing): S ignored.
 - **Layer 3 branches by CommandAxis to decide S's semantics**; not decided downstream in Sim.
 
@@ -1281,16 +1283,16 @@ struct LocalInputSingleton {
 - Idle / Moving: ESC = open / close settings panel (`settings_panel._unhandled_input` takes over).
 - **Priority**: input_event_queue queues first, Layer 3 consumes ESC; if CommandAxis != Idle → emits CANCEL, **accepts event** to prevent settings_panel from receiving it; if CommandAxis == Idle → does not consume, event continues to settings_panel.
 
-### 17.7 Refund policy
+### 17.7 Resource timing policy
 
 | Phase | Default | Note |
 | --- | --- | --- |
-| Chasing cancel | refund mana + CD | Player-initiated, no effect triggered |
-| Casting cancel | **refund mana + CD** (v2 default) | v1 was no-refund (punitive); configurable |
+| Chasing cancel | no mana/CD change | No effect was triggered |
+| Casting cancel | **no mana/CD change** | Resource commit is deferred until cast completion |
 | Channeling cancel | uninterruptible | — |
 | Dashing cancel | uninterruptible | — |
 | No target (MeleeSingle) | no mana / no CD | Validation failed, never entered Chasing / Casting |
-| Target dead during Chasing | refund mana + CD | Not the player's fault |
+| Target dead during Chasing | no mana/CD change | Not the player's fault; no effect was triggered |
 
 ### 17.8 Homing arrows and walls
 
@@ -1349,6 +1351,6 @@ Key improvements of this design:
 7. **State mirror**: View's `CastLocked` is fully determined by snapshot; cast interruption is a state transition, not a flag.
 8. **WASD mode completely removed**: single MOBA mode; docs and code consistent.
 9. **Skill upgrade link filled**: new `SkillPoints` + `SkillSlot::Level` + `skill_level.h` + `SKILL_UPGRADE` command; fixes the v1 missing input path + `SimSkillSlotSnap.level` semantic bug.
-10. **Forgiving refund**: Chasing / Casting cancel both refund mana + CD (v2 default; configurable).
+10. **Deferred cast resources**: mana and cooldown are committed only when the cast-time timer completes; Chasing/Casting cancellation leaves both unchanged.
 
 The original implementation followed phases A → F + E2 in order. The biggest risk was in phase C (Sim-side Chasing tick order — `skill_cast` must precede `pathfinding` to avoid the 1-tick delay) and phase D (preserve SkillAiming after no-target error). Each phase was validated independently before merging.

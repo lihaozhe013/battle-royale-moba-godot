@@ -175,6 +175,8 @@ struct CastState {
     float Timer = 0.0f;       // current phase timer
     float SubTimer = 0.0f;    // sub-phase (e.g. channel ticks)
     float RejectTimer = 0.0f; // post-None cooldown to prevent re-entry
+    float PendingCooldown = 0.0f;
+    float PendingManaCost = 0.0f;
     Vec2 AimPos{0.0f};
     Vec2 DashStart{0.0f};
     Vec2 DashTarget{0.0f};
@@ -245,7 +247,7 @@ All systems are `inline void` free functions in `namespace sim`. Signature conve
 | 5 | `bot_skill_decider_system` | `bot_skill_decider.h` | `BotCombatState`, `SkillComponent`, `Mana`, `BotAIState` | `BotCastRequest` | v4: scoring function picks best slot; sets `Score` and `Valid`. |
 | 6 | `bot_input_injection_system` | `bot_input_injection.h` | `BotAIState`, `BotCastRequest` | `HeroInputState` (for AI heroes) | Translates AI state into `MoveIssue`, `SkillSlot`/`SkillConfirm`, `AttackTargetId`. |
 | 7 | `attack_command_system` | `attack_command.h` | `HeroInputState.AttackTargetId/Ground/Clear` | `AttackTarget` | Resolve target NetworkId → entity; clear lock on `AttackClear`. |
-| 8 | `skill_cast_system` | `skill_cast.h` | `HeroInputState.SkillSlot/Confirm`, `CastState`, `SkillComponent`, `Mana`, `StatusEffect` | `CastState`, `SkillSlot.CooldownTimer`, `Mana` | Dispatcher into `ISkill` lifecycle (`validate_cast` → `on_cast_start` → `Chasing`/`Casting` → `on_cast_complete`); handles Cancel/refund. |
+| 8 | `skill_cast_system` | `skill_cast.h` | `HeroInputState.SkillSlot/Confirm`, `CastState`, `SkillComponent`, `Mana`, `StatusEffect` | `CastState`, `SkillSlot.CooldownTimer`, `Mana` | Dispatcher into `ISkill` lifecycle (`validate_cast` → `on_cast_start` → `Chasing`/`Casting` → `on_cast_complete`); commits mana/cooldown only after cast completion and discards pending resources on cancellation. |
 | 9 | `pathfinding_system` | `pathfinding.h` | `MovePath`, `CastState` (Chasing phase), `AttackTarget`, `HeroInputState.MoveTarget` | `MovePath` | A* via `NavGrid`. Priority: Chasing > AttackTarget chase > right-click path. |
 | 10 | `movement_system` | `movement.h` | `MovePath`, `CastState`, `StatusEffect`, `MoveSpeed` | `Position2D`, `FacingAngle` | Apply MovePath / AttackTarget.Chasing / CastState.Dashing motion; set `AttackTarget.Chasing` flag; gate on `StatusEffect` + `CastState`. |
 | 11 | `attack_fire_system` | `attack_fire.h` | `AttackTarget`, `CombatStats`, `CastState` | `CommandBuffer` (new arrow) | Cooldown check via `LastFireTime`; spawns Homing arrow if target in `AttackRange`. |
@@ -512,7 +514,6 @@ Key sections (illustrative; not exhaustive):
 | `bot` | `count`, `radius`, `speed`, `hp`, `base_attack`, `base_attack_speed`, `respawn_time`, `vision_range`, `max_level`, `boss_roll`, `elite_roll`, `mana`, `mana_regen` | `_spawn_bot` |
 | `arrow` | `speed`, `lifetime`, `radius` | `arrow_spawner` + `arrow_movement` |
 | `progression` | `atk_per_kill`, `asp_per_kill`, `asp_max`, `kill_xp_base`, `kill_xp_high_bonus`, `xp_per_level_base`, `hp_per_level`, `speed_per_level`, `heal_fraction` | `progression_system` + `xp_helper.h` |
-| `skill.refund` | `on_chase_interrupt`, `on_cast_interrupt` (booleans) | `skill_cast_system` |
 | `pickup` | `xp_value`, `heal_value`, `small_heal_value`, respawn times per type, counts per type, radius | `pickup_system` |
 | `bot_roles` | per-role level range / weight | `bot_role_rules` |
 | `heroes.<name>` | `id`, `name`, `skills[4]`, base stats, per-level deltas, `prefab_id` | `register_builtin_heroes` |

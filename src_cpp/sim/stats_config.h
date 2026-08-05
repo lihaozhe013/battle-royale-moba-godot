@@ -166,8 +166,6 @@ struct StatsConfig {
     float SkillCDRPerLevel = 0.05f;
     float SkillDamageAtkRatio = 0.9f;
 
-    bool RefundOnCastInterrupt = true;
-    bool RefundOnChaseInterrupt = true;
     float BotSkillDmgMul = 0.07f;
     float BotSkillCooldownMul = 1.3f;
     float BotManaCostMul = 0.6f;
