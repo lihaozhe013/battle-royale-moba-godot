@@ -28,6 +28,14 @@ func is_cast_mode() -> bool:
 	return command_axis in [CommandAxis.SKILL_AIMING, CommandAxis.CAST_LOCKED]
 
 
+func is_targeting_mode() -> bool:
+	return command_axis in [
+		CommandAxis.SKILL_AIMING,
+		CommandAxis.ATTACK_AIMING,
+		CommandAxis.CAST_LOCKED,
+	]
+
+
 func is_idle() -> bool:
 	return command_axis == CommandAxis.IDLE
 

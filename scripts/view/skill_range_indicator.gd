@@ -37,16 +37,16 @@ func initialize() -> void:
 	add_child(_ring)
 
 
-func sync_cast_range(
-	caster_position: Vector2, cast_range: float, cast_mode: bool
+func sync_range(
+	center_position: Vector2, range_value: float, targeting_mode: bool
 ) -> void:
 	initialize()
 
-	var should_show := cast_mode and cast_range > 0.0
+	var should_show := targeting_mode and range_value > 0.0
 	_ring.visible = should_show
 	if not should_show:
 		return
 
-	_ring.position = Vector3(caster_position.x, RING_Y, caster_position.y)
-	var scale := cast_range / RING_OUTER_RADIUS
+	_ring.position = Vector3(center_position.x, RING_Y, center_position.y)
+	var scale := range_value / RING_OUTER_RADIUS
 	_ring.scale = Vector3(scale, 1.0, scale)

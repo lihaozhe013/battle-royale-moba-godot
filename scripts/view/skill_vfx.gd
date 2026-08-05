@@ -47,10 +47,10 @@ func sync(snap: SimSnapshot, _player_view = null, input_fsm = null) -> void:
 	if not p:
 		_clear_dash_line()
 		_clear_aoes()
-		_range_indicator.sync_cast_range(Vector2.ZERO, 0.0, false)
+		_range_indicator.sync_range(Vector2.ZERO, 0.0, false)
 		return
 
-	_sync_cast_range(p, input_fsm)
+	_sync_targeting_range(p, input_fsm)
 
 	if p.cast_state == 4:
 		_draw_dash_path(p.dash_sx, p.dash_sy, p.x, p.y)
@@ -60,11 +60,19 @@ func sync(snap: SimSnapshot, _player_view = null, input_fsm = null) -> void:
 	_sync_aoes(snap.aoes)
 
 
-func _sync_cast_range(p, input_fsm) -> void:
+func _sync_targeting_range(p, input_fsm) -> void:
 	var cast_mode := false
 	var active_slot := -1
-	if input_fsm and input_fsm.has_method("is_cast_mode"):
-		cast_mode = input_fsm.is_cast_mode()
+	if input_fsm and input_fsm.has_method("is_targeting_mode"):
+		cast_mode = input_fsm.is_targeting_mode()
+		if (
+			input_fsm.command_axis
+			== InputStateMachine.CommandAxis.ATTACK_AIMING
+		):
+			_range_indicator.sync_range(
+				Vector2(p.x, p.y), p.attack_range, cast_mode
+			)
+			return
 		if input_fsm.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING:
 			active_slot = input_fsm.active_skill_slot
 		elif input_fsm.command_axis == InputStateMachine.CommandAxis.CAST_LOCKED:
@@ -76,7 +84,7 @@ func _sync_cast_range(p, input_fsm) -> void:
 	var cast_range := 0.0
 	if active_slot >= 0 and active_slot < p.skills.size():
 		cast_range = p.skills[active_slot].cast_range
-	_range_indicator.sync_cast_range(
+	_range_indicator.sync_range(
 		Vector2(p.x, p.y), cast_range, cast_mode
 	)
 

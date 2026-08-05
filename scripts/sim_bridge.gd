@@ -268,7 +268,7 @@ func _apply_command(c: Command) -> void:
 
 func _update_cursor_mode() -> void:
 	if input_state_machine:
-		_set_cursor_mode(input_state_machine.is_cast_mode())
+		_set_cursor_mode(input_state_machine.is_targeting_mode())
 
 
 func _set_cursor_mode(cast_mode: bool) -> void:

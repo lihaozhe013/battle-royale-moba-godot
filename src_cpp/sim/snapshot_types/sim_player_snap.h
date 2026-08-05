@@ -14,6 +14,7 @@ class SimPlayerSnap : public godot::RefCounted {
     int hp = 0, max_hp = 0;
     float mana = 0, max_mana = 0;
     float atk = 0, asp = 0, speed = 0;
+    float attack_range = 0.0f;
     int kills = 0, level = 0, xp = 0, xp_needed = 0;
     int cast_state = 0;
     int cast_slot = -1;
@@ -52,6 +53,8 @@ class SimPlayerSnap : public godot::RefCounted {
     void set_asp(float v) { asp = v; }
     float get_speed() const { return speed; }
     void set_speed(float v) { speed = v; }
+    float get_attack_range() const { return attack_range; }
+    void set_attack_range(float v) { attack_range = v; }
     int get_kills() const { return kills; }
     void set_kills(int v) { kills = v; }
     int get_level() const { return level; }

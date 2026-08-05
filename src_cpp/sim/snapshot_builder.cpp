@@ -90,6 +90,7 @@ void SnapshotBuilder::_build_players(
         s->xp = view.get<Experience>(e).Cur;
         s->xp_needed = view.get<Experience>(e).Needed;
         s->speed = view.get<MoveSpeed>(e).Value;
+        s->attack_range = stats(reg).PlayerAttackRange;
         if (reg.all_of<SkillComponent>(e)) {
             _build_skills(
                 s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
@@ -312,6 +313,7 @@ void SnapshotBuilder::_build_heroes(
         s->xp = view.get<Experience>(e).Cur;
         s->xp_needed = view.get<Experience>(e).Needed;
         s->speed = view.get<MoveSpeed>(e).Value;
+        s->attack_range = stats(reg).PlayerAttackRange;
         s->is_local = view.get<HeroTag>(e).IsLocal;
         s->hero_def_id =
             reg.all_of<HeroDefId>(e) ? reg.get<HeroDefId>(e).Value : 0;

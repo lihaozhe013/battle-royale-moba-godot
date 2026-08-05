@@ -49,6 +49,7 @@ void SimPlayerSnap::_bind_methods() {
     BIND(SimPlayerSnap, atk);
     BIND(SimPlayerSnap, asp);
     BIND(SimPlayerSnap, speed);
+    BIND(SimPlayerSnap, attack_range);
     BIND(SimPlayerSnap, kills);
     BIND(SimPlayerSnap, level);
     BIND(SimPlayerSnap, xp);
@@ -84,6 +85,7 @@ void SimPlayerSnap::_bind_methods() {
     PROP(SimPlayerSnap, Variant::FLOAT, atk);
     PROP(SimPlayerSnap, Variant::FLOAT, asp);
     PROP(SimPlayerSnap, Variant::FLOAT, speed);
+    PROP(SimPlayerSnap, Variant::FLOAT, attack_range);
     PROP(SimPlayerSnap, Variant::INT, kills);
     PROP(SimPlayerSnap, Variant::INT, level);
     PROP(SimPlayerSnap, Variant::INT, xp);
@@ -129,6 +131,7 @@ void SimHeroSnap::_bind_methods() {
     BIND(SimHeroSnap, atk);
     BIND(SimHeroSnap, asp);
     BIND(SimHeroSnap, speed);
+    BIND(SimHeroSnap, attack_range);
     BIND(SimHeroSnap, kills);
     BIND(SimHeroSnap, level);
     BIND(SimHeroSnap, xp);
@@ -166,6 +169,7 @@ void SimHeroSnap::_bind_methods() {
     PROP(SimHeroSnap, Variant::FLOAT, atk);
     PROP(SimHeroSnap, Variant::FLOAT, asp);
     PROP(SimHeroSnap, Variant::FLOAT, speed);
+    PROP(SimHeroSnap, Variant::FLOAT, attack_range);
     PROP(SimHeroSnap, Variant::INT, kills);
     PROP(SimHeroSnap, Variant::INT, level);
     PROP(SimHeroSnap, Variant::INT, xp);

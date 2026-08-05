@@ -146,7 +146,7 @@ Every render frame with a valid local snapshot:
 2. Call `BottomHUD.sync_player(player)`.
 3. Call `BottomHUD.sync_skills(player.skills)`.
 4. Show or hide cast progress through `CastBar.sync_cast()` / `CastBar.hide_cast()`.
-5. Pass the input cast mode to `SkillVFX` so the shared cast-range indicator can synchronize.
+5. Pass the input targeting mode to `SkillVFX` so the shared cast/attack range indicator can synchronize.
 6. Synchronize `SkillVFX` with the current snapshot and local entity view.
 
 These updates are presentation-only and do not modify simulation state.
