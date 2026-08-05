@@ -666,7 +666,7 @@ View sees cast_state != None → CommandAxis = CastLocked
 | Behavior | Normal cast | Quick cast |
 | --- | --- | --- |
 | Trigger | press → aiming → left-click confirm | press (direct confirm) |
-| Indicator (cast cursor) | Yes (during SkillAiming) | Yes (during CastLocked) |
+| Indicator (cast cursor + range circle when `cast_range > 0`) | Yes (during SkillAiming) | Yes (during CastLocked) |
 | Real-time aim follow | aim updates during aiming | Only at press instant |
 | Out of range | confirm → Sim Chasing → A* follow | Same |
 | Targeted no target | **preserve SkillAiming**, show "No target" | **return to Idle**, show "No target" (no Aiming to preserve) |
@@ -1068,7 +1068,7 @@ struct LocalInputSingleton {
 | `scripts/autoload/game_settings.gd` | Remove `move_mode` / `MoveMode` / `mode_changed` (deprecated); keep camera / fullscreen config |
 | `scripts/ui/settings_panel.gd/.tscn` | Remove mode switch OptionButton; add per-slot cast mode preference |
 | `scripts/ui/bottom_hud.gd` | Remove per-mode `KEY_HINTS` switch; fixed QWER + A |
-| `scripts/view/skill_vfx.gd` | Dash path and AoE visuals; normal-cast aiming uses the cast cursor |
+| `scripts/view/skill_vfx.gd` | Shared cast-range indicator, dash path, and AoE visuals; normal-cast aiming uses the cast cursor |
 | `resources/ui/cursors/*.png` | Normal and cast-mode mouse cursor textures |
 | `scripts/view/entity_view.gd` | `attack_targeted` red indicator (already present; preserved) |
 

@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://cry0jayrxwnon"]
 
-[ext_resource type="Script" uid="uid://bwlalitrgnqls" path="res://scripts/sim_bridge.gd" id="1"]
-[ext_resource type="Script" uid="uid://b3thijxvorrs1" path="res://scripts/view/camera_controller.gd" id="3"]
-[ext_resource type="Script" uid="uid://bxqepavj2fq3s" path="res://scripts/view/entity_manager.gd" id="4"]
-[ext_resource type="Script" path="res://scripts/view/world_bootstrap.gd" id="5_world"]
-[ext_resource type="Script" path="res://scripts/ui/ui_root.gd" id="6_ui"]
-[ext_resource type="Script" path="res://scripts/view/move_target_vfx.gd" id="10_vfx"]
+[ext_resource type="Script" uid="uid://df80gsa7bpecq" path="res://scripts/sim_bridge.gd" id="1"]
+[ext_resource type="Script" uid="uid://brnrujh7vsgny" path="res://scripts/view/camera_controller.gd" id="3"]
+[ext_resource type="Script" uid="uid://dt2wkai6x8lsc" path="res://scripts/view/entity_manager.gd" id="4"]
+[ext_resource type="Script" uid="uid://be6mkjhx82py0" path="res://scripts/view/world_bootstrap.gd" id="5_world"]
+[ext_resource type="Script" uid="uid://cbg6shg3w4jol" path="res://scripts/ui/ui_root.gd" id="6_ui"]
+[ext_resource type="Script" uid="uid://cl5dvfwyjhq88" path="res://scripts/view/move_target_vfx.gd" id="10_vfx"]
 
 [node name="Main" type="Node3D" unique_id=781733198]
 script = ExtResource("1")

@@ -5,7 +5,7 @@
 - Godot 4.7 top-down Battle Royale MOBA.
 - C++ GDExtension simulation runs at 30 Hz and has no Godot dependency inside `sim/` systems.
 - GDScript view and input code run at the render rate, normally 60 Hz.
-- `SimSnapshot` is the only Sim-to-View data channel.
+- `SimSnapshot` is the only Sim-to-View data channel; skill slot snapshots include the authoritative current-level `cast_range`.
 - Input uses the MOBA command flow: ground right-click movement, Q/W/E/R skills, and A attack commands.
 - Native builds use Meson with `clang++` discovery from `PATH`; game sources use C++20 and no `build_env.yaml` file is required.
 
@@ -22,6 +22,8 @@ Main / sim_bridge.gd
 ```
 
 `sim_bridge.gd` creates the input helper nodes (`InputEventQueue`, `InputStateMachine`, `CommandBuffer`, `CommandBuilder`, and `CastSettings`) at runtime. They remain outside `UIRoot`.
+
+`SkillVFX` owns the shared cast-range indicator alongside dash-path and AoE presentation.
 
 ## UI Bootstrap Contract
 

@@ -20,12 +20,14 @@ void SimSkillSlotSnap::_bind_methods() {
     BIND(SimSkillSlotSnap, cooldown);
     BIND(SimSkillSlotSnap, max_cooldown);
     BIND(SimSkillSlotSnap, mana_cost);
+    BIND(SimSkillSlotSnap, cast_range);
 
     PROP(SimSkillSlotSnap, Variant::INT, skill_id);
     PROP(SimSkillSlotSnap, Variant::INT, level);
     PROP(SimSkillSlotSnap, Variant::FLOAT, cooldown);
     PROP(SimSkillSlotSnap, Variant::FLOAT, max_cooldown);
     PROP(SimSkillSlotSnap, Variant::FLOAT, mana_cost);
+    PROP(SimSkillSlotSnap, Variant::FLOAT, cast_range);
 }
 
 void SimEventSnap::_bind_methods() {

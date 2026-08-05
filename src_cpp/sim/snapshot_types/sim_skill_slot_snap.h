@@ -12,6 +12,7 @@ class SimSkillSlotSnap : public godot::RefCounted {
     float cooldown = 0.0f;
     float max_cooldown = 0.0f;
     float mana_cost = 0.0f;
+    float cast_range = 0.0f;
 
     int get_skill_id() const { return skill_id; }
     void set_skill_id(int v) { skill_id = v; }
@@ -23,6 +24,8 @@ class SimSkillSlotSnap : public godot::RefCounted {
     void set_max_cooldown(float v) { max_cooldown = v; }
     float get_mana_cost() const { return mana_cost; }
     void set_mana_cost(float v) { mana_cost = v; }
+    float get_cast_range() const { return cast_range; }
+    void set_cast_range(float v) { cast_range = v; }
 
   protected:
     static void _bind_methods();

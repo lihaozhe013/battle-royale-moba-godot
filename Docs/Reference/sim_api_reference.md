@@ -128,6 +128,7 @@ All components live in `src_cpp/sim/components.h`. Components with `= default` i
 | `HeroDefId` | `int Value` | Lookup in `HeroRegistry::instance().get(id)`. |
 | `SkillComponent` | `SkillSlot Slots[4]` | Q=0, W=1, E=2, R=3. SkillIds assigned at spawn from HeroDef. |
 | `SkillSlot` | `int SkillId, Level; float CooldownTimer, MaxCooldown, ManaCost` | Per-slot state. |
+| `SimSkillSlotSnap` | `skill_id, level, cooldown, max_cooldown, mana_cost, cast_range` | View snapshot of a skill slot; `cast_range` is calculated by `ISkill::range(level)`. |
 | `SkillPoints` | `int Available` | Incremented on level-up by `progression_system`. |
 | `CastState` | (see §2.7) | Per-entity cast state. |
 

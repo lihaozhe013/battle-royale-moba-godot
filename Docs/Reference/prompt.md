@@ -594,7 +594,7 @@ View layer:
 P0 — core loop (must play):
   1. Mana system                                       ✅ done
   2. Skill system framework (1 skillshot end-to-end)   ✅ done
-  3. Cast indicator (cast cursor + AoE)                ✅ done
+  3. Cast indicator (cast cursor + range circle + AoE)  ✅ done
   4. Skill bar UI                                      ✅ done
   5. Player death + elimination                        ✅ done
   6. Zone shrink (2 phases)                            ❌ not started

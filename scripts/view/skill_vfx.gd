@@ -1,19 +1,38 @@
 extends Node3D
 
+const RANGE_INDICATOR_SCRIPT = preload(
+	"res://scripts/view/skill_range_indicator.gd"
+)
+
 # AoE 灰圈池
 var _aoe_pool: Array[MeshInstance3D]
 
 # Dash 路径线
 var _dash_mesh: MeshInstance3D
 var _dash_material: Material
+var _range_indicator: Node3D
+var _initialized := false
 
 func _ready() -> void:
+	_initialize()
+
+
+func _initialize() -> void:
+	if _initialized:
+		return
+	_initialized = true
 	_dash_material = StandardMaterial3D.new()
 	_dash_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_dash_material.albedo_color = Color(0.3, 0.5, 1.0, 0.5)
+	_range_indicator = Node3D.new()
+	_range_indicator.name = "SkillRangeIndicator"
+	_range_indicator.set_script(RANGE_INDICATOR_SCRIPT)
+	add_child(_range_indicator)
+	_range_indicator.initialize()
 
 
-func sync(snap: SimSnapshot, _player_view = null) -> void:
+func sync(snap: SimSnapshot, _player_view = null, input_fsm = null) -> void:
+	_initialize()
 	var p = null
 
 	if snap.heroes.size() > 0:
@@ -28,7 +47,10 @@ func sync(snap: SimSnapshot, _player_view = null) -> void:
 	if not p:
 		_clear_dash_line()
 		_clear_aoes()
+		_range_indicator.sync_cast_range(Vector2.ZERO, 0.0, false)
 		return
+
+	_sync_cast_range(p, input_fsm)
 
 	if p.cast_state == 4:
 		_draw_dash_path(p.dash_sx, p.dash_sy, p.x, p.y)
@@ -36,6 +58,27 @@ func sync(snap: SimSnapshot, _player_view = null) -> void:
 		_clear_dash_line()
 
 	_sync_aoes(snap.aoes)
+
+
+func _sync_cast_range(p, input_fsm) -> void:
+	var cast_mode := false
+	var active_slot := -1
+	if input_fsm and input_fsm.has_method("is_cast_mode"):
+		cast_mode = input_fsm.is_cast_mode()
+		if input_fsm.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING:
+			active_slot = input_fsm.active_skill_slot
+		elif input_fsm.command_axis == InputStateMachine.CommandAxis.CAST_LOCKED:
+			active_slot = p.cast_slot
+	else:
+		cast_mode = p.cast_state != 0
+		active_slot = p.cast_slot
+
+	var cast_range := 0.0
+	if active_slot >= 0 and active_slot < p.skills.size():
+		cast_range = p.skills[active_slot].cast_range
+	_range_indicator.sync_cast_range(
+		Vector2(p.x, p.y), cast_range, cast_mode
+	)
 
 
 func _draw_dash_path(sx: float, sy: float, cx: float, cy: float) -> void:

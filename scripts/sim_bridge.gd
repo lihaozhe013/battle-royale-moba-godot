@@ -371,7 +371,7 @@ func _process(_delta: float) -> void:
 			else:
 				ui_root.cast_bar.hide_cast()
 			var ev = entity_manager.get_entity(p.id)
-			_skill_vfx.sync(last_snapshot, ev)
+			_skill_vfx.sync(last_snapshot, ev, input_state_machine)
 
 			if p.cast_slot != _log_prev_cast_slot:
 				print(
@@ -416,7 +416,7 @@ func _process(_delta: float) -> void:
 				else:
 					ui_root.cast_bar.hide_cast()
 				var ev = entity_manager.get_entity(p.id)
-				_skill_vfx.sync(last_snapshot, ev)
+				_skill_vfx.sync(last_snapshot, ev, input_state_machine)
 
 				if p.cast_slot != _log_prev_cast_slot:
 					print(

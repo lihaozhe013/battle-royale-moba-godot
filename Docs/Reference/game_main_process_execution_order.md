@@ -146,7 +146,7 @@ Every render frame with a valid local snapshot:
 2. Call `BottomHUD.sync_player(player)`.
 3. Call `BottomHUD.sync_skills(player.skills)`.
 4. Show or hide cast progress through `CastBar.sync_cast()` / `CastBar.hide_cast()`.
-5. Set skill-aiming state on `SkillVFX`.
+5. Pass the input cast mode to `SkillVFX` so the shared cast-range indicator can synchronize.
 6. Synchronize `SkillVFX` with the current snapshot and local entity view.
 
 These updates are presentation-only and do not modify simulation state.
@@ -192,4 +192,3 @@ During implementation and review, verify:
 - Snapshot sequence gating prevents duplicate entity and health-bar synchronization.
 - UI callbacks and settings events still reach the same handlers.
 - No scene-authored UI, light, environment, or ground node is reintroduced after the code migration.
-

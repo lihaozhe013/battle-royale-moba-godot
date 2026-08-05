@@ -37,8 +37,10 @@ _build_skill_slot(const SkillSlot &slot, int char_level) {
     const ISkill *sk = SkillRegistry::instance().get(slot.SkillId);
     if (sk) {
         s->mana_cost = sk->mana_cost(slot.Level);
+        s->cast_range = sk->range(slot.Level);
     } else {
         s->mana_cost = 0.0f;
+        s->cast_range = 0.0f;
     }
     return s;
 }

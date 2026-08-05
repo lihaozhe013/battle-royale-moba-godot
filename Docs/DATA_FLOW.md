@@ -400,7 +400,7 @@ flowchart LR
 | `mana, max_mana` | Mana | 法力 |
 | `atk, asp, speed` | CombatStats / MoveSpeed | 属性 |
 | `kills, level, xp, xp_needed` | Kills / Level / Experience | 成长 |
-| `skills[]` | SkillComponent.Slots | 4 槽（skill_id, level, cooldown, max_cooldown, mana_cost） |
+| `skills[]` | SkillComponent.Slots | Four slots (`skill_id`, `level`, `cooldown`, `max_cooldown`, `mana_cost`, `cast_range`) |
 | `cast_state, cast_slot, cast_progress` | CastState | 施法阶段 / 槽 / 进度 |
 | `cast_aim_x/y, dash_sx/sy, dash_tx/ty` | CastState.AimPos / Dash | VFX |
 | `hit_target_id` | CastState.HitTargetId | C 命中 VFX |
@@ -455,7 +455,7 @@ flowchart TB
 | `BottomHUD` | `scripts/ui/bottom_hud.gd` | 等级/XP/技能槽/物品栏/技能点提示 |
 | `CastBarLayer` | `scenes/ui/cast_bar.tscn` | `cast_state >= Casting(3)` 时显示进度条 |
 | `CastErrorLayer` | `scenes/ui/cast_error_layer.tscn` | `cast_error` 变化时弹红字 |
-| `SkillVFX` | `scripts/view/skill_vfx.gd` | dash path and AoE circles |
+| `SkillVFX` | `scripts/view/skill_vfx.gd` | cast-range indicator, dash path, and AoE circles |
 | `CameraController` | `scripts/view/camera_controller.gd` | 跟随 + 锁/自由 + 像素精准拖屏 + 边缘推屏 |
 
 **反向同步（snapshot → FSM）**（`sim_bridge._process`）：
