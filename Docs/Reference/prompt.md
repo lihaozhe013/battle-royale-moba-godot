@@ -248,7 +248,7 @@ scripts/
 │   ├── entity_manager.gd   — 3D entity pool + LERP
 │   ├── entity_view.gd      — single 3D entity
 │   ├── camera_controller.gd — follow / free / edge-pan / smooth-pan
-│   ├── skill_vfx.gd        — green line, dash path, AoE
+│   ├── skill_vfx.gd        — dash path, AoE
 │   ├── skill_vfx_attachment.gd
 │   └── move_target_vfx.gd
 └── ui/
@@ -339,7 +339,7 @@ rotation = Vector3(x, y, z)
 | Level / XP / progression | ✅ | Kill XP, per-level stat growth, `SkillPoints` for skill upgrade |
 | Skill system (Q/W/E/R + cast error) | ✅ | 4 skills via `ISkill` interface; quick/normal cast; aim VFX; cast bar |
 | 4-skill basic framework | ✅ | Q/W/E/R; per-slot level up via Ctrl+Q/W/E/R |
-| Cast indicator (green line / dash path / AoE) | ✅ | `skill_vfx.gd` + `skill_vfx_attachment.gd` |
+| Cast indicator (cursor / dash path / AoE) | ✅ | `sim_bridge.gd` + `skill_vfx.gd` + `skill_vfx_attachment.gd` |
 | Basic attack indicator (lock + chase) | ✅ | Red lock indicator on `attack_target_id` |
 | Cast bar (Casting / Channeling) | ✅ | `cast_bar.tscn`; hidden when not casting |
 | Cast error toast | ✅ | "No target", "On Cooldown", etc. |
@@ -371,7 +371,7 @@ rotation = Vector3(x, y, z)
 | --- | --- | --- | --- |
 | P0-1 | Mana system | ✅ | `sim_api_reference.md §2.3` |
 | P0-2 | Skill system (Q/W/E/R + level-up) | ✅ | `hero_skill_architecture.md` |
-| P0-3 | Cast indicator (green line / AoE / dash path) | ✅ | `skill_vfx.gd` |
+| P0-3 | Cast indicator (cursor / AoE / dash path) | ✅ | `sim_bridge.gd` + `skill_vfx.gd` |
 | P0-4 | Skill bar HUD | ✅ | `bottom_hud.gd` |
 | P0-5 | Player death + game over | ✅ | `world.cpp` `Dead` check; `sim_bridge` pauses |
 | P0-6 | Zone shrink | ❌ | planned (§8.4) |
@@ -594,7 +594,7 @@ View layer:
 P0 — core loop (must play):
   1. Mana system                                       ✅ done
   2. Skill system framework (1 skillshot end-to-end)   ✅ done
-  3. Cast indicator (green line + AoE)                 ✅ done
+  3. Cast indicator (cast cursor + AoE)                ✅ done
   4. Skill bar UI                                      ✅ done
   5. Player death + elimination                        ✅ done
   6. Zone shrink (2 phases)                            ❌ not started

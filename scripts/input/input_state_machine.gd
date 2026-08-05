@@ -24,6 +24,10 @@ func is_in_cast_lock() -> bool:
 	return command_axis == CommandAxis.CAST_LOCKED
 
 
+func is_cast_mode() -> bool:
+	return command_axis in [CommandAxis.SKILL_AIMING, CommandAxis.CAST_LOCKED]
+
+
 func is_idle() -> bool:
 	return command_axis == CommandAxis.IDLE
 

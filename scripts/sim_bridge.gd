@@ -21,6 +21,15 @@ var _skill_vfx: Node3D
 
 const HOVER_RADIUS := 2.0
 const TICK_RATE := 1.0 / 30.0
+const NORMAL_CURSOR_TEXTURE: Texture2D = preload(
+	"res://resources/ui/cursors/normal_cursor.png"
+)
+const CAST_CURSOR_TEXTURE: Texture2D = preload(
+	"res://resources/ui/cursors/cast_cursor.png"
+)
+const CURSOR_HOTSPOT := Vector2(2.0, 2.0)
+var _cursor_cast_mode := false
+var _cursor_initialized := false
 
 # Temp adapter state (translates Command → new Sim API)
 var _tmp_move_target := Vector2.ZERO
@@ -41,6 +50,7 @@ var _tmp_seq := 0
 
 
 func _ready() -> void:
+	_set_cursor_mode(false)
 	var file = FileAccess.open("res://data/maps/default.json", FileAccess.READ)
 	if not file:
 		push_error("Failed to load map JSON")
@@ -256,7 +266,25 @@ func _apply_command(c: Command) -> void:
 			_tmp_stop = true
 
 
+func _update_cursor_mode() -> void:
+	if input_state_machine:
+		_set_cursor_mode(input_state_machine.is_cast_mode())
+
+
+func _set_cursor_mode(cast_mode: bool) -> void:
+	if _cursor_initialized and _cursor_cast_mode == cast_mode:
+		return
+	_cursor_cast_mode = cast_mode
+	_cursor_initialized = true
+	Input.set_custom_mouse_cursor(
+		CAST_CURSOR_TEXTURE if cast_mode else NORMAL_CURSOR_TEXTURE,
+		Input.CURSOR_ARROW,
+		CURSOR_HOTSPOT
+	)
+
+
 func _process(_delta: float) -> void:
+	_update_cursor_mode()
 	if not last_snapshot:
 		return
 
@@ -343,12 +371,6 @@ func _process(_delta: float) -> void:
 			else:
 				ui_root.cast_bar.hide_cast()
 			var ev = entity_manager.get_entity(p.id)
-			_skill_vfx.set_skill_aiming(
-				(
-					input_state_machine.command_axis
-					== InputStateMachine.CommandAxis.SKILL_AIMING
-				)
-			)
 			_skill_vfx.sync(last_snapshot, ev)
 
 			if p.cast_slot != _log_prev_cast_slot:
@@ -394,12 +416,6 @@ func _process(_delta: float) -> void:
 				else:
 					ui_root.cast_bar.hide_cast()
 				var ev = entity_manager.get_entity(p.id)
-				_skill_vfx.set_skill_aiming(
-					(
-						input_state_machine.command_axis
-						== InputStateMachine.CommandAxis.SKILL_AIMING
-					)
-				)
 				_skill_vfx.sync(last_snapshot, ev)
 
 				if p.cast_slot != _log_prev_cast_slot:

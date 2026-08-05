@@ -455,7 +455,7 @@ flowchart TB
 | `BottomHUD` | `scripts/ui/bottom_hud.gd` | 等级/XP/技能槽/物品栏/技能点提示 |
 | `CastBarLayer` | `scenes/ui/cast_bar.tscn` | `cast_state >= Casting(3)` 时显示进度条 |
 | `CastErrorLayer` | `scenes/ui/cast_error_layer.tscn` | `cast_error` 变化时弹红字 |
-| `SkillVFX` | `scripts/view/skill_vfx.gd` | 绿线（normal cast aiming）、dash 路径、AoE 圈 |
+| `SkillVFX` | `scripts/view/skill_vfx.gd` | dash path and AoE circles |
 | `CameraController` | `scripts/view/camera_controller.gd` | 跟随 + 锁/自由 + 像素精准拖屏 + 边缘推屏 |
 
 **反向同步（snapshot → FSM）**（`sim_bridge._process`）：
@@ -556,7 +556,7 @@ sequenceDiagram
     IEQ->>CB: pop_all
     CB->>FSM: command_axis = SkillAiming
     CB->>Buf: push SKILL{slot=0, confirm=false, aim=current}
-    Note over CB,VFX: VFX 同步看到 command_axis=SkillAiming<br/>显示绿线
+    Note over CB,VFX: VFX sync sees command_axis=SkillAiming<br/>the cast cursor is active
     SBG->>Buf: pop_all
     SBG->>SS: set_skill_command(0, false, ax, ay, target_id)
     SS->>W: tick (30Hz)
@@ -582,7 +582,7 @@ sequenceDiagram
     W->>Snap: snapshot (cast_state != None, is_moving)
     Snap-->>SBG: SimSnapshot
     SBG->>FSM: sync_from_snapshot → CastLocked
-    SBG->>VFX: hide green line (CommandAxis != SkillAiming)
+    SBG->>VFX: cast cursor remains active until cast state ends
 
     Note over W,Snap: 后续 tick 重复 pathfinding + movement<br/>直到进入 Casting 范围
 

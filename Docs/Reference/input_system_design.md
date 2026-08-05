@@ -192,7 +192,7 @@ MoveAxis (movement axis):
 
 CommandAxis (command axis):
   Idle          — no pending command
-  SkillAiming   — Normal cast awaiting left-click confirm (green line shown)
+  SkillAiming   — Normal cast awaiting left-click confirm (cast cursor shown)
   AttackAiming  — A / right-click enemy awaiting left-click confirm (independent mode)
   CastLocked    — Sim-side CastState != None (Aiming/Chasing/Casting/Channeling/Dashing)
                   input-layer mirror; only responds to cancel/interrupt
@@ -625,13 +625,13 @@ sim.set_skill_command(0, true, ax, ay, target_id)
 View sees cast_state != None → CommandAxis = CastLocked
 ```
 
-**Key**: quick cast has **no indicator**; from keypress to cast there's no visual transition, only the cast bar in the Casting phase.
+**Key**: quick cast has no separate aiming phase; the cast cursor appears after Sim enters CastLocked, with the cast bar during the Casting phase.
 
 **No target behavior**: same as normal cast → error + **View returns to Idle** (quick cast has no Aiming to preserve). See §8.3.
 
 ### 8.2 Normal cast
 
-**Trigger**: skill key **press** (edge) → enter SkillAiming (green line) → left-click confirm.
+**Trigger**: skill key **press** (edge) → enter SkillAiming (cast cursor) → left-click confirm.
 
 ```
 Player presses Q (normal cast)
@@ -666,7 +666,7 @@ View sees cast_state != None → CommandAxis = CastLocked
 | Behavior | Normal cast | Quick cast |
 | --- | --- | --- |
 | Trigger | press → aiming → left-click confirm | press (direct confirm) |
-| Indicator (green line) | Yes (during SkillAiming) | No |
+| Indicator (cast cursor) | Yes (during SkillAiming) | Yes (during CastLocked) |
 | Real-time aim follow | aim updates during aiming | Only at press instant |
 | Out of range | confirm → Sim Chasing → A* follow | Same |
 | Targeted no target | **preserve SkillAiming**, show "No target" | **return to Idle**, show "No target" (no Aiming to preserve) |
@@ -1068,7 +1068,8 @@ struct LocalInputSingleton {
 | `scripts/autoload/game_settings.gd` | Remove `move_mode` / `MoveMode` / `mode_changed` (deprecated); keep camera / fullscreen config |
 | `scripts/ui/settings_panel.gd/.tscn` | Remove mode switch OptionButton; add per-slot cast mode preference |
 | `scripts/ui/bottom_hud.gd` | Remove per-mode `KEY_HINTS` switch; fixed QWER + A |
-| `scripts/view/skill_vfx.gd` | Green line only in normal-cast SkillAiming; Chasing can show "path line" or keep green line |
+| `scripts/view/skill_vfx.gd` | Dash path and AoE visuals; normal-cast aiming uses the cast cursor |
+| `resources/ui/cursors/*.png` | Normal and cast-mode mouse cursor textures |
 | `scripts/view/entity_view.gd` | `attack_targeted` red indicator (already present; preserved) |
 
 ### 15.3 C++ — modified
@@ -1170,10 +1171,10 @@ struct LocalInputSingleton {
 
 **Acceptance**:
 
-- Normal cast Q → green line → left-click → in range → Casting → hit.
-- Normal cast Q → green line → left-click → out of Range → Chasing → catch up → Casting.
-- Normal cast Q → green line → left-click on ground (MeleeSingle) → "No target" red text; **green line preserved**.
-- Quick cast Q → no green line → direct Casting.
+- Normal cast Q → cast cursor → left-click → in range → Casting → hit.
+- Normal cast Q → cast cursor → left-click → out of Range → Chasing → catch up → Casting.
+- Normal cast Q → cast cursor → left-click on ground (MeleeSingle) → "No target" red text; **cast cursor preserved**.
+- Quick cast Q → CastLocked cursor → direct Casting.
 - Quick cast Q out of Range → Chasing → catch up → Casting.
 
 ### Phase E — Basic attack command mode
