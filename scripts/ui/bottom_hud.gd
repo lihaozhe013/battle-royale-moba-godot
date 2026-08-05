@@ -14,6 +14,8 @@ const RESOURCE_BOTTOM_SPACE := 2.0
 const AVATAR_SECTION_SIZE := 88.0
 const STATS_PANEL_WIDTH := 96.0
 const STATS_PANEL_HEIGHT := 84.0
+const ITEM_SLOT_GAP := 4.0
+const ITEM_SECTION_WIDTH := ItemSlotUI.SLOT_SIZE * 3.0 + ITEM_SLOT_GAP * 2.0
 
 var _style: UIStyle
 var _built := false
@@ -273,28 +275,24 @@ func _build_resource_bar(kind: String) -> Control:
 
 func _build_item_section() -> Control:
 	var section := VBoxContainer.new()
-	section.name = "ItemAndBackpack"
-	section.add_theme_constant_override("separation", 0)
-	section.add_child(_style.make_spacer(Vector2(0, 7)))
-
-	var item_section := VBoxContainer.new()
-	item_section.name = "ItemSection"
-	item_section.add_theme_constant_override("separation", 0)
+	section.name = "ItemSection"
+	section.custom_minimum_size = Vector2(ITEM_SECTION_WIDTH, BASE_HUD_HEIGHT)
+	section.alignment = BoxContainer.ALIGNMENT_CENTER
+	section.add_theme_constant_override("separation", ITEM_SLOT_GAP)
 	for row_index in 2:
 		var row := HBoxContainer.new()
 		row.name = "Row%d" % (row_index + 1)
+		row.custom_minimum_size = Vector2(
+			ITEM_SECTION_WIDTH, ItemSlotUI.SLOT_SIZE
+		)
+		row.add_theme_constant_override("separation", ITEM_SLOT_GAP)
 		for column_index in 3:
 			var slot := ItemSlotUI.new()
 			slot.slot_index = row_index * 3 + column_index
 			slot.build(_style)
 			_item_slots.append(slot)
 			row.add_child(slot)
-		item_section.add_child(row)
-	section.add_child(item_section)
-
-	var backpack := HBoxContainer.new()
-	backpack.name = "BackpackSection"
-	section.add_child(backpack)
+		section.add_child(row)
 	return section
 
 
