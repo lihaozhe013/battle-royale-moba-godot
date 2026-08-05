@@ -6,6 +6,8 @@
 #include "../skills/skill_registry.h"
 #include "../vec2.h"
 #include "attack_command.h"
+#include <algorithm>
+#include <cstdio>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
@@ -23,6 +25,29 @@ inline void clear_cast_state(CastState &cs) {
     cs.SubTimer = 0.0f;
     cs.PendingCooldown = 0.0f;
     cs.PendingManaCost = 0.0f;
+}
+
+inline void abort_cast_chase(
+    entt::registry &reg,
+    entt::entity e,
+    CastState &cs,
+    int error,
+    const char *reason
+) {
+    bool is_local = reg.get<PlayerTag>(e).IsLocal;
+    if (is_local) {
+        cs.CastError = error;
+        std::printf(
+            "[skill_cast] chase_abort slot=%d skill=%d target=%d reason=%s\n",
+            cs.ActiveSlot,
+            cs.SkillId,
+            cs.TargetNetworkId,
+            reason
+        );
+    }
+    if (reg.all_of<MovePath>(e))
+        reg.get<MovePath>(e).Following = false;
+    clear_cast_state(cs);
 }
 
 inline bool commit_cast_resources(
@@ -60,12 +85,34 @@ inline void cast_phase_chasing(
         return;
     }
 
+    if (sk->kind() == SkillKind::MeleeSingle) {
+        bool target_invalid = cs.TargetEntity == entt::null ||
+                              !reg.valid(cs.TargetEntity) ||
+                              !reg.all_of<Position2D>(cs.TargetEntity);
+        bool target_dead = !target_invalid &&
+                           reg.all_of<Dead>(cs.TargetEntity) &&
+                           reg.get<Dead>(cs.TargetEntity).enabled;
+        if (target_invalid || target_dead) {
+            abort_cast_chase(
+                reg, e, cs, 5, target_dead ? "target_dead" : "target_invalid"
+            );
+            return;
+        }
+    }
+
     sk->on_chase_tick(reg, e, cs, skills.Slots[cs.ActiveSlot].Level, dt);
 
-    if (sk->can_enter_casting(reg, e, cs, skills.Slots[cs.ActiveSlot].Level)) {
+    bool in_range =
+        sk->can_enter_casting(reg, e, cs, skills.Slots[cs.ActiveSlot].Level);
+    if (in_range) {
         cs.State = CastState::Phase::Casting;
         cs.Timer = sk->cast_time(skills.Slots[cs.ActiveSlot].Level);
         cs.CastError = 0;
+        return;
+    }
+
+    if (reg.all_of<MovePath>(e) && !reg.get<MovePath>(e).Following) {
+        abort_cast_chase(reg, e, cs, 5, "no_path");
     }
 }
 
@@ -196,6 +243,12 @@ inline void skill_cast_system(
         bool is_local = reg.get<PlayerTag>(e).IsLocal;
 
         if (cs.State == CastState::Phase::None) {
+            if (is_local && cs.RejectTimer > 0.0f) {
+                cs.RejectTimer = std::max(0.0f, cs.RejectTimer - dt);
+                if (cs.RejectTimer > 0.0f)
+                    continue;
+            }
+
             int cast_slot = input.SkillSlot;
             if (cast_slot < 0 || cast_slot >= 4)
                 continue;
@@ -205,14 +258,10 @@ inline void skill_cast_system(
             if (!sk)
                 continue;
 
-            if (is_local && cs.RejectTimer > 0.0f)
-                continue;
-
             if (!input.SkillConfirm)
                 continue;
 
             if (is_local) {
-                cs.RejectTimer -= dt;
                 if (slot.CooldownTimer > 0.0f) {
                     cs.CastError = 1;
                     cs.RejectTimer = 0.3f;
