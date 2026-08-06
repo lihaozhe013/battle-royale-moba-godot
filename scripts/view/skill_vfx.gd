@@ -13,6 +13,7 @@ var _dash_material: Material
 var _range_indicator: Node3D
 var _initialized := false
 
+
 func _ready() -> void:
 	_initialize()
 
@@ -75,7 +76,9 @@ func _sync_targeting_range(p, input_fsm) -> void:
 			return
 		if input_fsm.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING:
 			active_slot = input_fsm.active_skill_slot
-		elif input_fsm.command_axis == InputStateMachine.CommandAxis.CAST_LOCKED:
+		elif (
+			input_fsm.command_axis == InputStateMachine.CommandAxis.CAST_LOCKED
+		):
 			active_slot = p.cast_slot
 	else:
 		cast_mode = p.cast_state != 0
@@ -84,9 +87,7 @@ func _sync_targeting_range(p, input_fsm) -> void:
 	var cast_range := 0.0
 	if active_slot >= 0 and active_slot < p.skills.size():
 		cast_range = p.skills[active_slot].cast_range
-	_range_indicator.sync_range(
-		Vector2(p.x, p.y), cast_range, cast_mode
-	)
+	_range_indicator.sync_range(Vector2(p.x, p.y), cast_range, cast_mode)
 
 
 func _draw_dash_path(sx: float, sy: float, cx: float, cy: float) -> void:

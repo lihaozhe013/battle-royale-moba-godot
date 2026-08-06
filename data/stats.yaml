@@ -1,12 +1,10 @@
 schema:
   version: 1
-
 simulation:
   tick_rate: 30.0
   snapshot_rate: 20.0
 world:
   map_half: 50.0
-
 player:
   radius: 0.5
   speed: 5.0
@@ -14,30 +12,26 @@ player:
   base_attack: 10.0
   base_attack_speed: 1.0
   spawn_safe_radius: 12.0
-
 projectile:
   speed: 20.0
   lifetime: 2.0
   radius: 0.3
-
 bot:
   count: 20
   radius: 0.5
   speed: 2.0
   hp: 30
-  base_attack: 3.0
-  base_attack_speed: 0.5
+  base_attack: 5
+  base_attack_speed: 1
   respawn_time: 8.0
   vision_range: 20.0
   stat_multiplier: 0.1
   wander_interval_min: 2.0
   wander_interval_max: 5.0
-
 hero_progression:
   max_level: 30
   atk_per_level: 1.0
   asp_per_level: 0.03
-
 bot_tiers:
   normal:
     hp_multiplier: 1.0
@@ -59,7 +53,6 @@ bot_tiers:
     vision_multiplier: 1.5
   boss_roll: 0.05
   elite_roll: 0.20
-
 bot_roles:
   fodder_max_level: 5
   brute_min_level: 22
@@ -68,7 +61,6 @@ bot_roles:
   stalker_weight: 4
   brute_weight: 2
   brute_elite_roll: 0.6
-
 bot_ai:
   decision_cooldown: 0.3
   flee_distance: 30.0
@@ -81,7 +73,6 @@ bot_ai:
   kite_chase_enter: 0.85
   kite_retreat_exit: 0.35
   kite_retreat_enter: 0.25
-
 bot_combat:
   phase_cooldown: 0.2
   skill_decision_cooldown: 0.1
@@ -95,7 +86,6 @@ bot_combat:
   burst_step_limit: 3
   burst_duration: 2.0
   disengage_recovery_threshold: 0.6
-
 progression:
   atk_per_kill: 2.0
   asp_per_kill: 0.05
@@ -106,14 +96,12 @@ progression:
   hp_per_level: 10
   speed_per_level: 0.5
   heal_fraction: 0.5
-
 entity_ids:
   player_start: 1
   bot_start: 1001
   arrow_start: 2001
   pickup_start: 3001
   aoe_start: 4001
-
 pickups:
   xp:
     value: 48
@@ -128,23 +116,19 @@ pickups:
     respawn_time: 20.0
     count: 2
   radius: 0.5
-
 pathfinding:
   repath_target_deadzone: 1.5
   turn_rate: 12.0
   skill_chase_repath_deadzone: 2.0
-
 mana:
   player_max: 300.0
   player_regen: 5.0
   bot_max: 80.0
   bot_regen: 3.0
   regen_delay: 3.0
-
 attack:
   range: 8.0
   acquisition_range: 15.0
-
 skills:
   player_ids: [1, 2, 3, 4]
   bot_ids: [1, 2, 3, 4]
@@ -162,7 +146,7 @@ skills:
     base_cooldown: 5.0
     base_mana_cost: 20.0
     base_cast_time: 0.2
-    base_range: 8.0
+    base_range: 3.0
     cooldown_per_level: 0.5
     mana_reduction_per_level: 0.05
     mana_reduction_min: 0.3
@@ -224,7 +208,6 @@ skills:
     channel_interval: 0.5
     channel_projectile_count: 16
     channel_projectile_spawn_radius: 0.5
-
 bot_skill_scoring:
   base: 50.0
   in_range: 30.0
@@ -247,7 +230,6 @@ bot_skill_scoring:
   low_health: 0.3
   high_health: 0.7
   sustain_health: 0.5
-
 heroes:
   swordsman:
     id: 1
@@ -262,5 +244,5 @@ heroes:
     hp_per_level: 10.0
     attack_per_level: 1.0
     attack_speed_per_level: 0.03
-    move_speed_per_level: 0.5
+    move_speed_per_level: 0.1
     prefab_id: 0

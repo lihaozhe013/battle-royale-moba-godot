@@ -16,13 +16,16 @@ rebuild:
 	uv run build.py rebuild --target $(TARGET) --jobs $(JOBS)
 
 # ---- Formatting ----
-format: format-sim format-godot
+format: format-sim format-godot format-prettier
 
 format-sim:
 	uv run python scripts/format_sim.py
 
 format-godot:
 	gdformat -l 80 .
+
+format-prettier:
+	prettier . --write
 
 # ---- Map Editor ----
 edit-map:
