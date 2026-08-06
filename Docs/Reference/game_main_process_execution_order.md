@@ -132,7 +132,7 @@ Only when `last_snapshot.seq` differs from `_last_snap_seq`:
 3. Synchronize world-space health bars through `HealthBarManager.sync_bars(last_snapshot)`.
 4. Locate the local hero/player.
 5. Update attack-target presentation.
-6. Detect completed casts and trigger skill-hit VFX when applicable.
+6. Keep cast transition state available to `SkillVFX`; the VFX manager dispatches a registered per-skill hit effect when the snapshot contains a valid target.
 7. Detect a new cast error and call `CastError.show_error(code)`.
 8. Synchronize `InputStateMachine` from the local authoritative snapshot.
 
@@ -147,7 +147,7 @@ Every render frame with a valid local snapshot:
 3. Call `BottomHUD.sync_skills(player.skills)`.
 4. Show or hide cast progress through `CastBar.sync_cast()` / `CastBar.hide_cast()`.
 5. Pass the input targeting mode to `SkillVFX` so the shared cast/attack range indicator can synchronize.
-6. Synchronize `SkillVFX` with the current snapshot and local entity view.
+6. Synchronize `SkillVFX` with the current snapshot and `EntityManager`; the manager resolves target anchors and instantiates per-skill VFX scenes.
 
 These updates are presentation-only and do not modify simulation state.
 

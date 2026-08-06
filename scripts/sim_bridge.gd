@@ -4,8 +4,6 @@ var sim: SimServer
 var last_snapshot: SimSnapshot
 var elapsed: float = 0.0
 var _last_snap_seq := -1
-var _prev_player_cast_state := 0
-var _prev_player_cast_slot := -1
 var _prev_player_cast_error := 0
 
 @onready var camera_controller = $CameraController
@@ -325,18 +323,8 @@ func _process(_delta: float) -> void:
 			var p := last_snapshot.heroes[local_idx] as SimHeroSnap
 			if p:
 				entity_manager.set_attack_target_id(p.attack_target_id)
-
-				if (
-					_prev_player_cast_state == 2
-					and p.cast_state == 0
-					and _prev_player_cast_slot == 0
-				):
-					if p.hit_target_id >= 0:
-						_trigger_c_slash(p.hit_target_id)
-			_prev_player_cast_state = p.cast_state
-			_prev_player_cast_slot = p.cast_slot
-			if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
-				ui_root.cast_error.show_error(p.cast_error)
+				if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
+					ui_root.cast_error.show_error(p.cast_error)
 			_prev_player_cast_error = p.cast_error
 
 			input_state_machine.sync_from_snapshot(p)
@@ -344,18 +332,8 @@ func _process(_delta: float) -> void:
 			var p := last_snapshot.players[0] as SimPlayerSnap
 			if p:
 				entity_manager.set_attack_target_id(p.attack_target_id)
-
-				if (
-					_prev_player_cast_state == 2
-					and p.cast_state == 0
-					and _prev_player_cast_slot == 0
-				):
-					if p.hit_target_id >= 0:
-						_trigger_c_slash(p.hit_target_id)
-			_prev_player_cast_state = p.cast_state
-			_prev_player_cast_slot = p.cast_slot
-			if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
-				ui_root.cast_error.show_error(p.cast_error)
+				if p.cast_error > 0 and p.cast_error != _prev_player_cast_error:
+					ui_root.cast_error.show_error(p.cast_error)
 			_prev_player_cast_error = p.cast_error
 
 			input_state_machine.sync_from_snapshot(p)
@@ -370,8 +348,7 @@ func _process(_delta: float) -> void:
 				ui_root.cast_bar.sync_cast(p.cast_progress)
 			else:
 				ui_root.cast_bar.hide_cast()
-			var ev = entity_manager.get_entity(p.id)
-			_skill_vfx.sync(last_snapshot, ev, input_state_machine)
+			_skill_vfx.sync(last_snapshot, entity_manager, input_state_machine)
 
 			if p.cast_slot != _log_prev_cast_slot:
 				print(
@@ -415,8 +392,9 @@ func _process(_delta: float) -> void:
 					ui_root.cast_bar.sync_cast(p.cast_progress)
 				else:
 					ui_root.cast_bar.hide_cast()
-				var ev = entity_manager.get_entity(p.id)
-				_skill_vfx.sync(last_snapshot, ev, input_state_machine)
+				_skill_vfx.sync(
+					last_snapshot, entity_manager, input_state_machine
+				)
 
 				if p.cast_slot != _log_prev_cast_slot:
 					print(
@@ -444,11 +422,3 @@ func _process(_delta: float) -> void:
 					print("[CAST] ERROR=%d" % p.cast_error)
 				if p.hit_target_id >= 0:
 					print("[CAST] HIT target=%d" % p.hit_target_id)
-
-
-func _trigger_c_slash(target_id: int) -> void:
-	if target_id < 0:
-		return
-	var view = entity_manager.get_entity(target_id)
-	if view and is_instance_valid(view) and view.skill_vfx_attachment:
-		view.skill_vfx_attachment.show_c_slash()

@@ -23,7 +23,8 @@ Main / sim_bridge.gd
 
 `sim_bridge.gd` creates the input helper nodes (`InputEventQueue`, `InputStateMachine`, `CommandBuffer`, `CommandBuilder`, and `CastSettings`) at runtime. They remain outside `UIRoot`.
 
-`SkillVFX` owns the shared cast/attack range indicator alongside dash-path and AoE presentation.
+`SkillVFX` owns the shared cast/attack range indicator, dash-path and AoE presentation, and dispatches registered per-skill VFX scenes from snapshot cast transitions.
+Each skill VFX is isolated in `resources/vfx/skills/<skill>/` plus `scripts/view/skill_vfx/<skill>_vfx.gd`; `SkillVfxAttachment` is only a generic target anchor.
 
 ## UI Bootstrap Contract
 
@@ -51,3 +52,4 @@ Main / sim_bridge.gd
 - `Docs/Reference/game_main_process_execution_order.md` — startup, tick, and render-frame order.
 - `Docs/Reference/sim_api_reference.md` — C++ simulation and GDExtension API.
 - `Docs/DATA_FLOW.md` — end-to-end input, simulation, snapshot, and view flow.
+- `Docs/Reference/skill_vfx_architecture.md` — per-skill VFX ownership, layout, and snapshot event contract.

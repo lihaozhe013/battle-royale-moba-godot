@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://resources/vfx/BinbunVFX_Vol2/ElectricFX/effects/zap/vfx_zap_lightning_01.tscn" id="1_lightning"]
+[ext_resource type="Script" path="res://scripts/view/skill_vfx/melee_strike_vfx.gd" id="2_script"]
+
+[node name="MeleeStrikeVFX" type="Node3D"]
+script = ExtResource("2_script")
+scale = Vector3(2.0, 2.4, 2.0)
+
+[node name="Lightning" parent="." instance=ExtResource("1_lightning")]
+one_shot = true
+secondary_color = Color(1, 0.04, 0.01, 1)
+light_color = Color(1, 0.02, 0.005, 1)
+emission = 7.0
+light_energy = 8.0
+height = 7.5
+noise_strength = 0.55
+amplitude = 0.55

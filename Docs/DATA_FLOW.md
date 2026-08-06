@@ -456,7 +456,7 @@ flowchart TB
 | `BottomHUD` | `scripts/ui/bottom_hud.gd` | 等级/XP/技能槽/物品栏/技能点提示 |
 | `CastBarLayer` | `scenes/ui/cast_bar.tscn` | `cast_state >= Casting(3)` 时显示进度条 |
 | `CastErrorLayer` | `scenes/ui/cast_error_layer.tscn` | `cast_error` 变化时弹红字 |
-| `SkillVFX` | `scripts/view/skill_vfx.gd` | cast/attack range indicator, dash path, and AoE circles |
+| `SkillVFX` | `scripts/view/skill_vfx.gd` | cast/attack range indicator, dash path, AoE circles, and per-skill hit VFX dispatch |
 | `CameraController` | `scripts/view/camera_controller.gd` | 跟随 + 锁/自由 + 像素精准拖屏 + 边缘推屏 |
 
 **反向同步（snapshot → FSM）**（`sim_bridge._process`）：

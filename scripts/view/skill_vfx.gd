@@ -3,6 +3,12 @@ extends Node3D
 const RANGE_INDICATOR_SCRIPT = preload(
 	"res://scripts/view/skill_range_indicator.gd"
 )
+const MELEE_STRIKE_VFX_SCENE: PackedScene = preload(
+	"res://resources/vfx/skills/melee_strike/melee_strike_vfx.tscn"
+)
+const SKILL_VFX_SCENES := {
+	1: MELEE_STRIKE_VFX_SCENE,
+}
 
 # AoE 灰圈池
 var _aoe_pool: Array[MeshInstance3D]
@@ -12,6 +18,9 @@ var _dash_mesh: MeshInstance3D
 var _dash_material: Material
 var _range_indicator: Node3D
 var _initialized := false
+var _last_vfx_snapshot_seq := -1
+var _previous_cast_state := 0
+var _previous_cast_slot := -1
 
 
 func _ready() -> void:
@@ -32,7 +41,7 @@ func _initialize() -> void:
 	_range_indicator.initialize()
 
 
-func sync(snap: SimSnapshot, _player_view = null, input_fsm = null) -> void:
+func sync(snap: SimSnapshot, entity_manager = null, input_fsm = null) -> void:
 	_initialize()
 	var p = null
 
@@ -51,6 +60,8 @@ func sync(snap: SimSnapshot, _player_view = null, input_fsm = null) -> void:
 		_range_indicator.sync_range(Vector2.ZERO, 0.0, false)
 		return
 
+	_sync_cast_vfx(snap, p, entity_manager)
+
 	_sync_targeting_range(p, input_fsm)
 
 	if p.cast_state == 4:
@@ -59,6 +70,45 @@ func sync(snap: SimSnapshot, _player_view = null, input_fsm = null) -> void:
 		_clear_dash_line()
 
 	_sync_aoes(snap.aoes)
+
+
+func _sync_cast_vfx(snap: SimSnapshot, p, entity_manager) -> void:
+	if snap.seq == _last_vfx_snapshot_seq:
+		return
+	_last_vfx_snapshot_seq = snap.seq
+
+	if (
+		_previous_cast_state != 0
+		and p.cast_state == 0
+		and p.hit_target_id >= 0
+		and entity_manager
+	):
+		var skill_id := _get_skill_id(p, _previous_cast_slot)
+		_play_skill_vfx(skill_id, p.hit_target_id, entity_manager)
+
+	_previous_cast_state = p.cast_state
+	_previous_cast_slot = p.cast_slot
+
+
+func _get_skill_id(p, cast_slot: int) -> int:
+	if cast_slot < 0 or cast_slot >= p.skills.size():
+		return -1
+	return p.skills[cast_slot].skill_id
+
+
+func _play_skill_vfx(skill_id: int, target_id: int, entity_manager) -> void:
+	var effect_scene: PackedScene = SKILL_VFX_SCENES.get(skill_id)
+	if not effect_scene:
+		return
+	var target_view = entity_manager.get_entity(target_id)
+	if not target_view or not is_instance_valid(target_view):
+		return
+	var attachment = target_view.skill_vfx_attachment
+	if not attachment or not is_instance_valid(attachment):
+		return
+	var effect := effect_scene.instantiate()
+	if effect:
+		attachment.add_child(effect)
 
 
 func _sync_targeting_range(p, input_fsm) -> void:
