@@ -12,10 +12,12 @@ const PICKUP_PATHS := {
 	1: "res://scenes/entities/pickups/pickup_heal.tscn",
 	2: "res://scenes/entities/pickups/pickup_small_heal.tscn",
 }
+const IMPACT_EVENT_TYPE := 1
 
 var _entities = {}  # id -> EntityView
 var _hovered_id := -1
 var _attack_target_id := -1
+var _visible_arrow_ids := {}
 
 
 func sync_entities(snap: SimSnapshot) -> void:
@@ -26,22 +28,42 @@ func sync_entities(snap: SimSnapshot) -> void:
 			seen[h.id] = true
 			var entity_type := 0 if h.is_local else 1
 			var view = _get_or_spawn(h.id, entity_type, 0)
-			view.apply_snapshot(h.x, h.y, h.ang, h.hp, h.max_hp, h.dead)
+			view.apply_snapshot(
+				h.x, h.y, h.ang, h.hp, h.max_hp, h.dead, h.cast_state, h.cast_slot, h.is_moving
+			)
 	else:
 		for p in snap.players:
 			seen[p.id] = true
 			var view = _get_or_spawn(p.id, 0, 0)
-			view.apply_snapshot(p.x, p.y, p.ang, p.hp, p.max_hp, false)
+			view.apply_snapshot(
+				p.x, p.y, p.ang, p.hp, p.max_hp, false, p.cast_state, p.cast_slot, p.is_moving
+			)
 
 		for b in snap.bots:
 			seen[b.id] = true
 			var view = _get_or_spawn(b.id, 1, 0)
-			view.apply_snapshot(b.x, b.y, b.ang, b.hp, b.max_hp, b.dead)
+			view.apply_snapshot(
+				b.x, b.y, b.ang, b.hp, b.max_hp, b.dead, b.cast_state, b.cast_slot, b.is_moving
+			)
 
+	var current_arrow_ids := {}
 	for a in snap.arrows:
 		seen[a.id] = true
+		current_arrow_ids[a.id] = true
 		var view = _get_or_spawn(a.id, 2, 0)
 		view.apply_snapshot(a.x, a.y, a.ang, 0, 0, false)
+		if not _visible_arrow_ids.has(a.id) and a.source_skill_id == 0:
+			var owner_view := get_entity(a.owner_id)
+			if owner_view:
+				owner_view.play_attack_cast()
+	_visible_arrow_ids = current_arrow_ids
+
+	for event in snap.events:
+		if event.type != IMPACT_EVENT_TYPE or event.source_skill_id != 0:
+			continue
+		var victim_view := get_entity(event.victim_id)
+		if victim_view:
+			victim_view.play_under_attack()
 
 	for pk in snap.pickups:
 		seen[pk.id] = true

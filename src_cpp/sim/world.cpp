@@ -59,6 +59,7 @@ bool World::initialize(
 
     _kill_event_entity = _reg.create();
     _reg.emplace<KillEventBuffer>(_kill_event_entity);
+    _reg.emplace<ImpactEventBuffer>(_kill_event_entity);
 
     for (auto &w : map.walls) {
         float min_x = std::min(w.minX, w.maxX);
@@ -131,6 +132,10 @@ void World::tick(double dt) {
     skill_level_system(_reg);
     progression_system(_reg);
     snapshot_export_system(_reg, _tick_counter, _latest_snapshot);
+
+    auto impact_view = _reg.view<ImpactEventBuffer>();
+    for (auto e : impact_view)
+        impact_view.get<ImpactEventBuffer>(e).events.clear();
 
     _cb.flush(_reg);
 }

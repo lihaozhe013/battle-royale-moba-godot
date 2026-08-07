@@ -105,14 +105,17 @@ class ChannelBurstSkill : public ISkill {
                      owner,
                      dmg,
                      arrow_speed,
-                     arrow_lifetime](entt::registry &r) {
+                     arrow_lifetime,
+                     source_skill_id = 4](entt::registry &r) {
                 auto a = r.create();
                 Vec2 vel{std::cos(angle), std::sin(angle)};
                 vel *= arrow_speed;
                 r.emplace<Position2D>(a, spawn_pos);
                 r.emplace<Velocity2D>(a, vel);
                 r.emplace<FacingAngle>(a, angle);
-                r.emplace<ArrowTag>(a, net_id, owner, dmg, 1.0f);
+                r.emplace<ArrowTag>(
+                    a, net_id, owner, dmg, 1.0f, source_skill_id
+                );
                 r.emplace<Lifetime>(a, arrow_lifetime);
                 r.emplace<NetworkId>(a, arrow_id);
             });

@@ -214,6 +214,34 @@ void SnapshotBuilder::_build_bots(
             s->status = static_cast<int>(st.Type);
         }
 
+        if (reg.all_of<CastState>(e)) {
+            auto &cs = reg.get<CastState>(e);
+            s->cast_state = static_cast<int>(cs.State);
+            s->cast_slot = cs.ActiveSlot;
+            float max_timer = 0.0f;
+            if (reg.all_of<SkillComponent>(e) && cs.ActiveSlot >= 0 &&
+                cs.ActiveSlot < 4) {
+                const ISkill *sk = SkillRegistry::instance().get(cs.SkillId);
+                if (sk) {
+                    auto &slot =
+                        reg.get<SkillComponent>(e).Slots[cs.ActiveSlot];
+                    if (cs.State == CastState::Phase::Casting)
+                        max_timer = sk->cast_time(slot.Level);
+                    else if (cs.State == CastState::Phase::Channeling)
+                        max_timer = sk->effect_value(slot.Level);
+                    else if (cs.State == CastState::Phase::Dashing)
+                        max_timer = sk->range(slot.Level) / 20.0f;
+                }
+            }
+            s->cast_progress =
+                (max_timer > 0.0f) ? (1.0f - cs.Timer / max_timer) : 0.0f;
+        }
+        s->is_moving = false;
+        if (reg.all_of<MovePath>(e))
+            s->is_moving = reg.get<MovePath>(e).Following;
+        if (reg.all_of<AttackTarget>(e))
+            s->is_moving = s->is_moving || reg.get<AttackTarget>(e).Chasing;
+
         snap->bots.push_back(s);
     }
 }
@@ -225,6 +253,8 @@ void SnapshotBuilder::_build_arrows(
     for (auto e : view) {
         auto s = godot::Ref<SimArrowSnap>(memnew(SimArrowSnap));
         s->id = view.get<NetworkId>(e).Value;
+        s->owner_id = view.get<ArrowTag>(e).OwnerId;
+        s->source_skill_id = view.get<ArrowTag>(e).SourceSkillId;
         s->x = view.get<Position2D>(e).Value.x;
         s->y = view.get<Position2D>(e).Value.y;
         s->ang = view.get<FacingAngle>(e).Radians;
@@ -255,8 +285,22 @@ void SnapshotBuilder::_build_events(
         auto &buf = view.get<KillEventBuffer>(e);
         for (auto &ev : buf.events) {
             auto s = godot::Ref<SimEventSnap>(memnew(SimEventSnap));
+            s->type = 0;
             s->killer_id = ev.KillerId;
             s->victim_id = ev.VictimId;
+            snap->events.push_back(s);
+        }
+    }
+
+    auto impact_view = reg.view<ImpactEventBuffer>();
+    for (auto e : impact_view) {
+        auto &buf = impact_view.get<ImpactEventBuffer>(e);
+        for (auto &ev : buf.events) {
+            auto s = godot::Ref<SimEventSnap>(memnew(SimEventSnap));
+            s->type = 1;
+            s->killer_id = ev.AttackerId;
+            s->victim_id = ev.VictimId;
+            s->source_skill_id = ev.SourceSkillId;
             snap->events.push_back(s);
         }
     }

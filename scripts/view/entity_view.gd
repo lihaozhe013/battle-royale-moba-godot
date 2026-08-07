@@ -14,10 +14,14 @@ var _snap_time := 0.0
 var _first_snap := true
 const LERP_DURATION := 1.0 / 30.0
 
-var _anim_player: AnimationPlayer = null
-var _anim_idle := ""
-var _anim_run := ""
 var _moving := false
+var _previous_cast_state := 0
+var _previous_cast_slot := -1
+var _character_animation
+
+const ARCANE_CHARACTER_ANIMATION_SCRIPT := preload(
+	"res://scripts/view/arcane_character_animation.gd"
+)
 
 # 受击红闪
 var _prev_hp := -1
@@ -36,9 +40,7 @@ var _attack_target_mat: Material
 
 var skill_vfx_attachment: Node3D
 
-const SKILL_VFX_ATTACHMENT_SCRIPT := preload(
-	"res://scripts/view/skill_vfx_attachment.gd"
-)
+const SKILL_VFX_ATTACHMENT_SCRIPT := preload("res://scripts/view/skill_vfx_attachment.gd")
 
 # Sim uses 2D math angles: atan2(y, x) where 0=+x, π/2=+y.
 # Godot rotation.y rotates +X toward -Z (not +Z), so we negate to fix the Z flip.
@@ -75,12 +77,19 @@ func _ready() -> void:
 	for child in find_children("*", "MeshInstance3D", true, false):
 		_child_meshes.append(child as MeshInstance3D)
 
-	_anim_player = find_child("AnimationPlayer", true, false) as AnimationPlayer
-	if _anim_player:
-		_anim_idle = _find_anim_path("idle")
-		_anim_run = _find_anim_path("run")
-		if _anim_idle != "":
-			_anim_player.play(_anim_idle)
+	if entity_type == 0 or entity_type == 1:
+		_character_animation = ARCANE_CHARACTER_ANIMATION_SCRIPT.new()
+		_character_animation.name = "ArcaneCharacterAnimation"
+		add_child(_character_animation)
+		_character_animation.initialize()
+		_child_meshes.clear()
+		for child in find_children("*", "MeshInstance3D", true, false):
+			_child_meshes.append(child as MeshInstance3D)
+	else:
+		for child in find_children("*", "GPUParticles3D", true, false):
+			var particles := child as GPUParticles3D
+			particles.emitting = true
+			particles.restart()
 
 	skill_vfx_attachment = Node3D.new()
 	skill_vfx_attachment.name = "SkillVfxAttachment"
@@ -88,22 +97,22 @@ func _ready() -> void:
 	add_child(skill_vfx_attachment)
 
 
-func _find_anim_path(anim_name: String) -> String:
-	if not _anim_player:
-		return ""
-	for lib_name in _anim_player.get_animation_library_list():
-		var lib = _anim_player.get_animation_library(lib_name)
-		if lib and lib.has_animation(anim_name):
-			return anim_name if lib_name == "" else lib_name + "/" + anim_name
-	return ""
-
-
 func apply_snapshot(
-	x: float, z: float, ang: float, hp: int, max_hp: int, dead: bool
+	x: float,
+	z: float,
+	ang: float,
+	hp: int,
+	max_hp: int,
+	dead: bool,
+	cast_state: int = 0,
+	cast_slot: int = -1,
+	cast_moving: bool = false
 ) -> void:
 	if dead:
 		if not _dead:
 			_dead = true
+			_previous_cast_state = 0
+			_previous_cast_slot = -1
 			for m in _child_meshes:
 				m.visible = false
 		return
@@ -114,6 +123,8 @@ func apply_snapshot(
 		_prev_hp = hp
 		for m in _child_meshes:
 			m.visible = true
+		if _character_animation:
+			_character_animation.reset()
 
 	# 受击红闪检测
 	if entity_type == 0 or entity_type == 1:
@@ -132,10 +143,11 @@ func apply_snapshot(
 		_prev_ang = new_ang
 		_curr_ang = new_ang
 		position = new_pos
-		rotation = Vector3(0, sim_to_godot_yaw(ang), 0)
+		rotation = Vector3(0, _entity_yaw(ang), 0)
 		_first_snap = false
 		_snap_time = Time.get_ticks_msec() / 1000.0
-		_moving = false
+		_moving = cast_moving
+		_sync_character_animation(cast_state, cast_slot)
 		return
 
 	_prev_pos = _curr_pos
@@ -144,7 +156,8 @@ func apply_snapshot(
 	_curr_ang = new_ang
 	_snap_time = Time.get_ticks_msec() / 1000.0
 
-	_moving = _curr_pos.distance_to(_prev_pos) > 0.01
+	_moving = cast_moving or _curr_pos.distance_to(_prev_pos) > 0.01
+	_sync_character_animation(cast_state, cast_slot)
 
 
 func _process(delta: float) -> void:
@@ -153,9 +166,7 @@ func _process(delta: float) -> void:
 	var elapsed := Time.get_ticks_msec() / 1000.0 - _snap_time
 	var t := clampf(elapsed / LERP_DURATION, 0.0, 1.0)
 	position = _prev_pos.lerp(_curr_pos, t)
-	rotation = Vector3(
-		0, sim_to_godot_yaw(lerp_angle(_prev_ang, _curr_ang, t)), 0
-	)
+	rotation = Vector3(0, _entity_yaw(lerp_angle(_prev_ang, _curr_ang, t)), 0)
 
 	# 材质优先级：受击红闪 > 攻击锁定(红) > 悬停高亮(黄) > 无
 	if _flash_timer > 0.0:
@@ -164,25 +175,55 @@ func _process(delta: float) -> void:
 			m.material_override = _red_mat
 		if _flash_timer <= 0.0:
 			var mat = (
-				_attack_target_mat
-				if _attack_targeted
-				else (_highlight_mat if _hovered else null)
+				_attack_target_mat if _attack_targeted else (_highlight_mat if _hovered else null)
 			)
 			for m in _child_meshes:
 				m.material_override = mat
 	else:
-		var mat = (
-			_attack_target_mat
-			if _attack_targeted
-			else (_highlight_mat if _hovered else null)
-		)
+		var mat = _attack_target_mat if _attack_targeted else (_highlight_mat if _hovered else null)
 		for m in _child_meshes:
 			m.material_override = mat
 
-	if _anim_player and _anim_run != "" and _anim_idle != "":
-		var target := _anim_run if _moving else _anim_idle
-		if _anim_player.current_animation != target:
-			_anim_player.play(target)
+	if _character_animation:
+		_character_animation.set_movement(_movement_vector())
+
+
+func _sync_character_animation(cast_state: int, cast_slot: int) -> void:
+	if _character_animation == null:
+		return
+	_character_animation.set_movement(_movement_vector())
+	if (
+		cast_state == 3
+		and cast_slot == 1
+		and (_previous_cast_state != 3 or _previous_cast_slot != 1)
+	):
+		_character_animation.play_w_cast()
+	elif cast_state == 0 and _previous_cast_state != 0:
+		_character_animation.finish_cast()
+	_previous_cast_state = cast_state
+	_previous_cast_slot = cast_slot
+
+
+func _movement_vector() -> Vector2:
+	return Vector2.RIGHT if _moving else Vector2.ZERO
+
+
+func play_attack_cast() -> void:
+	if _dead or _character_animation == null:
+		return
+	_character_animation.play_attack_cast()
+
+
+func play_under_attack() -> void:
+	if _dead or _character_animation == null:
+		return
+	_character_animation.play_under_attack()
+
+
+func _entity_yaw(sim_ang: float) -> float:
+	if entity_type == 2:
+		return -sim_ang - PI / 2.0
+	return sim_to_godot_yaw(sim_ang)
 
 
 func set_hovered(v: bool) -> void:

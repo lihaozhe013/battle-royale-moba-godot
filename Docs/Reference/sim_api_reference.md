@@ -1,6 +1,6 @@
 # Sim API Reference — C++ ECS Layer Detailed Reference
 
-> Last updated: 2026-08-02
+> Last updated: 2026-08-06
 > **Scope**: detailed component / system / registry / binding reference for the C++ Sim layer.
 > **NOT in scope**: end-to-end data flow (see `docs/DATA_FLOW.md`), input system (see `input_system_design.md`), Hero/Skill rationale (see `hero_skill_architecture.md`), Bot AI (see `bot_ai.md`).
 > **Code is the source of truth** — verify any field/signatures here against the actual headers (`src_cpp/sim/components.h`, `src_cpp/sim/snapshot_types/`, `src_cpp/sim_server.h`).
@@ -152,7 +152,7 @@ All components live in `src_cpp/sim/components.h`. Components with `= default` i
 
 | Component | Fields | Notes |
 | --- | --- | --- |
-| `ArrowTag` | `int OwnerId; entity OwnerEntity; float Dmg; float LifestealRatio` | Arrow entity marker. |
+| `ArrowTag` | `int OwnerId; entity OwnerEntity; float Dmg; float LifestealRatio; int SourceSkillId` | Arrow entity marker; `SourceSkillId=0` identifies a basic attack. |
 | `AoETag` | `int OwnerId, SkillId; float Radius, Duration, Timer` | AoE entity marker. |
 | `PickupTag` | `PickupType Type; int Value` | Pickup entity marker. |
 | `PickupSpawner` | `PickupType Type; int Value; Vec2 Position; float RespawnTime, CurrentTimer; bool Active; int CurrentEntityId` | Spawner state (not a visible entity until spawned). |
@@ -233,6 +233,7 @@ Pulse fields are cleared by `local_input_injection_system` after copy.
 | `MapBounds` | `float Half` | `_map_bounds_entity` | World extent. |
 | `IdState` | `int NextPlayerId, NextBotId, NextArrowId, NextPickupId, NextAoEId` | `_id_state_entity` | NetworkId allocator. |
 | `KillEventBuffer` | `vector<KillEvent> events` | `_kill_event_entity` | Consumed by `progression_system` then cleared. |
+| `ImpactEventBuffer` | `vector<ImpactEvent> events` | `_kill_event_entity` | Arrow hit events; `SourceSkillId=0` identifies basic attacks and the buffer is cleared after snapshot export. |
 
 ---
 
@@ -255,7 +256,7 @@ All systems are `inline void` free functions in `namespace sim`. Signature conve
 | 11 | `attack_fire_system` | `attack_fire.h` | `AttackTarget`, `CombatStats`, `CastState` | `CommandBuffer` (new arrow) | Cooldown check via `LastFireTime`; spawns Homing arrow if target in `AttackRange`. |
 | 12 | `arrow_movement_system` | `arrow_movement.h` | `Velocity2D`, `Homing` | `Position2D`, `Lifetime` | Advance position; Homing steers toward `Target`. |
 | 13 | `wall_collision_system` | `wall_collision.h` | `Position2D`, `WallBounds`, `ArrowTag`, `Homing`, `AttackTarget.Chasing`, `CastState::Dashing` | `Position2D`, `CommandBuffer` (arrow destroy) | AABB resolve for movers; skip Chasing heroes + Dashing heroes + Homing arrows; destroy arrows intersecting wall. |
-| 14 | `combat_system` | `combat.h` | `ArrowTag`, `Position2D`, `Health` | `Health`, `Dead`, `Kills`, `KillEventBuffer`, `CommandBuffer` (arrow destroy) | Circle overlap; apply damage; Homing arrows only hit their locked target. |
+| 14 | `combat_system` | `combat.h` | `ArrowTag`, `Position2D`, `Health` | `Health`, `Dead`, `Kills`, `KillEventBuffer`, `ImpactEventBuffer`, `CommandBuffer` (arrow destroy) | Circle overlap; apply damage and record impact source; Homing arrows only hit their locked target. |
 | 15 | `pickup_system` | `pickup.h` | `PickupSpawner`, `PickupTag`, `Position2D`, `Health` | `PickupSpawner.Active/CurrentTimer`, `Health`, `Experience`, `CommandBuffer` | Spawner timer; overlap XP/Heal pickup. |
 | 16 | `aoe_system` | `aoe.h` | `AoETag`, `Position2D` | `AoETag.Timer`, `CommandBuffer` | Tick AoE lifetime; destroy on expiry. |
 | 17 | `status_effect_system` | `status_effect.h` | `StatusEffect` | `StatusEffect.Timer` | Decrement; clear when ≤ 0. |
@@ -263,7 +264,7 @@ All systems are `inline void` free functions in `namespace sim`. Signature conve
 | 19 | `skill_cooldown_system` | `skill_cooldown.h` | `SkillComponent` | `SkillSlot.CooldownTimer` | Per tick: `CooldownTimer = max(0, CooldownTimer - dt)`. |
 | 20 | `skill_level_system` | `skill_level.h` | `HeroInputState.SkillUpgradeSlot`, `SkillComponent`, `SkillPoints` | `SkillSlot.Level`, `SkillPoints.Available` | If upgrade pulse and `Available>0` and `Level<Max`: `Level++`, `Available--`. |
 | 21 | `progression_system` | `progression.h` | `KillEventBuffer` | `CombatStats`, `Experience`, `Level`, `MoveSpeed`, `Health.Max`, `SkillPoints` | Apply kills → XP, ATK/ASP, level-up cascade. |
-| 22 | `snapshot_export_system` | `snapshot_export.h` | entire registry | `godot::Ref<SimSnapshot>` | Build snapshot, increment `tick_counter`, store on `World`. |
+| 22 | `snapshot_export_system` | `snapshot_export.h` | entire registry | `godot::Ref<SimSnapshot>` | Build snapshot, increment `tick_counter`, store on `World`; `World::tick` clears one-shot impact events after export. |
 
 **Tick-end**: `World::_cb.flush(_reg)` applies all deferred entity ops from the systems that pushed to `CommandBuffer`.
 
@@ -441,6 +442,8 @@ class SimSnapshot : public godot::RefCounted {
     int get_local_hero_index() const;           // returns index of IsLocal hero
 };
 ```
+
+`SimArrowSnap` exposes `id`, `owner_id`, `source_skill_id`, `x`, `y`, and `ang`. The view uses `owner_id` to trigger the owning hero's basic-attack presentation and `source_skill_id` to distinguish basic-attack fireballs from channel-burst projectiles. `SimEventSnap.type=1` is an impact event; its `victim_id` and `source_skill_id=0` identify a basic-attack hit for the under-attack presentation.
 
 View layer should prefer `heroes[local_idx]` over `players[0]`; legacy fields are kept for backwards compatibility.
 

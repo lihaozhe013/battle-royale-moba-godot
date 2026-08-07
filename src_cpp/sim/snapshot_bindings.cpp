@@ -31,10 +31,14 @@ void SimSkillSlotSnap::_bind_methods() {
 }
 
 void SimEventSnap::_bind_methods() {
+    BIND(SimEventSnap, type);
     BIND(SimEventSnap, killer_id);
     BIND(SimEventSnap, victim_id);
+    BIND(SimEventSnap, source_skill_id);
+    PROP(SimEventSnap, Variant::INT, type);
     PROP(SimEventSnap, Variant::INT, killer_id);
     PROP(SimEventSnap, Variant::INT, victim_id);
+    PROP(SimEventSnap, Variant::INT, source_skill_id);
 }
 
 void SimPlayerSnap::_bind_methods() {
@@ -224,6 +228,10 @@ void SimBotSnap::_bind_methods() {
     BIND(SimBotSnap, speed);
     BIND(SimBotSnap, tier);
     BIND(SimBotSnap, status);
+    BIND(SimBotSnap, cast_state);
+    BIND(SimBotSnap, cast_slot);
+    BIND(SimBotSnap, cast_progress);
+    BIND(SimBotSnap, is_moving);
     ClassDB::bind_method(D_METHOD("get_skills"), &SimBotSnap::get_skills);
     ClassDB::bind_method(D_METHOD("set_skills", "v"), &SimBotSnap::set_skills);
     PROP(SimBotSnap, Variant::INT, id);
@@ -244,6 +252,10 @@ void SimBotSnap::_bind_methods() {
     PROP(SimBotSnap, Variant::FLOAT, speed);
     PROP(SimBotSnap, Variant::INT, tier);
     PROP(SimBotSnap, Variant::INT, status);
+    PROP(SimBotSnap, Variant::INT, cast_state);
+    PROP(SimBotSnap, Variant::INT, cast_slot);
+    PROP(SimBotSnap, Variant::FLOAT, cast_progress);
+    PROP(SimBotSnap, Variant::BOOL, is_moving);
     ADD_PROPERTY(
         PropertyInfo(
             Variant::ARRAY,
@@ -258,10 +270,14 @@ void SimBotSnap::_bind_methods() {
 
 void SimArrowSnap::_bind_methods() {
     BIND(SimArrowSnap, id);
+    BIND(SimArrowSnap, owner_id);
+    BIND(SimArrowSnap, source_skill_id);
     BIND(SimArrowSnap, x);
     BIND(SimArrowSnap, y);
     BIND(SimArrowSnap, ang);
     PROP(SimArrowSnap, Variant::INT, id);
+    PROP(SimArrowSnap, Variant::INT, owner_id);
+    PROP(SimArrowSnap, Variant::INT, source_skill_id);
     PROP(SimArrowSnap, Variant::FLOAT, x);
     PROP(SimArrowSnap, Variant::FLOAT, y);
     PROP(SimArrowSnap, Variant::FLOAT, ang);

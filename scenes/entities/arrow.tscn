@@ -1,3 +1,10 @@
-[gd_scene format=3 uid="uid://b2eqmq5r7xjsq"]
+[gd_scene format=3]
 
-[node name="Arrow" type="Node3D" unique_id=471204329]
+[ext_resource type="Script" path="res://scripts/view/entity_view.gd" id="1_entity_view"]
+[ext_resource type="PackedScene" path="res://resources/vfx/projectiles/fireball/fireball.tscn" id="2_fireball"]
+
+[node name="Arrow" type="Node3D"]
+script = ExtResource("1_entity_view")
+
+[node name="Fireball" parent="." instance=ExtResource("2_fireball")]
+position = Vector3(0, 1.2, 0)

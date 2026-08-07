@@ -230,6 +230,7 @@ struct ArrowTag {
     entt::entity OwnerEntity = entt::null;
     float Dmg = 0.0f;
     float LifestealRatio = 0.0f;
+    int SourceSkillId = 0;
 };
 
 struct AttackTarget {
@@ -358,6 +359,16 @@ struct KillEvent {
 
 struct KillEventBuffer {
     std::vector<KillEvent> events;
+};
+
+struct ImpactEvent {
+    int AttackerId = 0;
+    int VictimId = 0;
+    int SourceSkillId = 0;
+};
+
+struct ImpactEventBuffer {
+    std::vector<ImpactEvent> events;
 };
 
 // ── IdState.cs ───────────────────────────────────────────────────────────

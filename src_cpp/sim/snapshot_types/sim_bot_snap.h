@@ -21,6 +21,10 @@ class SimBotSnap : public godot::RefCounted {
     float speed = 0;
     int tier = 0;
     int status = 0;
+    int cast_state = 0;
+    int cast_slot = -1;
+    float cast_progress = 0.0f;
+    bool is_moving = false;
     godot::TypedArray<SimSkillSlotSnap> skills;
 
     int get_id() const { return id; }
@@ -59,6 +63,14 @@ class SimBotSnap : public godot::RefCounted {
     void set_tier(int v) { tier = v; }
     int get_status() const { return status; }
     void set_status(int v) { status = v; }
+    int get_cast_state() const { return cast_state; }
+    void set_cast_state(int v) { cast_state = v; }
+    int get_cast_slot() const { return cast_slot; }
+    void set_cast_slot(int v) { cast_slot = v; }
+    float get_cast_progress() const { return cast_progress; }
+    void set_cast_progress(float v) { cast_progress = v; }
+    bool get_is_moving() const { return is_moving; }
+    void set_is_moving(bool v) { is_moving = v; }
     godot::TypedArray<SimSkillSlotSnap> get_skills() const { return skills; }
     void set_skills(const godot::TypedArray<SimSkillSlotSnap> &v) {
         skills = v;

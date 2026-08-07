@@ -6,6 +6,9 @@
 - C++ GDExtension simulation runs at 30 Hz and has no Godot dependency inside `sim/` systems.
 - GDScript view and input code run at the render rate, normally 60 Hz.
 - `SimSnapshot` is the only Sim-to-View data channel; skill slot snapshots include the authoritative current-level `cast_range`, and local hero snapshots include `attack_range`.
+- Player and bot views use the shared Arcane Duel character presentation. Idle/run clips, W cast presentation, basic-attack cast presentation, and basic-attack under-attack reaction are selected from snapshot state in the Godot view layer.
+- Basic attack arrow snapshots expose `owner_id` and `source_skill_id`; the view uses these fields to trigger the owner attack animation and to keep channel-burst projectiles separate from basic-attack fireballs.
+- Basic-attack impact snapshots expose an event type and source skill id; only source skill id `0` triggers the Arcane Duel under-attack animation.
 - Input uses the MOBA command flow: ground right-click movement, Q/W/E/R skills, and A attack commands.
 - Native builds use Meson with `clang++` discovery from `PATH`; game sources use C++20 and no `build_env.yaml` file is required.
 

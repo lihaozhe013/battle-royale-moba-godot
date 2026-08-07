@@ -53,6 +53,19 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
             auto &hp = target_view.get<Health>(target);
             hp.Cur -= static_cast<int>(arrow_tag.Dmg);
 
+            int victim_id = reg.all_of<NetworkId>(target)
+                                ? reg.get<NetworkId>(target).Value
+                                : 0;
+            auto impact_view = reg.view<ImpactEventBuffer>();
+            for (auto impact_entity : impact_view) {
+                impact_view.get<ImpactEventBuffer>(impact_entity)
+                    .events.push_back({
+                        arrow_tag.OwnerId,
+                        victim_id,
+                        arrow_tag.SourceSkillId,
+                    });
+            }
+
             // Lifesteal
             if (arrow_tag.LifestealRatio > 0.0f &&
                 arrow_tag.OwnerEntity != entt::null &&
@@ -77,9 +90,6 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
 
             // Kill event
             if (hp.Cur <= 0) {
-                int victim_id = reg.all_of<NetworkId>(target)
-                                    ? reg.get<NetworkId>(target).Value
-                                    : 0;
                 auto kill_view = reg.view<KillEventBuffer>();
                 for (auto k : kill_view) {
                     kill_view.get<KillEventBuffer>(k).events.push_back(
