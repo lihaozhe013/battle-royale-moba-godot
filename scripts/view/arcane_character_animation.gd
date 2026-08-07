@@ -139,7 +139,7 @@ func set_movement(next_movement: Vector2) -> void:
 
 func play_w_cast() -> void:
 	if shield_body == null or shield_animation_player == null:
-		push_warning("[arcane_character] shield cast animation is unavailable")
+		DebugLogger.log("[WARNING] [arcane_character] shield cast animation is unavailable")
 		return
 	_hide_all()
 	shield_body.visible = true
@@ -152,7 +152,7 @@ func play_w_cast() -> void:
 
 func play_attack_cast() -> void:
 	if fireball_cast_body == null or fireball_cast_animation_player == null:
-		push_warning("[arcane_character] fireball cast animation is unavailable")
+		DebugLogger.log("[WARNING] [arcane_character] fireball cast animation is unavailable")
 		return
 	_hide_all()
 	fireball_cast_body.visible = true
@@ -162,7 +162,7 @@ func play_attack_cast() -> void:
 
 func play_under_attack() -> void:
 	if under_attack_body == null or under_attack_animation_player == null:
-		push_warning("[arcane_character] under-attack animation is unavailable")
+		DebugLogger.log("[WARNING] [arcane_character] under-attack animation is unavailable")
 		return
 	_hide_all()
 	under_attack_body.visible = true
@@ -187,7 +187,7 @@ func _return_to_locomotion() -> void:
 
 func _play_idle() -> void:
 	if idle_body == null or idle_animation_player == null:
-		push_warning("[arcane_character] idle animation is unavailable")
+		DebugLogger.log("[WARNING] [arcane_character] idle animation is unavailable")
 		return
 	_hide_all()
 	idle_body.visible = true
@@ -285,7 +285,7 @@ func _add_animation_body(
 ) -> AnimationPlayer:
 	var instance := scene.instantiate() as Node3D
 	if instance == null:
-		push_warning("[arcane_character] failed to instantiate %s" % label)
+		DebugLogger.log("[WARNING] [arcane_character] failed to instantiate %s" % label)
 		return null
 	var body_wrapper := Node3D.new()
 	body_wrapper.name = body_name
@@ -321,7 +321,10 @@ func _add_animation_body(
 		if animation:
 			animation.loop_mode = (Animation.LOOP_LINEAR if should_loop else Animation.LOOP_NONE)
 			return player
-	push_warning("[arcane_character] missing animation=%s asset=%s" % [animation_name, label])
+	DebugLogger.log(
+		"[WARNING] [arcane_character] missing animation=%s asset=%s"
+		% [animation_name, label]
+	)
 	return null
 
 

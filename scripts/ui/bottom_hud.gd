@@ -36,7 +36,7 @@ func build(style: UIStyle) -> void:
 		return
 	_built = true
 	_style = style
-	print("[ui_bootstrap] BottomHUD.build started")
+	DebugLogger.log("[ui_bootstrap] BottomHUD.build started")
 	style.set_full_rect(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	resized.connect(_on_resized)
@@ -127,7 +127,7 @@ func build(style: UIStyle) -> void:
 	container.add_child(_build_resource_section())
 	container.add_child(style.make_spacer(Vector2(8, 0)))
 	container.add_child(_build_item_section())
-	print(
+	DebugLogger.log(
 		(
 			"[ui_bootstrap] BottomHUD.build complete child_count=%d root_size=%s"
 			% [get_child_count(), size]
@@ -154,9 +154,9 @@ func _layout_hud() -> void:
 func log_layout() -> void:
 	var hud_panel := get_node_or_null("HUDPanel") as Control
 	if not hud_panel:
-		print("[ui_bootstrap] BottomHUD.layout missing HUDPanel")
+		DebugLogger.log("[ui_bootstrap] BottomHUD.layout missing HUDPanel")
 		return
-	print(
+	DebugLogger.log(
 		(
 			"[ui_bootstrap] BottomHUD.layout visible=%s root_size=%s root_global=%s panel_position=%s panel_size=%s panel_scale=%s visual_width=%.1f panel_global=%s viewport=%s"
 			% [

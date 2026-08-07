@@ -51,13 +51,13 @@ func _ready() -> void:
 	_set_cursor_mode(false)
 	var file = FileAccess.open("res://data/maps/default.json", FileAccess.READ)
 	if not file:
-		push_error("Failed to load map JSON")
+		DebugLogger.log("[ERROR] Failed to load map JSON")
 		return
 	var map_json = file.get_as_text()
 	file.close()
 	var stats_file = FileAccess.open("res://data/stats.yaml", FileAccess.READ)
 	if not stats_file:
-		push_error("[stats_config] Failed to load stats YAML")
+		DebugLogger.log("[ERROR] [stats_config] Failed to load stats YAML")
 		return
 	var stats_yaml = stats_file.get_as_text()
 	stats_file.close()
@@ -87,9 +87,9 @@ func _ready() -> void:
 
 	sim = SimServer.new()
 	if not sim.initialize(map_json, stats_yaml):
-		push_error("[stats_config] SimServer initialization failed")
+		DebugLogger.log("[ERROR] [stats_config] SimServer initialization failed")
 		return
-	print("SimServer initialized")
+	DebugLogger.log("SimServer initialized")
 	ui_root.prewarm_health_bars(sim.get_hero_capacity())
 
 	_skill_vfx = $SkillVFX if has_node("SkillVFX") else Node3D.new()
@@ -181,7 +181,7 @@ func _physics_process(delta: float) -> void:
 			_tmp_move_issue and first_tick
 		)
 		sim.set_stop_command(_tmp_stop and first_tick)
-		print(
+		DebugLogger.log(
 			(
 				"[TICK] send: skill(slot=%d,confirm=%s) cancel(skill=%s,atk=%s) move(issue=%s,to=(%.1f,%.1f)) atk(id=%d) stop=%s"
 				% [
@@ -214,7 +214,7 @@ func _physics_process(delta: float) -> void:
 
 		elapsed -= TICK_RATE
 		if sim.is_game_over():
-			print("=== GAME OVER ===")
+			DebugLogger.log("=== GAME OVER ===")
 			get_tree().paused = true
 			return
 		var snap = sim.pop_snapshot()
@@ -234,7 +234,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _apply_command(c: Command) -> void:
-	print("[APPLY] %s" % c.get_type_name())
+	DebugLogger.log("[APPLY] %s" % c.get_type_name())
 	match c.type:
 		Command.CmdType.MOVE:
 			_tmp_move_target = c.move_target
@@ -351,7 +351,7 @@ func _process(_delta: float) -> void:
 			_skill_vfx.sync(last_snapshot, entity_manager, input_state_machine)
 
 			if p.cast_slot != _log_prev_cast_slot:
-				print(
+				DebugLogger.log(
 					(
 						"[CAST] slot=%d state=%d err=%d"
 						% [p.cast_slot, p.cast_state, p.cast_error]
@@ -359,7 +359,7 @@ func _process(_delta: float) -> void:
 				)
 				_log_prev_cast_slot = p.cast_slot
 			if p.cast_state != _log_prev_cast_state:
-				print(
+				DebugLogger.log(
 					(
 						"[CAST] state %d->%d slot=%d err=%d prog=%.2f"
 						% [
@@ -373,9 +373,9 @@ func _process(_delta: float) -> void:
 				)
 				_log_prev_cast_state = p.cast_state
 			if p.cast_error > 0:
-				print("[CAST] ERROR=%d" % p.cast_error)
+				DebugLogger.log("[CAST] ERROR=%d" % p.cast_error)
 			if p.hit_target_id >= 0:
-				print("[CAST] HIT target=%d" % p.hit_target_id)
+				DebugLogger.log("[CAST] HIT target=%d" % p.hit_target_id)
 	elif last_snapshot.heroes.size() > 0:
 		var local_idx = (
 			last_snapshot.get_local_hero_index()
@@ -397,7 +397,7 @@ func _process(_delta: float) -> void:
 				)
 
 				if p.cast_slot != _log_prev_cast_slot:
-					print(
+					DebugLogger.log(
 						(
 							"[CAST] slot=%d state=%d err=%d"
 							% [p.cast_slot, p.cast_state, p.cast_error]
@@ -405,7 +405,7 @@ func _process(_delta: float) -> void:
 					)
 					_log_prev_cast_slot = p.cast_slot
 				if p.cast_state != _log_prev_cast_state:
-					print(
+					DebugLogger.log(
 						(
 							"[CAST] state %d->%d slot=%d err=%d prog=%.2f"
 							% [
@@ -419,6 +419,6 @@ func _process(_delta: float) -> void:
 					)
 					_log_prev_cast_state = p.cast_state
 				if p.cast_error > 0:
-					print("[CAST] ERROR=%d" % p.cast_error)
+					DebugLogger.log("[CAST] ERROR=%d" % p.cast_error)
 				if p.hit_target_id >= 0:
-					print("[CAST] HIT target=%d" % p.hit_target_id)
+					DebugLogger.log("[CAST] HIT target=%d" % p.hit_target_id)

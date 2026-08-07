@@ -44,7 +44,7 @@ func process_frame() -> void:
 		var names := ""
 		for ev in events:
 			names += _ev_name(ev) + " "
-		print(
+		DebugLogger.log(
 			(
 				"[CMD] events=%s | fsm=%d/%d prev_right=%s"
 				% [names, fsm.move_axis, fsm.command_axis, _prev_right]
@@ -104,17 +104,17 @@ func _on_key_press(k: int, ev) -> void:
 			_prev_skill_held[i] = true
 			if fsm.is_in_cast_lock():
 				if DEBUG:
-					print("[CMD] SKIP skill slot=%d cast_locked" % i)
+					DebugLogger.log("[CMD] SKIP skill slot=%d cast_locked" % i)
 				return
 			if cast_settings.is_quick(i):
 				if DEBUG:
-					print("[CMD] SKILL slot=%d quick confirm=true" % i)
+					DebugLogger.log("[CMD] SKILL slot=%d quick confirm=true" % i)
 				_make_skill(i, true, queue.mouse_world)
 			else:
 				fsm.command_axis = InputStateMachine.CommandAxis.SKILL_AIMING
 				fsm.active_skill_slot = i
 				if DEBUG:
-					print(
+					DebugLogger.log(
 						(
 							"[CMD] SKILL slot=%d normal confirm=false -> SKILL_AIMING"
 							% i
@@ -220,21 +220,21 @@ func _on_mb_press(b: int, ev) -> void:
 
 		if fsm.command_axis == InputStateMachine.CommandAxis.SKILL_AIMING:
 			if DEBUG:
-				print("[CMD] RIGHT -> cancel skill, consumed=true")
+				DebugLogger.log("[CMD] RIGHT -> cancel skill, consumed=true")
 			_make_cancel(0)
 			fsm.command_axis = InputStateMachine.CommandAxis.IDLE
 			consumed = true
 
 		if fsm.command_axis == InputStateMachine.CommandAxis.ATTACK_AIMING:
 			if DEBUG:
-				print("[CMD] RIGHT -> cancel attack, consumed=true")
+				DebugLogger.log("[CMD] RIGHT -> cancel attack, consumed=true")
 			_make_cancel(1)
 			fsm.command_axis = InputStateMachine.CommandAxis.IDLE
 			consumed = true
 
 		if fsm.is_in_cast_lock():
 			if DEBUG:
-				print("[CMD] RIGHT -> cancel cast_locked")
+				DebugLogger.log("[CMD] RIGHT -> cancel cast_locked")
 			_make_cancel(0)
 			return
 
@@ -242,13 +242,13 @@ func _on_mb_press(b: int, ev) -> void:
 			var hover_id = _get_hovered_enemy_id()
 			if hover_id >= 0:
 				if DEBUG:
-					print("[CMD] RIGHT -> attack hover=%d" % hover_id)
+					DebugLogger.log("[CMD] RIGHT -> attack hover=%d" % hover_id)
 				_make_attack(hover_id)
 			elif right_edge:
 				if now - _last_move_time >= MIN_MOVE_INTERVAL:
 					_last_move_time = now
 					if DEBUG:
-						print(
+						DebugLogger.log(
 							(
 								"[CMD] RIGHT -> move to (%.1f,%.1f)"
 								% [queue.mouse_world.x, queue.mouse_world.y]
@@ -298,7 +298,7 @@ func _make_move(target: Vector2) -> void:
 	buffer.push(c)
 	move_issued.emit(target)
 	if DEBUG:
-		print("[CMD] → MOVE target=(%.1f,%.1f)" % [target.x, target.y])
+		DebugLogger.log("[CMD] → MOVE target=(%.1f,%.1f)" % [target.x, target.y])
 
 
 func _make_skill(slot: int, confirm: bool, aim: Vector2) -> void:
@@ -310,7 +310,7 @@ func _make_skill(slot: int, confirm: bool, aim: Vector2) -> void:
 	c.skill_target_id = _get_hovered_enemy_id()
 	buffer.push(c)
 	if DEBUG:
-		print(
+		DebugLogger.log(
 			(
 				"[CMD] → SKILL slot=%d confirm=%s aim=(%.1f,%.1f)"
 				% [slot, confirm, aim.x, aim.y]
@@ -324,7 +324,7 @@ func _make_upgrade(slot: int) -> void:
 	c.skill_slot = slot
 	buffer.push(c)
 	if DEBUG:
-		print("[CMD] → UPGRADE slot=%d" % slot)
+		DebugLogger.log("[CMD] → UPGRADE slot=%d" % slot)
 
 
 func _make_attack(target_id: int) -> void:
@@ -333,7 +333,7 @@ func _make_attack(target_id: int) -> void:
 	c.attack_target_id = target_id
 	buffer.push(c)
 	if DEBUG:
-		print("[CMD] → ATTACK target=%d" % target_id)
+		DebugLogger.log("[CMD] → ATTACK target=%d" % target_id)
 
 
 func _make_attack_ground(pos: Vector2) -> void:
@@ -342,7 +342,7 @@ func _make_attack_ground(pos: Vector2) -> void:
 	c.attack_ground = pos
 	buffer.push(c)
 	if DEBUG:
-		print("[CMD] → ATTACK ground=(%.1f,%.1f)" % [pos.x, pos.y])
+		DebugLogger.log("[CMD] → ATTACK ground=(%.1f,%.1f)" % [pos.x, pos.y])
 
 
 func _make_cancel(scope: int) -> void:
@@ -351,7 +351,7 @@ func _make_cancel(scope: int) -> void:
 	c.cancel_scope = scope
 	buffer.push(c)
 	if DEBUG:
-		print("[CMD] → CANCEL scope=%d" % scope)
+		DebugLogger.log("[CMD] → CANCEL scope=%d" % scope)
 
 
 func _make_stop() -> void:
@@ -359,4 +359,4 @@ func _make_stop() -> void:
 	c.type = Command.CmdType.STOP
 	buffer.push(c)
 	if DEBUG:
-		print("[CMD] → STOP")
+		DebugLogger.log("[CMD] → STOP")

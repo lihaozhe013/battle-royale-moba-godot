@@ -12,6 +12,15 @@
 - Input uses the MOBA command flow: ground right-click movement, Q/W/E/R skills, and A attack commands.
 - Native builds use Meson with `clang++` discovery from `PATH`; game sources use C++20 and no `build_env.yaml` file is required.
 
+## Runtime Logging Contract
+
+- Project runtime logs are routed through the `DebugLogger` autoload instead of Godot `print()` calls.
+- `DebugLogger` buffers messages and flushes them to the configured log path every 250 ms and when the tree exits.
+- The current development log path is `res://debug.log`; the logger falls back to `user://debug.log` when the resource path is not writable.
+- `application/run/disable_stdout=true` keeps project logs out of the Godot editor Output panel. Godot engine warnings and errors written to stderr remain visible.
+- Godot file logging is disabled because `DebugLogger` owns the configured file and avoids duplicate writes.
+- See `Docs/Reference/logging.md` for the logging configuration, performance implications, and verification command.
+
 ## Main Runtime Ownership
 
 ```text

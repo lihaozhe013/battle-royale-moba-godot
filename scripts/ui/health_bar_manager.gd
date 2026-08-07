@@ -29,20 +29,20 @@ func setup(
 func prewarm(capacity: int) -> void:
 	if _prewarmed:
 		if capacity != _capacity:
-			push_error(
-				"[ui_bootstrap] Health-bar capacity changed after prewarm"
+			DebugLogger.log(
+				"[ERROR] [ui_bootstrap] Health-bar capacity changed after prewarm"
 			)
 		return
 	if not _world_layer or not _style:
-		push_error("[ui_bootstrap] HealthBarManager is not configured")
+		DebugLogger.log("[ERROR] [ui_bootstrap] HealthBarManager is not configured")
 		return
 	if capacity < 0:
-		push_error("[ui_bootstrap] Health-bar capacity cannot be negative")
+		DebugLogger.log("[ERROR] [ui_bootstrap] Health-bar capacity cannot be negative")
 		return
 
 	_capacity = capacity
 	_prewarmed = true
-	print("[ui_bootstrap] HealthBarManager.prewarm capacity=%d" % capacity)
+	DebugLogger.log("[ui_bootstrap] HealthBarManager.prewarm capacity=%d" % capacity)
 	for _i in capacity:
 		var bar := _create_bar()
 		_world_layer.add_child(bar)
@@ -52,7 +52,7 @@ func prewarm(capacity: int) -> void:
 
 func sync_bars(snap: SimSnapshot) -> void:
 	if not _prewarmed:
-		push_error("[ui_bootstrap] Health bars used before prewarm")
+		DebugLogger.log("[ERROR] [ui_bootstrap] Health bars used before prewarm")
 		return
 
 	var seen := {}
@@ -110,9 +110,9 @@ func _get_or_create(id: int) -> HealthBarUI:
 	if _active_bars.has(id):
 		return _active_bars[id]
 	if _pool.is_empty():
-		push_error(
+		DebugLogger.log(
 			(
-				"[ui_bootstrap] Health-bar pool exhausted for entity %d (capacity %d)"
+				"[ERROR] [ui_bootstrap] Health-bar pool exhausted for entity %d (capacity %d)"
 				% [id, _capacity]
 			)
 		)

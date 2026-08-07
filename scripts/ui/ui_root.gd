@@ -25,7 +25,7 @@ func initialize() -> void:
 		return
 	_initialized = true
 	_style = UIStyle.new()
-	print(
+	DebugLogger.log(
 		(
 			"[ui_bootstrap] UIRoot.initialize viewport=%s process_mode=%d"
 			% [get_viewport().get_visible_rect().size, process_mode]
@@ -60,7 +60,7 @@ func initialize() -> void:
 	settings_panel.name = "SettingsPanel"
 	settings_panel.build(_style)
 	_modal_layer.add_child(settings_panel)
-	print(
+	DebugLogger.log(
 		(
 			"[ui_bootstrap] UIRoot.initialize complete layers=(%d,%d,%d,%d) bottom_visible=%s bottom_size=%s"
 			% [
@@ -102,8 +102,8 @@ func prewarm_health_bars(capacity: int) -> void:
 	if not _initialized:
 		initialize()
 	if _health_bars_prewarmed:
-		push_error("[ui_bootstrap] UIRoot health bars were already prewarmed")
+		DebugLogger.log("[ERROR] [ui_bootstrap] UIRoot health bars were already prewarmed")
 		return
 	_health_bars_prewarmed = true
-	print("[ui_bootstrap] UIRoot.prewarm_health_bars capacity=%d" % capacity)
+	DebugLogger.log("[ui_bootstrap] UIRoot.prewarm_health_bars capacity=%d" % capacity)
 	health_bar_manager.prewarm(capacity)
