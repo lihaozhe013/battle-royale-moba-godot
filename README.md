@@ -1,140 +1,140 @@
-# Battle Royale MOBA (Godot)
+# Battle Royale MOBA
 
-类 MOBA 游戏原型。C++ GDExtension 模拟层 + GDScript 视图层，ECS 架构。
-单一 MOBA 控制模式（右键点地板移动 + Q/W/E/R 4 技能 + A 键普攻命令），完整相机操控系统。
+Battle Royale MOBA is a top-down action prototype built around a clear separation between authoritative gameplay simulation and real-time presentation. The project explores how a MOBA-style command model, hero combat, bot behavior, pathfinding, and a responsive Godot view can work together without coupling gameplay rules to rendering code.
 
-> **历史说明**：项目早期曾有 WASD + MOBA 双模式，WASD 模式已完全移除。输入系统正在按 `Docs/Reference/input_system_design.md` 重构为四层架构（事件队列 / 状态机 / 命令翻译 / 命令缓冲）。
+## Design Direction
 
-## 操作方式
+The project follows four central ideas:
 
-| 操作                  | 按键               | 说明                                        |
-| --------------------- | ------------------ | ------------------------------------------- |
-| **移动**              | 右键点地板         | A\* 寻路自动移动                            |
-| **技能**              | Q / W / E / R      | 4 技能槽（Quick / Normal cast 双模式可配）  |
-| **普攻命令**          | A 键               | 进入普攻瞄准 + 左键确认；或右键点敌直接攻击 |
-| **停止**              | S                  | 清移动路径                                  |
-| **取消施法/普攻瞄准** | 右键 / S / ESC / H | —                                           |
-| **设置**              | ESC                | 非施法时打开设置面板                        |
+- **Simulation is authoritative.** Movement, targeting, casting, combat, progression, pickups, and bot decisions are resolved by a fixed-rate simulation rather than by rendered frames.
+- **Simulation and presentation are independent.** The simulation does not depend on Godot scene nodes or view behavior. The Godot layer sends commands and renders the latest published state.
+- **Player and bots share the same gameplay pipeline.** Bots express movement, attack, and skill intent through the same hero input state used by the local player. They then pass through the same pathfinding, movement, casting, and combat systems.
+- **Gameplay is data-oriented and extensible.** Entities are composed from components, systems operate on those components, hero definitions reference skills by ID, and individual skills implement their own behavior behind a common interface.
 
-MOBA 模式特性：右键连点节流、同区域重算跳过、转向速率平滑、S 键停止、右键长按连点（~6Hz）、普攻穿墙追击、技能超出范围自动 A\* 跟随施法。
+The intended interaction model is a focused MOBA command scheme: right-click movement, Q/W/E/R skills, and A-based attack commands. The project deliberately keeps one command model instead of maintaining separate WASD and MOBA modes.
 
-## 相机控制
+## Technology Stack
 
-| 功能         | 操作                                | 设置                                     |
-| ------------ | ----------------------------------- | ---------------------------------------- |
-| **锁/自由**  | Y 键切换                            | ESC → Camera                             |
-| **中键拖屏** | 中键拖动（像素精准，1:1 鼠标→世界） | 恒定精准，无选项                         |
-| **边缘推屏** | 鼠标贴边自动滚动                    | ESC → Edge Pan On/Off + Speed (1.0-50.0) |
-| **平滑开关** | 平滑缓动 / 瞬时跳转                 | ESC → Smooth Pan On/Off                  |
-| **全屏**     | 窗口化 / 无边框 / 独占全屏          | ESC → Fullscreen                         |
-| **按住居中** | F1 / Space（按住锁定，松开解锁）    | —                                        |
-
-相机锁定跟随 30Hz Sim 数据时使用线性插值（LERP 1/30s），消除抖动。Smooth Pan 关闭时拖屏和推屏均为恒速无加速度。
-
-## Build requirements
-
-The C++ GDExtension build uses Meson, Python, and `clang++` discovered from `PATH`. The game sources use C++20. No `build_env.yaml` file is required.
-
-| Tool | Requirement | Notes |
+| Area | Technology | Purpose |
 | --- | --- | --- |
-| Meson | 1.4 or newer | Install from the system package manager or Python environment |
-| Python | 3.13 or newer | The project uses `uv` for Python dependencies |
-| Clang | `clang++` | Use Xcode Command Line Tools on macOS, LLVM on Linux, or LLVM/MSYS2 on Windows |
+| Engine | Godot 4.7 | Windowing, rendering, scenes, input, and presentation |
+| Simulation bridge | C++ GDExtension | Exposes the simulation to Godot without moving gameplay rules into GDScript |
+| Simulation language | C++20 | Fixed-rate gameplay logic and runtime data processing |
+| Entity model | EnTT ECS | Composes entities from components and keeps systems independent |
+| Math | GLM-style vector math | Godot-independent simulation geometry and movement calculations |
+| View layer | GDScript | Input interpretation, snapshot consumption, UI, camera, entities, and VFX |
+| Configuration | JSON and YAML | Map geometry, walls, balance values, hero data, and skill tuning |
+| Native build system | Meson | Produces the GDExtension shared library |
 
-Set `CXX` only when selecting a compiler that is not available through the normal `PATH`.
+## High-Level Architecture
 
-## 架构
-
-```
-C++ Sim (entt::registry + 18 systems, 30Hz)
-    ↓ SimSnapshot (RefCounted)
-sim_bridge.gd (系统调度器)
-    ├─ EntityManager    → EntityView (3D: 位置插值 + 骨骼动画)
-    ├─ HealthBarManager → HealthBarUI (2D: 屏幕空间血条)
-    ├─ StatsPanel       (HUD: 等级 / HP / 击杀 / XP)
-    ├─ BottomHUD        (技能栏 + 物品栏 + 背包)
-    ├─ SettingsPanel    (ESC: 相机 / 边缘推屏 / 平滑 / 全屏 / Quick-Normal cast)
-    └─ CameraController (55° 俯视, 锁/自由 + 像素精准拖屏 + 边缘推屏 + 30Hz 插值)
-```
-
-- **Sim 层** (C++): 纯逻辑，无渲染。entt ECS，30Hz tick，输出 `SimSnapshot`
-- **View 层** (GDScript): 纯渲染，无逻辑。消费快照，60Hz 插值
-- **解耦**: Sim 不知道 Godot，View 不知道 ECS 内部结构，通过 Snapshot 数据契约通信
-
-## 技术栈
-
-- Godot 4.7 (Forward Plus, D3D12)
-- C++ GDExtension (godot-cpp + entt)
-- Meson 构建 (`src_cpp/`)
-- GDScript 视图层 (`scripts/`)
-
-## 运行
-
-```bash
-# 1. Build the C++ GDExtension
-make build
-
-# 2. 用 Godot 4.7 打开项目
-# 3. F5 运行
+```text
+┌──────────────────────────── Godot View ────────────────────────────┐
+│  InputEventQueue → InputStateMachine → CommandBuilder              │
+│                                      → CommandBuffer                │
+│                                                                     │
+│  EntityManager · Camera · UIRoot · SkillVFX · WorldBootstrap        │
+└───────────────────────┬─────────────────────────▲─────────────────┘
+                        │ commands                │ SimSnapshot
+                        ▼                         │
+┌──────────────────────── C++ Simulation ─────────┴──────────────────┐
+│  SimServer → World → EnTT Registry → fixed-order systems            │
+│                                                                     │
+│  heroes · bots · skills · navigation · movement · combat · pickups  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## 关键设计决策
+### Simulation layer
 
-| 决策          | 选择                                               | 理由                                                            |
-| ------------- | -------------------------------------------------- | --------------------------------------------------------------- |
-| 模拟层语言    | C++ GDExtension                                    | ECS 性能，entt 生态                                             |
-| 视图层语言    | GDScript                                           | 快速迭代，Godot 原生集成                                        |
-| Sim-View 通信 | Snapshot 数据契约                                  | 完全解耦，可独立测试                                            |
-| 客户端插值    | 33ms lerp (1/30) + seq 去重                        | 匹配 Sim tick rate，消除角度 jitter                             |
-| 寻路算法      | Sim 层手写 A*（均匀网格 0.5u）                     | 零 Godot 依赖，墙体静态 AABB 天然适配                           |
-| 操作模式      | 单一 MOBA 模式（WASD 已移除）                      | 右键移动 + QWER 技能 + A 普攻，符合 MOBA 标准                   |
-| 右键仲裁      | 施法中仅取消不下达移动                             | 符合 MOBA 直觉 (LoL/Dota)，Sim 权威判断                         |
-| 输入系统      | 四层架构（事件队列/状态机/命令翻译/命令缓冲）      | 不丢指令（30Hz Sim < 60Hz 渲染）+ 状态化打断施法 + 双正交状态轴 |
-| 相机拖屏      | 像素精准，直接 delta × world-per-pixel 映射        | 消除透视倾斜带来的世界坐标不一致感，响应无延迟                  |
-| 边缘推屏      | 仅全屏/最大化下生效，速度随缩放比例自适应          | 窗口化下鼠标离开窗口边界会产生误触，全屏限定避免反直觉          |
-| 平滑开关      | ON = lerp 缓动，OFF = position = _look_at 直接跳转 | 玩家可选顺滑跟拍或即时响应；Locked 模式始终插值消除 30Hz 抖动   |
-| 按住居中      | F1/Space 按住切 Locked，松开回 Free                | 与 MOBA 常规手感一致 (space 按住所英雄)                         |
+`SimServer` is the GDExtension-facing entry point. It owns a simulation `World`, which contains the EnTT registry, navigation data, command buffer, simulation clock, and random number generator.
 
-## 文档
+The world advances at 30 Hz. Each tick applies the current input state and runs a defined system pipeline covering:
 
-- `Docs/Reference/prompt.md` — 完整设计文档（架构、API 契约、扩展路线图）
-- `Docs/Reference/sim_system_reference.md` — C++ Sim 层完整参考手册
-- `Docs/Reference/input_system_design.md` — **输入系统重构方案（唯一标准）**：四层架构 + 双正交状态轴 + Sim Chasing + Quick/Normal cast + 普攻独立模式
-- `Docs/Archive/camera_control_design.md` — 视角操控方案（锁/自由 + 精准拖屏 + 边缘推屏 + 全屏）
-- `Docs/Reference/godot-editor-todo.md` — 编辑器操作步骤
+1. Local input injection and bot decision-making.
+2. Unified attack and skill command processing.
+3. A* pathfinding, movement, and wall collision.
+4. Projectiles, direct combat, area effects, status effects, and resource regeneration.
+5. Pickups, skill cooldowns, skill leveling, and progression.
+6. Snapshot export for the view layer.
 
-## 项目结构
+Entity creation and destruction are deferred through `CommandBuffer`, so systems do not invalidate the registry while iterating over it. Systems communicate through components rather than direct cross-system calls or global state.
 
+### Hero and skill model
+
+Players and bots are heroes in the same simulation model. A hero owns runtime components such as health, resources, movement state, input state, progression, and skill slots. A local-player marker distinguishes the controlled hero from AI-controlled heroes; it does not create a separate combat implementation.
+
+Hero definitions provide base data and references to four skill IDs. Skills are independent `ISkill` implementations registered in a skill registry. The cast system dispatches validation, targeting, cast lifecycle, and effects to the selected skill, allowing new skills to be added without expanding a monolithic hero or combat switch.
+
+Bots use a layered decision model. Goal selection, combat phase selection, and skill scoring produce intents that are injected into `HeroInputState`. The regular hero systems then handle chasing, movement, attacks, and casts, keeping AI behavior aligned with player behavior.
+
+### View layer
+
+`sim_bridge.gd` coordinates the runtime boundary. It collects input, translates semantic commands into `SimServer` calls, advances the simulation, and publishes snapshots to presentation systems.
+
+The view runs at the render rate, normally 60 Hz. It interpolates or synchronizes presentation state independently of the 30 Hz simulation, while sequence-gating snapshot updates so entities, health bars, and one-shot events are not processed repeatedly.
+
+The main presentation responsibilities are split into focused components:
+
+- `EntityManager` synchronizes hero, projectile, pickup, and other world views.
+- `CameraController` handles follow, free camera, drag, edge-pan, and camera smoothing behavior.
+- `UIRoot` owns the persistent HUD, health bars, skill slots, cast feedback, and settings presentation.
+- `SkillVFX` dispatches per-skill visual effects from authoritative cast transitions.
+- `WorldBootstrap` creates static lighting, environment, ground, and world presentation.
+- `MoveTargetVFX` presents movement command feedback without changing simulation state.
+
+## Data Flow
+
+```text
+Godot input events
+        ↓
+InputEventQueue
+        ↓
+InputStateMachine + CommandBuilder
+        ↓
+CommandBuffer
+        ↓
+SimServer command API
+        ↓
+30 Hz World tick
+        ↓
+EnTT components and systems
+        ↓
+SnapshotBuilder → SimSnapshot
+        ↓
+EntityManager / UI / Camera / SkillVFX
 ```
-scripts/
-├── sim_bridge.gd               # 系统调度器
-├── input/input_collector.gd    # 输入采集（当前实现，待重构为四层架构，见 input_system_design.md）
-├── autoload/game_settings.gd   # camera/全屏/cast 偏好 autoload + ConfigFile
-├── view/
-│   ├── entity_manager.gd       # 3D 实体 spawn/despawn
-│   ├── entity_view.gd          # 3D 实体视图 (插值 + 动画)
-│   ├── camera_controller.gd    # 相机控制（锁/自由 + 精准拖屏 + 边缘推屏 + 平滑开关 + 按住居中）
-│   ├── skill_vfx.gd            # 技能 VFX
-│   └── move_target_vfx.gd      # 右键 ping 标记
-├── ui/
-│   ├── health_bar_manager.gd   # 血条视图系统
-│   ├── health_bar_ui.gd        # 血条视图组件
-│   ├── stats_panel.gd          # HUD 面板
-│   ├── bottom_hud.gd           # 底部 HUD（技能/物品/背包）
-│   ├── settings_panel.gd       # 设置面板（相机/边缘推屏/平滑/全屏/cast 偏好）
-│   ├── skill_slot_ui.gd        # 技能槽 UI
-│   └── item_slot_ui.gd         # 物品槽 UI
-src_cpp/                        # C++ Sim 层 (entt ECS)
-scenes/
-├── main.tscn                   # 主场景
-├── entities/                   # 实体预制 (player, bot, arrow, pickups)
-└── ui/                         # UI 预制
+
+The `CommandBuffer` preserves input edges between render frames and simulation ticks. The `SimSnapshot` is the only simulation-to-view data channel: the view never reaches into the ECS registry, and the simulation never calls view code.
+
+## Core Design Decisions
+
+### Fixed-rate authority with render-rate presentation
+
+Gameplay uses a stable 30 Hz simulation clock. Presentation can update more frequently and smooth visible motion without changing the authoritative result of a tick.
+
+### ECS systems over object hierarchies
+
+Gameplay state is stored in components such as position, health, hero input, skill slots, cast state, bot state, and projectile state. Small systems transform that state in a predictable order, making player, bot, and world interactions share the same rules.
+
+### Deferred world mutation
+
+Systems request entity creation or destruction through the command buffer. The world flushes those requests at the end of the tick, preserving safe iteration and explicit lifecycle boundaries.
+
+### Snapshot-based isolation
+
+Snapshots provide a narrow, inspectable contract between simulation and view. They carry state and discrete events needed for rendering, animation, UI, and VFX without exposing simulation internals.
+
+### Presentation as a consumer
+
+Godot scenes and scripts are responsible for displaying state, responding to input, and managing visual lifecycles. They do not decide damage, movement validity, skill results, bot outcomes, or other authoritative gameplay rules.
+
+## Repository Areas
+
+```text
+src_cpp/       C++ GDExtension, simulation world, ECS systems, heroes, skills, snapshots
+scripts/       GDScript bridge, input pipeline, view systems, UI, camera, and VFX
+scenes/        Main scene and reusable presentation scenes
+resources/     Character, UI, map, and skill presentation assets
+data/          Map and gameplay configuration data
+Docs/          Architecture references and design records
 ```
-
-## 寻路系统
-
-- **NavGrid**: 200×200 均匀网格（0.5u/格），墙体膨胀烘焙
-- **A***: 8 方向 + octile 启发 + 二叉堆
-- **平滑**: string-pulling（视线法），消除网格锯齿
-- **跟随**: 转角速率限制（12 rad/s），位置即时响应、朝向平滑追赶
-- **节流**: 右键时间死区 80ms + 目标死区 1.5u + 长按连点 6Hz
