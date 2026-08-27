@@ -136,5 +136,5 @@ scripts/       GDScript bridge, input pipeline, view systems, UI, camera, and VF
 scenes/        Main scene and reusable presentation scenes
 resources/     Character, UI, map, and skill presentation assets
 data/          Map and gameplay configuration data
-Docs/          Architecture references and design records
+Docs/          Short agent-oriented operational notes
 ```
