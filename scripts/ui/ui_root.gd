@@ -58,7 +58,7 @@ func initialize() -> void:
 
 	settings_panel = SettingsPanelUI.new()
 	settings_panel.name = "SettingsPanel"
-	settings_panel.build(_style)
+	settings_panel.build(_style, SettingsPanelUI.Context.GAMEPLAY)
 	_modal_layer.add_child(settings_panel)
 	DebugLogger.log(
 		(

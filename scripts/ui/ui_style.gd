@@ -27,6 +27,17 @@ const SKILL_SLOT_BORDER := Color(0.36, 0.42, 0.52, 1.0)
 const SKILL_KEY_ACCENT := Color(1.0, 0.78, 0.4, 1.0)
 const SKILL_MANA_ACCENT := Color(0.32, 0.68, 1.0, 1.0)
 const ITEM_SLOT_SURFACE := Color(0.02, 0.025, 0.04, 0.9)
+const MENU_BACKGROUND := Color(0.0, 0.0, 0.0, 1.0)
+const MENU_PANEL_BACKGROUND := Color(0.055, 0.065, 0.09, 0.98)
+const MENU_SURFACE := Color(0.09, 0.10, 0.14, 0.98)
+const MENU_SURFACE_HOVER := Color(0.16, 0.17, 0.23, 1.0)
+const MENU_SURFACE_PRESSED := Color(0.045, 0.05, 0.075, 1.0)
+const MENU_TEXT := Color(0.95, 0.96, 1.0, 1.0)
+const MENU_MUTED_TEXT := Color(0.57, 0.62, 0.71, 1.0)
+const MENU_ACCENT := Color(1.0, 0.78, 0.4, 1.0)
+const MENU_ACCENT_HOVER := Color(1.0, 0.88, 0.58, 1.0)
+const MENU_SCRIM := Color(0.0, 0.0, 0.0, 0.78)
+const MENU_BORDER := Color(0.30, 0.36, 0.48, 0.9)
 
 
 func panel_style(color: Color, radius: int = 0) -> StyleBoxFlat:
@@ -72,6 +83,72 @@ func item_slot_surface_style() -> StyleBoxFlat:
 	style.border_width_right = 1
 	style.border_width_bottom = 1
 	style.border_color = Color(0.2, 0.25, 0.34, 0.8)
+	return style
+
+
+func menu_panel_style() -> StyleBoxFlat:
+	var style := panel_style(MENU_PANEL_BACKGROUND, 8)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = MENU_BORDER
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.72)
+	style.shadow_size = 18
+	return style
+
+
+func apply_menu_button(button: Button, primary: bool = false) -> Button:
+	var normal_color := MENU_ACCENT if primary else MENU_SURFACE
+	var hover_color := MENU_ACCENT_HOVER if primary else MENU_SURFACE_HOVER
+	var pressed_color := (
+		MENU_ACCENT.darkened(0.12) if primary else MENU_SURFACE_PRESSED
+	)
+	var normal_border := MENU_ACCENT if primary else MENU_BORDER
+
+	button.add_theme_stylebox_override(
+		"normal",
+		_menu_button_style(normal_color, normal_border, 1 if primary else 0)
+	)
+	button.add_theme_stylebox_override(
+		"hover",
+		_menu_button_style(hover_color, MENU_ACCENT, 1)
+	)
+	button.add_theme_stylebox_override(
+		"pressed", _menu_button_style(pressed_color, MENU_ACCENT, 1)
+	)
+	button.add_theme_stylebox_override(
+		"focus", _menu_button_style(normal_color, MENU_ACCENT_HOVER, 2)
+	)
+	button.add_theme_color_override(
+		"font_color", MENU_BACKGROUND if primary else MENU_TEXT
+	)
+	button.add_theme_color_override(
+		"font_hover_color", MENU_BACKGROUND if primary else MENU_TEXT
+	)
+	button.add_theme_color_override(
+		"font_pressed_color", MENU_BACKGROUND if primary else MENU_TEXT
+	)
+	button.add_theme_color_override(
+		"font_focus_color", MENU_BACKGROUND if primary else MENU_TEXT
+	)
+	button.add_theme_color_override("font_disabled_color", MENU_MUTED_TEXT)
+	return button
+
+
+func _menu_button_style(
+	background: Color, border: Color, border_width: int
+) -> StyleBoxFlat:
+	var style := panel_style(background, 5)
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	style.border_color = border
+	style.content_margin_left = 18.0
+	style.content_margin_top = 10.0
+	style.content_margin_right = 18.0
+	style.content_margin_bottom = 10.0
 	return style
 
 

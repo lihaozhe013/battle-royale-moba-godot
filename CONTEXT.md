@@ -3,6 +3,7 @@
 ## Current Architecture
 
 - Godot 4.7 top-down Battle Royale MOBA.
+- Application startup loads the full-screen code-built `StartMenu` scene; `scenes/main.tscn` remains the gameplay scene and is loaded only after `Start Match`.
 - C++ GDExtension simulation runs at 30 Hz and has no Godot dependency inside `sim/` systems.
 - GDScript view and input code run at the render rate, normally 60 Hz.
 - `SimSnapshot` is the only Sim-to-View data channel; skill slot snapshots include the authoritative current-level `cast_range`, and local hero snapshots include `attack_range`.
@@ -23,6 +24,13 @@
 
 ## Main Runtime Ownership
 
+Application flow:
+
+```text
+StartMenu (full-screen Control, no simulation)
+└── Start Match → Main / sim_bridge.gd
+```
+
 ```text
 Main / sim_bridge.gd
 ├── WorldBootstrap   static light, environment, ground
@@ -40,10 +48,14 @@ Each skill VFX is isolated in `resources/vfx/skills/<skill>/` plus `scripts/view
 
 ## UI Bootstrap Contract
 
+- `StartMenu` is a standalone full-viewport scene. It owns the start/settings/quit navigation and does not create `SimServer`, map visuals, or gameplay input nodes.
+- `StartMenu` uses a black background with an optional future texture hook and a responsive two-column layout that collapses to the navigation column on narrow viewports.
 - `UIRoot.initialize()` runs once during child readiness before `Main._ready()`.
 - UI is created by code under explicit canvas layers: world overlay `10`, HUD `100`, feedback `101`, and modal settings `200`.
 - UI scenes under `scenes/ui/` are not runtime dependencies.
 - `UIStyle` is the code-only authority for UI fonts, colors, dimensions, and style factories.
+- `SettingsPanelUI` is reusable in the start menu and gameplay. It persists the shared camera/display/cast settings and emits a confirmed main-menu request only in gameplay context.
+- Opening settings never pauses an active match. Returning to the start menu clears any existing scene-tree pause left by the current game-over flow.
 - `BottomHUD` keeps its existing 750 x 108 composition, applies a uniform scale to 75% of the current viewport width, and anchors its lower edge to the viewport bottom.
 - `HealthBarManager` prewarms all health bars before the first simulation tick using `SimServer.get_hero_capacity()`.
 - Normal snapshot synchronization does not instantiate or destroy UI nodes.
@@ -62,6 +74,7 @@ Each skill VFX is isolated in `resources/vfx/skills/<skill>/` plus `scripts/view
 
 - `Docs/Reference/ui_world_bootstrap_plan.md` — complete refactor design.
 - `Docs/Reference/game_main_process_execution_order.md` — startup, tick, and render-frame order.
+- `Docs/Reference/start_menu_design.md` — start-menu ownership, navigation, and settings behavior.
 - `Docs/Reference/sim_api_reference.md` — C++ simulation and GDExtension API.
 - `Docs/DATA_FLOW.md` — end-to-end input, simulation, snapshot, and view flow.
 - `Docs/Reference/skill_vfx_architecture.md` — per-skill VFX ownership, layout, and snapshot event contract.

@@ -1,108 +1,174 @@
 class_name SettingsPanelUI
 extends Control
 
+enum Context { GAMEPLAY, MAIN_MENU }
+
+signal main_menu_requested
+signal opened
+signal closed
+
+const PANEL_WIDTH := 560.0
+const PANEL_HEIGHT := 390.0
+const LABEL_WIDTH := 230.0
+const OPTION_WIDTH := 132.0
+const ACTION_BUTTON_WIDTH := 122.0
+const ACTION_BUTTON_HEIGHT := 38.0
+
 var _camera_mode_option: OptionButton
 var _edge_pan_option: OptionButton
 var _edge_speed_spinbox: SpinBox
 var _smooth_pan_option: OptionButton
 var _fullscreen_option: OptionButton
-var _cast_mode_label: Label
 var _cast_mode_option: OptionButton
 var _cast_settings: CastSettings
+var _style: UIStyle
+var _context: Context = Context.GAMEPLAY
+var _panel: PanelContainer
+var _scrim: ColorRect
+var _main_menu_button: Button
+var _leave_match_dialog: ConfirmationDialog
 var _built := false
-var _cast_option_added := false
 
 
-func build(style: UIStyle) -> void:
+func build(style: UIStyle, context: Context = Context.GAMEPLAY) -> void:
 	if _built:
 		return
 	_built = true
+	_style = style
+	_context = context
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	style.set_full_rect(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var panel_bg := ColorRect.new()
-	panel_bg.name = "PanelBg"
-	panel_bg.anchor_left = 0.5
-	panel_bg.anchor_top = 0.5
-	panel_bg.anchor_right = 0.5
-	panel_bg.anchor_bottom = 0.5
-	panel_bg.offset_left = -200
-	panel_bg.offset_top = -150
-	panel_bg.offset_right = 200
-	panel_bg.offset_bottom = 150
-	panel_bg.scale = Vector2(1.8, 1.8)
-	panel_bg.pivot_offset = Vector2(200, 150)
-	panel_bg.color = style.PANEL_BACKGROUND
-	panel_bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(panel_bg)
+	_scrim = ColorRect.new()
+	_scrim.name = "Scrim"
+	style.set_full_rect(_scrim)
+	_scrim.color = style.MENU_SCRIM
+	_scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_scrim)
 
-	var title := style.make_label("Settings", style.FONT_SEMIBOLD, 24)
-	title.position = Vector2(153.5, 0)
-	title.size = Vector2(93, 34)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	panel_bg.add_child(title)
+	_panel = PanelContainer.new()
+	_panel.name = "Panel"
+	_panel.anchor_left = 0.5
+	_panel.anchor_top = 0.5
+	_panel.anchor_right = 0.5
+	_panel.anchor_bottom = 0.5
+	_panel.offset_left = -PANEL_WIDTH * 0.5
+	_panel.offset_top = -PANEL_HEIGHT * 0.5
+	_panel.offset_right = PANEL_WIDTH * 0.5
+	_panel.offset_bottom = PANEL_HEIGHT * 0.5
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_panel.add_theme_stylebox_override("panel", style.menu_panel_style())
+	add_child(_panel)
 
-	var config := VBoxContainer.new()
-	config.name = "ConfigName"
-	config.position = Vector2(89, 67)
-	config.size = Vector2(222, 166)
-	config.add_theme_constant_override("separation", 0)
-	panel_bg.add_child(config)
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	margin.add_theme_constant_override("margin_left", 32)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_right", 32)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	_panel.add_child(margin)
 
-	var camera_row := _make_option_row(
-		config, "Camera", ["Locked", "Free"], style
+	var content := VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 8)
+	margin.add_child(content)
+
+	var header := HBoxContainer.new()
+	header.name = "Header"
+	header.custom_minimum_size = Vector2(0, 38)
+	content.add_child(header)
+
+	var title := style.make_label("Settings", style.FONT_SEMIBOLD, 26)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	header.add_child(title)
+
+	var header_spacer := Control.new()
+	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(header_spacer)
+
+	var close_button := _make_action_button("×", style, false)
+	close_button.name = "CloseButton"
+	close_button.custom_minimum_size = Vector2(40, 36)
+	close_button.add_theme_font_size_override("font_size", 22)
+	close_button.pressed.connect(close)
+	header.add_child(close_button)
+
+	var separator := HSeparator.new()
+	separator.name = "HeaderSeparator"
+	content.add_child(separator)
+
+	_camera_mode_option = _make_option_row(
+		content, "Camera", ["Locked", "Free"], style
 	)
-	_camera_mode_option = camera_row
-	_camera_mode_option.select(GameSettings.camera_mode)
 	_camera_mode_option.item_selected.connect(_on_camera_mode_selected)
 
-	var edge_row := _make_option_row(config, "Edge Pan", ["Off", "On"], style)
-	_edge_pan_option = edge_row
-	_edge_pan_option.select(int(GameSettings.edge_pan))
+	_edge_pan_option = _make_option_row(
+		content, "Edge Pan", ["Off", "On"], style
+	)
 	_edge_pan_option.item_selected.connect(_on_edge_pan_selected)
 
-	var speed_row := _make_spin_row(config, "Edge Speed", style)
-	_edge_speed_spinbox = speed_row
-	_edge_speed_spinbox.value = GameSettings.edge_pan_speed
+	_edge_speed_spinbox = _make_spin_row(content, "Edge Speed", style)
 	_edge_speed_spinbox.value_changed.connect(_on_edge_speed_changed)
 
-	var smooth_row := _make_option_row(
-		config, "Smooth Pan", ["Off", "On"], style
+	_smooth_pan_option = _make_option_row(
+		content, "Smooth Pan", ["Off", "On"], style
 	)
-	_smooth_pan_option = smooth_row
-	_smooth_pan_option.select(int(GameSettings.smooth_pan))
 	_smooth_pan_option.item_selected.connect(_on_smooth_pan_selected)
 
-	var fullscreen_row := _make_option_row(
-		config, "Fullscreen", ["Windowed", "Borderless", "Exclusive"], style
+	_fullscreen_option = _make_option_row(
+		content, "Fullscreen", ["Windowed", "Borderless", "Exclusive"], style
 	)
-	_fullscreen_option = fullscreen_row
-	_fullscreen_option.select(GameSettings.fullscreen)
 	_fullscreen_option.item_selected.connect(_on_fullscreen_selected)
 
-	_add_cast_mode_ui(config, style)
+	_cast_mode_option = _make_option_row(
+		content, "Cast Mode", ["Normal", "Quick"], style
+	)
+	_cast_mode_option.item_selected.connect(_on_cast_mode_selected)
 
-	var quit_button := Button.new()
-	quit_button.name = "QuitButton"
-	quit_button.position = Vector2(308, 269)
-	quit_button.size = Vector2(92, 31)
-	quit_button.text = "Quit Game"
-	quit_button.add_theme_font_override("font", style.FONT_SEMIBOLD)
-	quit_button.add_theme_font_size_override("font_size", 15)
-	quit_button.pressed.connect(_on_quit_pressed)
-	panel_bg.add_child(quit_button)
+	var action_separator := HSeparator.new()
+	action_separator.name = "ActionSeparator"
+	content.add_child(action_separator)
 
-	var close_button := Button.new()
-	close_button.name = "CloseButton"
-	close_button.position = Vector2(360, 0)
-	close_button.size = Vector2(40, 31)
-	close_button.text = "×"
-	close_button.add_theme_font_override("font", style.FONT_SEMIBOLD)
-	close_button.add_theme_font_size_override("font_size", 20)
-	close_button.pressed.connect(_on_close_pressed)
-	panel_bg.add_child(close_button)
+	var actions := HBoxContainer.new()
+	actions.name = "Actions"
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_theme_constant_override("separation", 10)
+	content.add_child(actions)
 
+	var back_button := _make_action_button("Back", style, false)
+	back_button.name = "BackButton"
+	back_button.pressed.connect(close)
+	actions.add_child(back_button)
+
+	if _context == Context.GAMEPLAY:
+		_main_menu_button = _make_action_button("Main Menu", style, false)
+		_main_menu_button.name = "MainMenuButton"
+		_main_menu_button.pressed.connect(_on_main_menu_pressed)
+		actions.add_child(_main_menu_button)
+
+		var quit_button := _make_action_button("Quit Game", style, false)
+		quit_button.name = "QuitButton"
+		quit_button.pressed.connect(_on_quit_pressed)
+		actions.add_child(quit_button)
+
+		_leave_match_dialog = ConfirmationDialog.new()
+		_leave_match_dialog.name = "LeaveMatchDialog"
+		_leave_match_dialog.title = "Leave Match?"
+		_leave_match_dialog.dialog_text = (
+			"Leave the current match and return to the start menu?"
+		)
+		_leave_match_dialog.ok_button_text = "Leave Match"
+		_leave_match_dialog.cancel_button_text = "Cancel"
+		_leave_match_dialog.process_mode = Node.PROCESS_MODE_ALWAYS
+		_leave_match_dialog.add_theme_font_override("font", style.FONT_REGULAR)
+		_leave_match_dialog.add_theme_font_size_override("font_size", 16)
+		_leave_match_dialog.confirmed.connect(_on_leave_match_confirmed)
+		_leave_match_dialog.close_requested.connect(_on_leave_match_dialog_closed)
+		add_child(_leave_match_dialog)
+
+	_sync_from_settings()
 	visible = false
 
 
@@ -110,11 +176,12 @@ func _make_option_row(
 	parent: VBoxContainer, text: String, items: Array[String], style: UIStyle
 ) -> OptionButton:
 	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(0, 30)
+	row.custom_minimum_size = Vector2(0, 32)
 	parent.add_child(row)
 
 	var label := style.make_label(text, style.FONT_SEMIBOLD, 15)
-	label.custom_minimum_size = Vector2(160, 0)
+	label.custom_minimum_size = Vector2(LABEL_WIDTH, 0)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)
 
 	var spacer := Control.new()
@@ -122,9 +189,10 @@ func _make_option_row(
 	row.add_child(spacer)
 
 	var option := OptionButton.new()
-	option.custom_minimum_size = Vector2(80, 0)
+	option.custom_minimum_size = Vector2(OPTION_WIDTH, 0)
 	option.add_theme_font_override("font", style.FONT_SEMIBOLD)
 	option.add_theme_font_size_override("font_size", 15)
+	option.focus_mode = Control.FOCUS_ALL
 	for i in items.size():
 		option.add_item(items[i], i)
 	row.add_child(option)
@@ -135,11 +203,12 @@ func _make_spin_row(
 	parent: VBoxContainer, text: String, style: UIStyle
 ) -> SpinBox:
 	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(0, 30)
+	row.custom_minimum_size = Vector2(0, 32)
 	parent.add_child(row)
 
 	var label := style.make_label(text, style.FONT_SEMIBOLD, 15)
-	label.custom_minimum_size = Vector2(160, 0)
+	label.custom_minimum_size = Vector2(LABEL_WIDTH, 0)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)
 
 	var spacer := Control.new()
@@ -147,39 +216,89 @@ func _make_spin_row(
 	row.add_child(spacer)
 
 	var spin_box := SpinBox.new()
-	spin_box.custom_minimum_size = Vector2(80, 0)
+	spin_box.custom_minimum_size = Vector2(OPTION_WIDTH, 0)
 	spin_box.add_theme_font_override("font", style.FONT_SEMIBOLD)
 	spin_box.add_theme_font_size_override("font_size", 15)
 	spin_box.min_value = 1.0
 	spin_box.max_value = 50.0
 	spin_box.step = 0.5
+	spin_box.focus_mode = Control.FOCUS_ALL
 	row.add_child(spin_box)
 	return spin_box
 
 
-func _add_cast_mode_ui(parent: VBoxContainer, style: UIStyle) -> void:
-	if _cast_option_added:
-		return
-	_cast_option_added = true
-	var option := _make_option_row(
-		parent, "Cast Mode", ["Normal", "Quick"], style
+func _make_action_button(text: String, style: UIStyle, primary: bool) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(
+		ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT
 	)
-	option.select(0)
-	option.item_selected.connect(_on_cast_mode_selected)
-	_cast_mode_label = option.get_parent().get_child(0) as Label
-	_cast_mode_option = option
+	button.add_theme_font_override("font", style.FONT_SEMIBOLD)
+	button.add_theme_font_size_override("font_size", 14)
+	button.focus_mode = Control.FOCUS_ALL
+	style.apply_menu_button(button, primary)
+	return button
 
 
 func bind_cast_settings(settings: CastSettings) -> void:
 	_cast_settings = settings
+	if _cast_settings:
+		_cast_settings.sync_from_game_settings()
+	_sync_from_settings()
+
+
+func open() -> void:
+	if not _built or visible:
+		return
+	_sync_from_settings()
+	visible = true
+	_camera_mode_option.call_deferred("grab_focus")
+	opened.emit()
+
+
+func close() -> void:
+	if not _built or not visible:
+		return
+	if _leave_match_dialog and _leave_match_dialog.visible:
+		_leave_match_dialog.hide()
+	visible = false
+	closed.emit()
+
+
+func toggle() -> void:
+	if visible:
+		close()
+	else:
+		open()
+
+
+func _sync_from_settings() -> void:
+	if not _built:
+		return
+	_camera_mode_option.select(int(GameSettings.camera_mode))
+	_edge_pan_option.select(int(GameSettings.edge_pan))
+	_edge_speed_spinbox.value = GameSettings.edge_pan_speed
+	_smooth_pan_option.select(int(GameSettings.smooth_pan))
+	_fullscreen_option.select(int(GameSettings.fullscreen))
+	_cast_mode_option.select(int(GameSettings.cast_mode))
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _built:
 		return
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		visible = not visible
-		get_viewport().set_input_as_handled()
+	if not event is InputEventKey:
+		return
+	if not event.pressed or event.echo or event.keycode != KEY_ESCAPE:
+		return
+	if _leave_match_dialog and _leave_match_dialog.visible:
+		return
+	if visible:
+		close()
+	elif _context == Context.GAMEPLAY:
+		open()
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 
 func _on_camera_mode_selected(index: int) -> void:
@@ -203,15 +322,23 @@ func _on_fullscreen_selected(index: int) -> void:
 
 
 func _on_cast_mode_selected(index: int) -> void:
-	if not _cast_settings:
-		return
-	for i in 4:
-		_cast_settings.skill_cast_mode[i] = index
+	GameSettings.cast_mode = index as GameSettings.CastMode
+
+
+func _on_main_menu_pressed() -> void:
+	if _leave_match_dialog:
+		_leave_match_dialog.popup_centered()
+
+
+func _on_leave_match_confirmed() -> void:
+	close()
+	main_menu_requested.emit()
+
+
+func _on_leave_match_dialog_closed() -> void:
+	if visible and _main_menu_button:
+		_main_menu_button.grab_focus()
 
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()
-
-
-func _on_close_pressed() -> void:
-	visible = false

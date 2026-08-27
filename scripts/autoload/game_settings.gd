@@ -2,12 +2,14 @@ extends Node
 
 enum CamMode { LOCKED, FREE }
 enum FullscreenMode { WINDOWED, BORDERLESS, EXCLUSIVE }
+enum CastMode { NORMAL, QUICK }
 
 signal camera_mode_changed(m: CamMode)
 signal edge_pan_changed(on: bool)
 signal edge_pan_speed_changed(v: float)
 signal smooth_pan_changed(on: bool)
 signal fullscreen_changed(m: FullscreenMode)
+signal cast_mode_changed(m: CastMode)
 
 var camera_mode: CamMode = CamMode.FREE:
 	set(value):
@@ -50,6 +52,14 @@ var fullscreen: FullscreenMode = FullscreenMode.EXCLUSIVE:
 		_save()
 		_apply_fullscreen()
 
+var cast_mode: CastMode = CastMode.NORMAL:
+	set(value):
+		if cast_mode == value:
+			return
+		cast_mode = value
+		cast_mode_changed.emit(cast_mode)
+		_save()
+
 const CFG_PATH := "user://settings.cfg"
 const CFG_SECTION_CTRL := "controls"
 const CFG_SECTION_DISP := "display"
@@ -78,6 +88,12 @@ func _load() -> void:
 			)
 			as FullscreenMode
 		)
+		cast_mode = (
+			cfg.get_value(
+				CFG_SECTION_CTRL, "cast_mode", int(CastMode.NORMAL)
+			)
+			as CastMode
+		)
 
 
 func _save() -> void:
@@ -86,6 +102,7 @@ func _save() -> void:
 	cfg.set_value(CFG_SECTION_CTRL, "edge_pan", edge_pan)
 	cfg.set_value(CFG_SECTION_CTRL, "edge_pan_speed", edge_pan_speed)
 	cfg.set_value(CFG_SECTION_CTRL, "smooth_pan", smooth_pan)
+	cfg.set_value(CFG_SECTION_CTRL, "cast_mode", int(cast_mode))
 	cfg.set_value(CFG_SECTION_DISP, "fullscreen", int(fullscreen))
 	cfg.save(CFG_PATH)
 

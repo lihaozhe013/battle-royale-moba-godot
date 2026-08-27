@@ -2,9 +2,16 @@
 
 **Status:** Reference for the current and planned bootstrap architecture.
 
-**Purpose:** Define the order in which the Godot view, input pipeline, C++ simulation, snapshot export, and presentation updates execute. This document is the execution contract for `Main` and `sim_bridge.gd`.
+**Purpose:** Define the order in which the start menu, Godot view, input pipeline, C++ simulation, snapshot export, and presentation updates execute. This document is the execution contract for `StartMenu`, `Main`, and `sim_bridge.gd`.
 
 ## 1. Runtime Ownership
+
+Application shell:
+
+```text
+StartMenu (full-screen Control)
+└── Start Match → Main / sim_bridge.gd
+```
 
 ```text
 Main / sim_bridge.gd
@@ -23,11 +30,23 @@ Main / sim_bridge.gd
 
 The C++ `SimServer` owns the authoritative simulation. The view communicates with it through command methods and consumes `SimSnapshot` objects. The view never writes directly to the ECS registry.
 
-## 2. Scene Loading and Readiness
+## 2. Application Scene Loading and Readiness
 
-Godot first loads `project.godot` and its main scene, `res://scenes/main.tscn`. The scene creates `Main` and its persistent child nodes.
+Godot first loads `project.godot` and its main scene, `res://scenes/start_menu.tscn`. The start menu builds its full-viewport UI without loading `Main`, `SimServer`, map visuals, or gameplay input nodes.
 
-Child readiness completes before `Main._ready()` runs. The target scene ordering is:
+Pressing `Start Match` calls `get_tree().change_scene_to_file("res://scenes/main.tscn")`. The transition is guarded against duplicate activation and clears a stale scene-tree pause before entering gameplay.
+
+Returning from gameplay uses the inverse transition after the player confirms that the active match should be abandoned. The transition handler clears a stale game-over pause before loading the start menu.
+
+### 2.1 Start menu readiness
+
+`StartMenu._ready()` sets `PROCESS_MODE_ALWAYS`, builds the black background, optional future artwork slot, responsive navigation column, and menu-context settings panel, then gives keyboard focus to `Start Match`.
+
+The start menu does not pause a match because no match exists in this scene. Its settings panel changes the shared `GameSettings` autoload directly.
+
+### 2.2 Gameplay readiness
+
+After `StartMenu` changes scenes, child readiness completes before `Main._ready()` runs. The target gameplay ordering is:
 
 1. `WorldBootstrap._ready()` creates the directional light, environment, and ground.
 2. `UIRoot._ready()` calls its guarded `initialize()` once and builds the static UI hierarchy.
@@ -153,17 +172,21 @@ These updates are presentation-only and do not modify simulation state.
 
 ## 6. Input Event Priority
 
+While `StartMenu` is active, its buttons and settings controls own the input event. Enter, keypad Enter, and Space activate the focused `Start Match` button; Escape closes an open settings panel and does nothing when the panel is hidden.
+
 Input event priority remains:
 
 1. Raw events enter `InputEventQueue`.
 2. The input state machine and command builder interpret event edges.
 3. If Escape cancels an active cast, the input layer consumes the event.
-4. If Escape is not consumed by cast cancellation, it continues to `SettingsPanel._unhandled_input()` and toggles the settings panel.
+4. If Escape is not consumed by cast cancellation, it continues to `SettingsPanelUI._unhandled_input()` and toggles the gameplay settings panel.
 
-Moving UI creation into code must not change this event propagation order.
+Opening the gameplay settings panel never pauses the scene tree. A confirmed `Main Menu` action emits a navigation request; `sim_bridge.gd` performs the scene transition.
 
 ## 7. Startup and Runtime Invariants
 
+- `StartMenu` is the project entry scene and is full-viewport at every supported window size.
+- `StartMenu` does not create `SimServer` or any gameplay view nodes.
 - `WorldBootstrap.initialize()` runs once.
 - `UIRoot.initialize()` runs once.
 - Static UI and root-world visual nodes are not recreated per frame.
@@ -172,9 +195,12 @@ Moving UI creation into code must not change this event propagation order.
 - `SimSnapshot` remains the only Sim-to-View channel.
 - `EntityManager` may pool or remove entity views according to snapshot membership; this does not change the persistent UI contract.
 - Game-over pauses the scene tree after the current simulation tick and prevents later simulation ticks.
+- Returning to `StartMenu` clears the existing game-over pause before the scene change.
 
 ## 8. Failure Handling
 
+- A failed start-menu scene transition logs `[ERROR] [start_menu]` and re-enables the menu controls.
+- A failed gameplay-to-menu transition logs `[ERROR] [start_menu]`; the current gameplay scene remains active.
 - Missing map or stats files stop initialization and report an error.
 - Failed `SimServer.initialize()` stops the startup sequence before health-bar prewarming.
 - Missing camera binding causes health-bar projection to report an error and skip positioning.
@@ -185,10 +211,16 @@ Moving UI creation into code must not change this event propagation order.
 
 During implementation and review, verify:
 
+- `res://scenes/start_menu.tscn` is the configured main scene.
+- The start menu appears before any `SimServer initialized` log and fills the viewport.
+- Start-menu keyboard focus, mouse buttons, responsive layout, and settings modal behave correctly.
 - `WorldBootstrap` and `UIRoot` are ready before `sim_bridge.gd._ready()` uses them.
 - `get_hero_capacity()` is called only after successful simulation initialization.
 - First-frame command processing occurs once even when multiple simulation ticks run in one physics frame.
 - Pulse command fields are cleared at the documented boundaries.
 - Snapshot sequence gating prevents duplicate entity and health-bar synchronization.
 - UI callbacks and settings events still reach the same handlers.
+- Settings changes persist through a menu → gameplay → menu cycle, including cast mode.
+- Settings never sets `SceneTree.paused` during an active match.
+- Confirmed `Main Menu` navigation clears a stale game-over pause and creates a fresh gameplay scene on the next start.
 - No scene-authored UI, light, environment, or ground node is reintroduced after the code migration.

@@ -19,6 +19,7 @@ var _skill_vfx: Node3D
 
 const HOVER_RADIUS := 2.0
 const TICK_RATE := 1.0 / 30.0
+const START_MENU_SCENE := "res://scenes/start_menu.tscn"
 const NORMAL_CURSOR_TEXTURE: Texture2D = preload(
 	"res://resources/ui/cursors/normal_cursor.png"
 )
@@ -84,6 +85,7 @@ func _ready() -> void:
 
 	_spawn_wall_visuals(map_json)
 	ui_root.bind_runtime(entity_manager, camera, cast_settings)
+	ui_root.settings_panel.main_menu_requested.connect(_on_main_menu_requested)
 
 	sim = SimServer.new()
 	if not sim.initialize(map_json, stats_yaml):
@@ -131,6 +133,17 @@ func _spawn_wall_visuals(json_text: String) -> void:
 		m.mesh.surface_set_material(0, wall_material)
 		m.position = center
 		add_child(m)
+
+
+func _on_main_menu_requested() -> void:
+	_set_cursor_mode(false)
+	get_tree().paused = false
+	DebugLogger.log("[start_menu] returning_to_menu")
+	var error := get_tree().change_scene_to_file(START_MENU_SCENE)
+	if error != OK:
+		DebugLogger.log(
+			"[ERROR] [start_menu] menu_scene_failed code=%d" % error
+		)
 
 
 var _frame_tick_index := 0
