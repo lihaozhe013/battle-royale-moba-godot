@@ -198,22 +198,24 @@ func _physics_process(delta: float) -> void:
 			_tmp_move_issue and first_tick
 		)
 		sim.set_stop_command(_tmp_stop and first_tick)
-		DebugLogger.log(
-			(
-				"[TICK] send: skill(slot=%d,confirm=%s) cancel(skill=%s,atk=%s) move(issue=%s,to=(%.1f,%.1f)) atk(id=%d) stop=%s"
-				% [
-					_tmp_cast_slot,
-					_tmp_cast_confirm,
-					_tmp_cancel_skill,
-					_tmp_cancel_attack,
-					_tmp_move_issue and first_tick,
-					_tmp_move_target.x,
-					_tmp_move_target.y,
-					_tmp_attack_target_id,
-					_tmp_stop and first_tick
-				]
-			)
-		)
+		# Per-tick command tracing is disabled during normal gameplay.
+		# Uncomment when debugging simulation input forwarding.
+		# DebugLogger.log(
+		# 	(
+		# 		"[TICK] send: skill(slot=%d,confirm=%s) cancel(skill=%s,atk=%s) move(issue=%s,to=(%.1f,%.1f)) atk(id=%d) stop=%s"
+		# 		% [
+		# 			_tmp_cast_slot,
+		# 			_tmp_cast_confirm,
+		# 			_tmp_cancel_skill,
+		# 			_tmp_cancel_attack,
+		# 			_tmp_move_issue and first_tick,
+		# 			_tmp_move_target.x,
+		# 			_tmp_move_target.y,
+		# 			_tmp_attack_target_id,
+		# 			_tmp_stop and first_tick
+		# 		]
+		# 	)
+		# )
 		sim.tick(TICK_RATE)
 
 		# Clear pulse fields
