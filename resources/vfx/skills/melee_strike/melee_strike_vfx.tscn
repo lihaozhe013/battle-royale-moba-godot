@@ -5,14 +5,15 @@
 
 [node name="MeleeStrikeVFX" type="Node3D"]
 script = ExtResource("2_script")
-scale = Vector3(2.0, 2.4, 2.0)
+scale = Vector3(1.45, 1.35, 1.45)
 
 [node name="Lightning" parent="." instance=ExtResource("1_lightning")]
+position = Vector3(0, -0.32, 0)
 one_shot = true
-secondary_color = Color(1, 0.04, 0.01, 1)
-light_color = Color(1, 0.02, 0.005, 1)
-emission = 7.0
-light_energy = 8.0
-height = 7.5
-noise_strength = 0.55
-amplitude = 0.55
+secondary_color = Color(1, 0.08, 0.015, 1)
+light_color = Color(1, 0.035, 0.008, 1)
+emission = 8.0
+light_energy = 7.0
+height = 4.6
+noise_strength = 0.5
+amplitude = 0.65
