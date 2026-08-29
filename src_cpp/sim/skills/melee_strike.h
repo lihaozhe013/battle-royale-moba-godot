@@ -3,6 +3,7 @@
 #include "../game_config.h"
 #include "../vec2.h"
 #include "skill_interface.h"
+#include "../systems/match_stats.h"
 #include <algorithm>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
@@ -77,29 +78,10 @@ class MeleeStrikeSkill : public ISkill {
         if (is_bot)
             dmg *= stats(reg).BotSkillDmgMul;
 
-        auto &hp = reg.get<Health>(tgt);
-        hp.Cur -= static_cast<int>(dmg);
+        apply_damage(reg, caster, tgt, static_cast<int>(dmg));
 
         if (reg.all_of<NetworkId>(tgt))
             cs.HitTargetId = reg.get<NetworkId>(tgt).Value;
-
-        if (hp.Cur <= 0) {
-            hp.Cur = 0;
-            if (reg.all_of<Dead>(tgt))
-                reg.get<Dead>(tgt).enabled = true;
-            if (reg.all_of<BotAIState>(tgt))
-                reg.get<BotAIState>(tgt).RespawnTimer =
-                    stats(reg).BotRespawnTime;
-            int victim_id =
-                reg.all_of<NetworkId>(tgt) ? reg.get<NetworkId>(tgt).Value : 0;
-            auto kill_view = reg.view<KillEventBuffer>();
-            for (auto k : kill_view)
-                kill_view.get<KillEventBuffer>(k).events.push_back(
-                    {reg.get<NetworkId>(caster).Value, victim_id}
-                );
-            if (reg.all_of<Kills>(caster))
-                reg.get<Kills>(caster).Value += 1;
-        }
     }
 
   private:

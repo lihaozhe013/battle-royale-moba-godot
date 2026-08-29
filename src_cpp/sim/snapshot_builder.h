@@ -7,7 +7,9 @@ namespace sim {
 
 class SnapshotBuilder {
   public:
-    static godot::Ref<SimSnapshot> build(entt::registry &reg, int seq);
+    static godot::Ref<SimSnapshot> build(
+        entt::registry &reg, int seq, double match_time, int result
+    );
 
   private:
     static void

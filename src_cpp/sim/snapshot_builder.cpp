@@ -2,13 +2,18 @@
 #include "components.h"
 #include "game_config.h"
 #include "skills/skill_registry.h"
+#include "systems/match_stats.h"
 #include <chrono>
 
 namespace sim {
 
-godot::Ref<SimSnapshot> SnapshotBuilder::build(entt::registry &reg, int seq) {
+godot::Ref<SimSnapshot> SnapshotBuilder::build(
+    entt::registry &reg, int seq, double match_time, int result
+) {
     auto snap = godot::Ref<SimSnapshot>(memnew(SimSnapshot));
     snap->seq = seq;
+    snap->result = result;
+    snap->match_time = static_cast<float>(match_time);
     snap->t = std::chrono::duration_cast<std::chrono::milliseconds>(
                   std::chrono::system_clock::now().time_since_epoch()
     )
@@ -363,6 +368,25 @@ void SnapshotBuilder::_build_heroes(
             reg.all_of<HeroDefId>(e) ? reg.get<HeroDefId>(e).Value : 0;
         s->tier =
             reg.all_of<BotTier>(e) ? static_cast<int>(reg.get<BotTier>(e)) : 0;
+
+        s->deaths = 0;
+        s->damage_dealt = 0;
+        s->damage_taken = 0;
+        s->healing_done = 0;
+        s->xp_earned = 0;
+        s->skill_casts = 0;
+        s->score = 0;
+        if (reg.all_of<MatchStats>(e)) {
+            auto &match_stats = reg.get<MatchStats>(e);
+            s->deaths = match_stats.Deaths;
+            s->damage_dealt = match_stats.DamageDealt;
+            s->damage_taken = match_stats.DamageTaken;
+            s->healing_done = match_stats.HealingDone;
+            s->xp_earned = match_stats.XpEarned;
+            s->skill_casts = match_stats.SkillCasts;
+            s->score =
+                calculate_match_score(s->kills, s->level, match_stats);
+        }
 
         if (reg.all_of<SkillComponent>(e)) {
             _build_skills(

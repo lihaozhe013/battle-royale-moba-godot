@@ -2,6 +2,7 @@
 
 #include "../components.h"
 #include "../game_config.h"
+#include "match_stats.h"
 #include <entt/entt.hpp>
 
 namespace sim {
@@ -15,11 +16,12 @@ inline void apply_xp(entt::registry &reg, entt::entity e, int xp_amount) {
     auto &hp = reg.get<Health>(e);
 
     exp.Cur += xp_amount;
+    record_xp(reg, e, xp_amount);
     while (exp.Cur >= exp.Needed) {
         exp.Cur -= exp.Needed;
         lv.Value += 1;
         hp.Max += sim::stats(reg).HpPerLevel;
-        hp.Cur = hp.Max;
+        apply_healing(reg, e, hp.Max);
         ms.Value += sim::stats(reg).SpeedPerLevel;
         if (reg.all_of<CombatStats>(e)) {
             auto &stats = reg.get<CombatStats>(e);

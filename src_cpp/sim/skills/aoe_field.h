@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../game_config.h"
+#include "../systems/match_stats.h"
 #include "../vec2.h"
 #include "skill_interface.h"
 #include <entt/entt.hpp>
@@ -76,25 +77,9 @@ class AoEFieldSkill : public ISkill {
             if (vec2_length_sq(delta) > range(level) * range(level))
                 continue;
 
-            auto &hp = target_view.get<Health>(t);
-            hp.Cur -= static_cast<int>(skill_dmg);
-            if (hp.Cur <= 0) {
-                hp.Cur = 0;
-                if (reg.all_of<Dead>(t))
-                    reg.get<Dead>(t).enabled = true;
-                if (reg.all_of<BotAIState>(t))
-                    reg.get<BotAIState>(t).RespawnTimer =
-                        stats(reg).BotRespawnTime;
-                int victim_id =
-                    reg.all_of<NetworkId>(t) ? reg.get<NetworkId>(t).Value : 0;
-                auto kill_view = reg.view<KillEventBuffer>();
-                for (auto k : kill_view)
-                    kill_view.get<KillEventBuffer>(k).events.push_back(
-                        {reg.get<NetworkId>(caster).Value, victim_id}
-                    );
-                if (reg.all_of<Kills>(caster))
-                    reg.get<Kills>(caster).Value += 1;
-            } else {
+            int actual_damage =
+                apply_damage(reg, caster, t, static_cast<int>(skill_dmg));
+            if (actual_damage > 0 && reg.get<Health>(t).Cur > 0) {
                 auto &st = reg.get_or_emplace<StatusEffect>(t);
                 st.Type = StatusType::Stun;
                 st.Timer = effect_value(level);

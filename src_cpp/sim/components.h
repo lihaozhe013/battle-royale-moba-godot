@@ -22,6 +22,12 @@ enum class StatusType : uint8_t {
     Stun = 2, // 眩晕 — 不能移动，不能攻击，不能放技能
 };
 
+enum class MatchResult : uint8_t {
+    InProgress = 0,
+    Defeat = 1,
+    Victory = 2,
+};
+
 // ── CommonComponents.cs ──────────────────────────────────────────────────
 
 struct Position2D {
@@ -109,6 +115,15 @@ struct CombatStats {
 
 struct Kills {
     int Value = 0;
+};
+
+struct MatchStats {
+    int Deaths = 0;
+    int DamageDealt = 0;
+    int DamageTaken = 0;
+    int HealingDone = 0;
+    int XpEarned = 0;
+    int SkillCasts = 0;
 };
 
 // ── BotComponents.cs ─────────────────────────────────────────────────────

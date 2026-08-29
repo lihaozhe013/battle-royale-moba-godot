@@ -19,6 +19,13 @@ class SimHeroSnap : public godot::RefCounted {
     int kills = 0, level = 0, xp = 0, xp_needed = 0;
     int status = 0;
     godot::TypedArray<SimSkillSlotSnap> skills;
+    int deaths = 0;
+    int damage_dealt = 0;
+    int damage_taken = 0;
+    int healing_done = 0;
+    int xp_earned = 0;
+    int skill_casts = 0;
+    int score = 0;
 
     int cast_state = 0;
     int cast_slot = -1;
@@ -113,6 +120,20 @@ class SimHeroSnap : public godot::RefCounted {
     void set_is_local(bool v) { is_local = v; }
     int get_hero_def_id() const { return hero_def_id; }
     void set_hero_def_id(int v) { hero_def_id = v; }
+    int get_deaths() const { return deaths; }
+    void set_deaths(int v) { deaths = v; }
+    int get_damage_dealt() const { return damage_dealt; }
+    void set_damage_dealt(int v) { damage_dealt = v; }
+    int get_damage_taken() const { return damage_taken; }
+    void set_damage_taken(int v) { damage_taken = v; }
+    int get_healing_done() const { return healing_done; }
+    void set_healing_done(int v) { healing_done = v; }
+    int get_xp_earned() const { return xp_earned; }
+    void set_xp_earned(int v) { xp_earned = v; }
+    int get_skill_casts() const { return skill_casts; }
+    void set_skill_casts(int v) { skill_casts = v; }
+    int get_score() const { return score; }
+    void set_score(int v) { score = v; }
 
   protected:
     static void _bind_methods();

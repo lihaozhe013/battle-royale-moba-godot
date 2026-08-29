@@ -4,6 +4,7 @@
 #include "../components.h"
 #include "../game_config.h"
 #include "../vec2.h"
+#include "match_stats.h"
 #include "xp_helper.h"
 #include <cmath>
 #include <entt/entt.hpp>
@@ -72,13 +73,14 @@ inline void pickup_system(
                  p_tag.Type == PickupType::SmallHeal) &&
                 reg.all_of<Health>(mover)
             ) {
-                auto &hp = reg.get<Health>(mover);
                 float fraction =
                     (p_tag.Type == PickupType::Heal)
                         ? stats(reg).HealFraction
                         : (stats(reg).SmallHealPickupValue / 100.0f);
-                int heal = static_cast<int>(std::ceil(hp.Max * fraction));
-                hp.Cur = std::min(hp.Cur + heal, hp.Max);
+                int heal = static_cast<int>(std::ceil(
+                    reg.get<Health>(mover).Max * fraction
+                ));
+                apply_healing(reg, mover, heal);
             }
 
             // Destroy pickup

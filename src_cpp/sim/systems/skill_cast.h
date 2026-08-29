@@ -6,6 +6,7 @@
 #include "../skills/skill_registry.h"
 #include "../vec2.h"
 #include "attack_command.h"
+#include "match_stats.h"
 #include <algorithm>
 #include <cstdio>
 #include <entt/entt.hpp>
@@ -145,6 +146,7 @@ inline void cast_phase_casting(
         clear_cast_state(cs);
         return;
     }
+    record_skill_cast(reg, e);
 
     sk->on_cast_complete(
         reg, e, cs, cb, ids, skills.Slots[cs.ActiveSlot].Level

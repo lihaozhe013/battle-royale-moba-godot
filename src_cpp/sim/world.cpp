@@ -12,6 +12,10 @@ bool World::initialize(
     const std::string &map_json, const std::string &stats_yaml
 ) {
     _last_error.clear();
+    _time = 0.0;
+    _tick_counter = 0;
+    _game_over = false;
+    _latest_snapshot = godot::Ref<SimSnapshot>();
     StatsConfig config;
     std::string stats_error;
     if (!load_stats_yaml(stats_yaml, config, stats_error)) {
@@ -114,16 +118,6 @@ void World::tick(double dt) {
     wall_collision_system(_reg, _cb);
     combat_system(_reg, _cb);
 
-    {
-        auto pv = _reg.view<PlayerTag, Dead>();
-        for (auto p : pv) {
-            if (pv.get<PlayerTag>(p).IsLocal && pv.get<Dead>(p).enabled) {
-                _game_over = true;
-                return;
-            }
-        }
-    }
-
     pickup_system(_reg, fdt, _cb, ids);
     aoe_system(_reg, fdt, _cb);
     status_effect_system(_reg, fdt);
@@ -131,7 +125,23 @@ void World::tick(double dt) {
     skill_cooldown_system(_reg, fdt);
     skill_level_system(_reg);
     progression_system(_reg);
-    snapshot_export_system(_reg, _tick_counter, _latest_snapshot);
+
+    auto pv = _reg.view<PlayerTag, Dead>();
+    for (auto p : pv) {
+        if (pv.get<PlayerTag>(p).IsLocal && pv.get<Dead>(p).enabled) {
+            _game_over = true;
+            break;
+        }
+    }
+
+    snapshot_export_system(
+        _reg,
+        _tick_counter,
+        _time,
+        _game_over ? static_cast<int>(MatchResult::Defeat)
+                   : static_cast<int>(MatchResult::InProgress),
+        _latest_snapshot
+    );
 
     auto impact_view = _reg.view<ImpactEventBuffer>();
     for (auto e : impact_view)

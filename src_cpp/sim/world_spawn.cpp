@@ -32,6 +32,7 @@ void World::_spawn_player(int player_id, bool is_local) {
     );
     _reg.emplace<CombatStats>(e, def.BaseAtk, def.BaseAsp, -999.0);
     _reg.emplace<Kills>(e, 0);
+    _reg.emplace<MatchStats>(e);
     _reg.emplace<HeroInputState>(e);
     _reg.emplace<SkillPoints>(e, 0);
     _reg.emplace<Damageable>(e);
@@ -149,6 +150,7 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<BotVisionRange>(e, vis);
     _reg.emplace<CombatStats>(e, atk, asp, -999.0);
     _reg.emplace<Kills>(e, 0);
+    _reg.emplace<MatchStats>(e);
     _reg.emplace<Damageable>(e);
     _reg.emplace<Dead>(e, false);
     _reg.emplace<Level>(e, new_lv);

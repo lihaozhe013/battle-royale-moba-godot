@@ -17,6 +17,8 @@ class SimSnapshot : public godot::RefCounted {
   public:
     int seq = 0;
     int64_t t = 0;
+    int result = 0;
+    float match_time = 0.0f;
     godot::TypedArray<SimPlayerSnap> players;
     godot::TypedArray<SimBotSnap> bots;
     godot::TypedArray<SimHeroSnap> heroes;
@@ -29,6 +31,10 @@ class SimSnapshot : public godot::RefCounted {
     void set_seq(int v) { seq = v; }
     int64_t get_t() const { return t; }
     void set_t(int64_t v) { t = v; }
+    int get_result() const { return result; }
+    void set_result(int v) { result = v; }
+    float get_match_time() const { return match_time; }
+    void set_match_time(float v) { match_time = v; }
     godot::TypedArray<SimPlayerSnap> get_players() const { return players; }
     void set_players(const godot::TypedArray<SimPlayerSnap> &v) { players = v; }
     godot::TypedArray<SimBotSnap> get_bots() const { return bots; }

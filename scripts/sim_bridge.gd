@@ -20,6 +20,7 @@ var _skill_vfx: Node3D
 const HOVER_RADIUS := 2.0
 const TICK_RATE := 1.0 / 30.0
 const START_MENU_SCENE := "res://scenes/start_menu.tscn"
+const MATCH_RESULTS_SCENE := "res://scenes/match_results.tscn"
 const NORMAL_CURSOR_TEXTURE: Texture2D = preload(
 	"res://resources/ui/cursors/normal_cursor.png"
 )
@@ -29,6 +30,7 @@ const CAST_CURSOR_TEXTURE: Texture2D = preload(
 const CURSOR_HOTSPOT := Vector2(2.0, 2.0)
 var _cursor_cast_mode := false
 var _cursor_initialized := false
+var _results_shown := false
 
 # Temp adapter state (translates Command → new Sim API)
 var _tmp_move_target := Vector2.ZERO
@@ -50,6 +52,7 @@ var _tmp_seq := 0
 
 func _ready() -> void:
 	_set_cursor_mode(false)
+	MatchResultStore.clear()
 	var file = FileAccess.open("res://data/maps/default.json", FileAccess.READ)
 	if not file:
 		DebugLogger.log("[ERROR] Failed to load map JSON")
@@ -138,6 +141,7 @@ func _spawn_wall_visuals(json_text: String) -> void:
 func _on_main_menu_requested() -> void:
 	_set_cursor_mode(false)
 	get_tree().paused = false
+	MatchResultStore.clear()
 	DebugLogger.log("[start_menu] returning_to_menu")
 	var error := get_tree().change_scene_to_file(START_MENU_SCENE)
 	if error != OK:
@@ -225,14 +229,14 @@ func _physics_process(delta: float) -> void:
 		_tmp_attack_ground = false
 		_tmp_attack_clear = false
 
-		elapsed -= TICK_RATE
-		if sim.is_game_over():
-			DebugLogger.log("=== GAME OVER ===")
-			get_tree().paused = true
-			return
 		var snap = sim.pop_snapshot()
 		if snap is SimSnapshot:
 			last_snapshot = snap
+
+		elapsed -= TICK_RATE
+		if sim.is_game_over():
+			_show_match_results(last_snapshot)
+			return
 
 	if ran_tick and last_snapshot:
 		var local_idx = -1
@@ -244,6 +248,35 @@ func _physics_process(delta: float) -> void:
 			)
 		elif last_snapshot.players.size() > 0:
 			input_state_machine.sync_from_snapshot(last_snapshot.players[0])
+
+
+func _show_match_results(final_snapshot: SimSnapshot) -> void:
+	if _results_shown:
+		return
+	_results_shown = true
+	if final_snapshot:
+		MatchResultStore.capture_snapshot(final_snapshot)
+		DebugLogger.log(
+			(
+				"[match_results] match_finished result=%d time=%.2f participants=%d"
+				% [
+					final_snapshot.result,
+					final_snapshot.match_time,
+					final_snapshot.heroes.size(),
+				]
+			)
+		)
+	else:
+		DebugLogger.log("[ERROR] [match_results] final_snapshot_missing")
+		MatchResultStore.clear()
+	_set_cursor_mode(false)
+	get_tree().paused = false
+	var error := get_tree().change_scene_to_file(MATCH_RESULTS_SCENE)
+	if error != OK:
+		_results_shown = false
+		DebugLogger.log(
+			"[ERROR] [match_results] results_scene_failed code=%d" % error
+		)
 
 
 func _apply_command(c: Command) -> void:

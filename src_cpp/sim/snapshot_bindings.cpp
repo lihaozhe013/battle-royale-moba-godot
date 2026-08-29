@@ -159,6 +159,13 @@ void SimHeroSnap::_bind_methods() {
     BIND(SimHeroSnap, tier);
     BIND(SimHeroSnap, is_local);
     BIND(SimHeroSnap, hero_def_id);
+    BIND(SimHeroSnap, deaths);
+    BIND(SimHeroSnap, damage_dealt);
+    BIND(SimHeroSnap, damage_taken);
+    BIND(SimHeroSnap, healing_done);
+    BIND(SimHeroSnap, xp_earned);
+    BIND(SimHeroSnap, skill_casts);
+    BIND(SimHeroSnap, score);
     ClassDB::bind_method(D_METHOD("get_skills"), &SimHeroSnap::get_skills);
     ClassDB::bind_method(D_METHOD("set_skills", "v"), &SimHeroSnap::set_skills);
     PROP(SimHeroSnap, Variant::INT, id);
@@ -197,6 +204,13 @@ void SimHeroSnap::_bind_methods() {
     PROP(SimHeroSnap, Variant::INT, tier);
     PROP(SimHeroSnap, Variant::BOOL, is_local);
     PROP(SimHeroSnap, Variant::INT, hero_def_id);
+    PROP(SimHeroSnap, Variant::INT, deaths);
+    PROP(SimHeroSnap, Variant::INT, damage_dealt);
+    PROP(SimHeroSnap, Variant::INT, damage_taken);
+    PROP(SimHeroSnap, Variant::INT, healing_done);
+    PROP(SimHeroSnap, Variant::INT, xp_earned);
+    PROP(SimHeroSnap, Variant::INT, skill_casts);
+    PROP(SimHeroSnap, Variant::INT, score);
     ADD_PROPERTY(
         PropertyInfo(
             Variant::ARRAY,
@@ -313,6 +327,8 @@ void SimAoESnap::_bind_methods() {
 
 void SimSnapshot::_bind_methods() {
     BIND(SimSnapshot, seq);
+    BIND(SimSnapshot, result);
+    BIND(SimSnapshot, match_time);
     ClassDB::bind_method(D_METHOD("get_t"), &SimSnapshot::get_t);
     ClassDB::bind_method(D_METHOD("set_t", "v"), &SimSnapshot::set_t);
     ClassDB::bind_method(D_METHOD("get_players"), &SimSnapshot::get_players);
@@ -338,6 +354,14 @@ void SimSnapshot::_bind_methods() {
     );
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "seq"), "set_seq", "get_seq");
+    ADD_PROPERTY(
+        PropertyInfo(Variant::INT, "result"), "set_result", "get_result"
+    );
+    ADD_PROPERTY(
+        PropertyInfo(Variant::FLOAT, "match_time"),
+        "set_match_time",
+        "get_match_time"
+    );
     ADD_PROPERTY(PropertyInfo(Variant::INT, "t"), "set_t", "get_t");
     ADD_PROPERTY(
         PropertyInfo(

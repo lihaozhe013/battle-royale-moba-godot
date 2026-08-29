@@ -4,6 +4,7 @@
 #include "../components.h"
 #include "../game_config.h"
 #include "../vec2.h"
+#include "match_stats.h"
 #include <entt/entt.hpp>
 
 namespace sim {
@@ -49,13 +50,18 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
                 continue;
             }
 
-            // Hit!
-            auto &hp = target_view.get<Health>(target);
-            hp.Cur -= static_cast<int>(arrow_tag.Dmg);
-
             int victim_id = reg.all_of<NetworkId>(target)
                                 ? reg.get<NetworkId>(target).Value
                                 : 0;
+
+            // Hit!
+            int actual_damage = apply_damage(
+                reg,
+                arrow_tag.OwnerEntity,
+                target,
+                static_cast<int>(arrow_tag.Dmg)
+            );
+
             auto impact_view = reg.view<ImpactEventBuffer>();
             for (auto impact_entity : impact_view) {
                 impact_view.get<ImpactEventBuffer>(impact_entity)
@@ -71,37 +77,9 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
                 arrow_tag.OwnerEntity != entt::null &&
                 reg.valid(arrow_tag.OwnerEntity) &&
                 reg.all_of<Health>(arrow_tag.OwnerEntity)) {
-                auto &ohp = reg.get<Health>(arrow_tag.OwnerEntity);
                 int heal =
-                    static_cast<int>(arrow_tag.Dmg * arrow_tag.LifestealRatio);
-                ohp.Cur = std::min(ohp.Max, ohp.Cur + heal);
-            }
-
-            if (hp.Cur <= 0) {
-                hp.Cur = 0;
-                if (reg.all_of<Dead>(target)) {
-                    reg.get<Dead>(target).enabled = true;
-                }
-                if (reg.all_of<BotAIState>(target)) {
-                    reg.get<BotAIState>(target).RespawnTimer =
-                        stats(reg).BotRespawnTime;
-                }
-            }
-
-            // Kill event
-            if (hp.Cur <= 0) {
-                auto kill_view = reg.view<KillEventBuffer>();
-                for (auto k : kill_view) {
-                    kill_view.get<KillEventBuffer>(k).events.push_back(
-                        {arrow_tag.OwnerId, victim_id}
-                    );
-                }
-
-                // Increment killer kills
-                if (reg.valid(arrow_tag.OwnerEntity) &&
-                    reg.all_of<Kills>(arrow_tag.OwnerEntity)) {
-                    reg.get<Kills>(arrow_tag.OwnerEntity).Value += 1;
-                }
+                    static_cast<int>(actual_damage * arrow_tag.LifestealRatio);
+                apply_healing(reg, arrow_tag.OwnerEntity, heal);
             }
 
             // Destroy arrow
