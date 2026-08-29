@@ -4,6 +4,7 @@ extends Node
 const DIRECTIONAL_LIGHT_ENERGY := 1.8
 const AMBIENT_LIGHT_ENERGY := 0.45
 const AMBIENT_LIGHT_COLOR := Color(0.7, 0.7, 0.7, 1.0)
+const GROUND_ALBEDO_COLOR := Color(0.22, 0.22, 0.25, 1.0)
 
 var _initialized := false
 
@@ -41,7 +42,9 @@ func _create_ground() -> void:
 	var mesh := PlaneMesh.new()
 	mesh.size = Vector2(100, 100)
 	ground.mesh = mesh
-	ground.material_override = StandardMaterial3D.new()
+	var ground_material := StandardMaterial3D.new()
+	ground_material.albedo_color = GROUND_ALBEDO_COLOR
+	ground.material_override = ground_material
 	add_child(ground)
 
 
