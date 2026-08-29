@@ -24,13 +24,26 @@ var _hit_flash_material: StandardMaterial3D
 
 
 func _ready() -> void:
-	if not _lightning.has_method("play"):
+	_log_debug(
+		"instance_ready id=%d lightning_valid=%s play=%s finished_signal=%s"
+		% [
+			get_instance_id(),
+			is_instance_valid(_lightning),
+			_lightning.has_method("play") if is_instance_valid(_lightning) else false,
+			_lightning.has_signal("finished") if is_instance_valid(_lightning) else false
+		]
+	)
+	if not is_instance_valid(_lightning) or not _lightning.has_method("play"):
+		_log_debug("instance_abort id=%d reason=lightning_unavailable" % get_instance_id())
 		queue_free()
 		return
 	_create_impact_feedback()
 	if _lightning.has_signal("finished"):
 		_lightning.finished.connect(_on_lightning_finished)
+	else:
+		_log_debug("instance_warning id=%d reason=finished_signal_missing" % get_instance_id())
 	_lightning.play()
+	_log_debug("lightning_play_called id=%d" % get_instance_id())
 
 
 func _create_impact_feedback() -> void:
@@ -85,6 +98,7 @@ func _create_impact_feedback() -> void:
 	_add_impact_sparks(feedback_root)
 	_add_sky_pillar(feedback_root)
 	_animate_impact_feedback()
+	_log_debug("feedback_created id=%d" % get_instance_id())
 
 
 func _add_sky_pillar(feedback_root: Node3D) -> void:
@@ -97,7 +111,7 @@ func _add_sky_pillar(feedback_root: Node3D) -> void:
 		Color(1.0, 0.01, 0.005, 0.34), 5.0
 	)
 	var outer_beam := _make_beam(
-		"OuterBeam", 0.14, PILLAR_HEIGHT, _pillar_outer_material
+		"OuterBeam", 0.24, PILLAR_HEIGHT, _pillar_outer_material
 	)
 	_pillar_root.add_child(outer_beam)
 
@@ -105,7 +119,7 @@ func _add_sky_pillar(feedback_root: Node3D) -> void:
 		Color(1.0, 0.22, 0.04, 1.0), 10.0
 	)
 	var core_beam := _make_beam(
-		"CoreBeam", 0.045, PILLAR_HEIGHT, _pillar_core_material
+		"CoreBeam", 0.08, PILLAR_HEIGHT, _pillar_core_material
 	)
 	_pillar_root.add_child(core_beam)
 
@@ -118,6 +132,10 @@ func _add_sky_pillar(feedback_root: Node3D) -> void:
 	_pillar_root.add_child(pillar_light)
 
 	_animate_sky_pillar(pillar_light)
+	_log_debug(
+		"pillar_created id=%d start_y=%.2f impact_y=%.2f height=%.2f"
+		% [get_instance_id(), PILLAR_START_Y, PILLAR_IMPACT_Y, PILLAR_HEIGHT]
+	)
 
 
 func _make_beam(
@@ -157,6 +175,7 @@ func _animate_sky_pillar(pillar_light: OmniLight3D) -> void:
 		PILLAR_IMPACT_Y,
 		PILLAR_DROP_DURATION
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	drop_tween.tween_callback(_on_pillar_impact)
 
 	var pulse_tween := create_tween()
 	pulse_tween.tween_interval(PILLAR_DROP_DURATION)
@@ -206,6 +225,14 @@ func _animate_sky_pillar(pillar_light: OmniLight3D) -> void:
 		0.0,
 		PILLAR_FADE_DURATION
 	)
+	_log_debug(
+		"pillar_drop_started id=%d duration=%.2f"
+		% [get_instance_id(), PILLAR_DROP_DURATION]
+	)
+
+
+func _on_pillar_impact() -> void:
+	_log_debug("pillar_impact id=%d" % get_instance_id())
 
 
 func _make_ring(
@@ -334,4 +361,13 @@ func _animate_impact_feedback() -> void:
 
 
 func _on_lightning_finished() -> void:
+	_log_debug("instance_finished id=%d" % get_instance_id())
 	queue_free()
+
+
+func _log_debug(_message: String) -> void:
+	# Q VFX debug output is disabled for normal gameplay.
+	# var logger := get_node_or_null("/root/DebugLogger")
+	# if logger and logger.has_method("log"):
+	# 	logger.log("[q_skill_vfx] %s" % _message)
+	pass

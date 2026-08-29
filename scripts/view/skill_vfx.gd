@@ -6,6 +6,7 @@ const RANGE_INDICATOR_SCRIPT = preload(
 const MELEE_STRIKE_VFX_SCENE: PackedScene = preload(
 	"res://resources/vfx/skills/melee_strike/melee_strike_vfx.tscn"
 )
+const DEBUG_LOG_PREFIX := "[q_skill_vfx]"
 const SKILL_VFX_SCENES := {
 	1: MELEE_STRIKE_VFX_SCENE,
 }
@@ -21,6 +22,7 @@ var _initialized := false
 var _last_vfx_snapshot_seq := -1
 var _previous_cast_state := 0
 var _previous_cast_slot := -1
+var _last_logged_hit_target_id := -2
 
 
 func _ready() -> void:
@@ -77,14 +79,43 @@ func _sync_cast_vfx(snap: SimSnapshot, p, entity_manager) -> void:
 		return
 	_last_vfx_snapshot_seq = snap.seq
 
-	if (
-		_previous_cast_state != 0
-		and p.cast_state == 0
-		and p.hit_target_id >= 0
-		and entity_manager
-	):
+	var state_changed: bool = p.cast_state != _previous_cast_state
+	var slot_changed: bool = p.cast_slot != _previous_cast_slot
+	var hit_changed: bool = p.hit_target_id != _last_logged_hit_target_id
+	if state_changed or slot_changed or hit_changed:
+		_log_debug(
+			(
+				"snapshot seq=%d state=%d->%d slot=%d->%d hit=%d"
+				% [
+					snap.seq,
+					_previous_cast_state,
+					p.cast_state,
+					_previous_cast_slot,
+					p.cast_slot,
+					p.hit_target_id
+				]
+			)
+		)
+		_last_logged_hit_target_id = p.hit_target_id
+
+	if _previous_cast_state != 0 and p.cast_state == 0:
 		var skill_id := _get_skill_id(p, _previous_cast_slot)
-		_play_skill_vfx(skill_id, p.hit_target_id, entity_manager)
+		if p.hit_target_id < 0:
+			_log_debug(
+				"skip cast_complete reason=no_hit skill=%d previous_slot=%d"
+				% [skill_id, _previous_cast_slot]
+			)
+		elif not entity_manager:
+			_log_debug(
+				"skip cast_complete reason=entity_manager_missing skill=%d target=%d"
+				% [skill_id, p.hit_target_id]
+			)
+		else:
+			_log_debug(
+				"trigger cast_complete skill=%d target=%d previous_slot=%d"
+				% [skill_id, p.hit_target_id, _previous_cast_slot]
+			)
+			_play_skill_vfx(skill_id, p.hit_target_id, entity_manager)
 
 	_previous_cast_state = p.cast_state
 	_previous_cast_slot = p.cast_slot
@@ -97,18 +128,46 @@ func _get_skill_id(p, cast_slot: int) -> int:
 
 
 func _play_skill_vfx(skill_id: int, target_id: int, entity_manager) -> void:
+	_log_debug("lookup skill=%d target=%d" % [skill_id, target_id])
 	var effect_scene: PackedScene = SKILL_VFX_SCENES.get(skill_id)
 	if not effect_scene:
+		_log_debug("skip lookup reason=scene_missing skill=%d" % skill_id)
 		return
 	var target_view = entity_manager.get_entity(target_id)
-	if not target_view or not is_instance_valid(target_view):
+	if not target_view:
+		_log_debug("skip lookup reason=target_view_missing target=%d" % target_id)
+		return
+	if not is_instance_valid(target_view):
+		_log_debug("skip lookup reason=target_view_invalid target=%d" % target_id)
 		return
 	var attachment = target_view.skill_vfx_attachment
-	if not attachment or not is_instance_valid(attachment):
+	if not attachment:
+		_log_debug("skip lookup reason=attachment_missing target=%d" % target_id)
+		return
+	if not is_instance_valid(attachment):
+		_log_debug("skip lookup reason=attachment_invalid target=%d" % target_id)
 		return
 	var effect := effect_scene.instantiate()
-	if effect:
-		attachment.add_child(effect)
+	if not effect:
+		_log_debug("skip lookup reason=instantiate_failed skill=%d" % skill_id)
+		return
+	_log_debug(
+		"add_instance skill=%d target=%d effect_id=%d children_before=%d"
+		% [skill_id, target_id, effect.get_instance_id(), attachment.get_child_count()]
+	)
+	attachment.add_child(effect)
+	_log_debug(
+		"instance_added skill=%d target=%d effect_id=%d children_after=%d"
+		% [skill_id, target_id, effect.get_instance_id(), attachment.get_child_count()]
+	)
+
+
+func _log_debug(_message: String) -> void:
+	# Q VFX debug output is disabled for normal gameplay.
+	# var logger := get_node_or_null("/root/DebugLogger")
+	# if logger and logger.has_method("log"):
+	# 	logger.log("%s %s" % [DEBUG_LOG_PREFIX, _message])
+	pass
 
 
 func _sync_targeting_range(p, input_fsm) -> void:
