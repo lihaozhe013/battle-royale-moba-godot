@@ -9,7 +9,7 @@ bot:
     radius: 0.5
     respawn_time: 8.0
     speed: 2.0
-    stat_multiplier: 0.1
+    stat_multiplier: 0.8
     vision_range: 20.0
     wander_interval_max: 5.0
     wander_interval_min: 2.0
@@ -182,8 +182,8 @@ skills:
         mana_reduction_per_level: 0.10
         name: AOE Field
         range_per_level: 0.0
-    bot_cooldown_multiplier: 1.3
-    bot_damage_multiplier: 0.07
+    bot_cooldown_multiplier: 2
+    bot_damage_multiplier: 0.5
     bot_ids: [1, 2, 3, 4]
     bot_mana_multiplier: 0.6
     cdr_min: 0.4
