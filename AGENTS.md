@@ -51,6 +51,8 @@ describes current behavior.
 - Do not build C++ unless the task requires it. When a native build is needed,
   use the Makefile (`make build` or `make rebuild`); do not invoke CMake or raw
   build scripts directly.
+- Do not run any Godot-side tests or checks. Verifying that the C++ side
+  compiles is sufficient; all Godot-side testing is left to the user.
 - Use Git Bash-compatible commands in project workflows. Do not add
   PowerShell or cmd.exe commands to project documentation or tooling.
 - Do not modify Git configuration. Commit, push, or open a PR only when asked.
@@ -61,6 +63,9 @@ describes current behavior.
 - When debugging, prefix relevant logs with `[feature_name]`. Use
   `DebugLogger` for runtime logs rather than `print()`, and provide a focused
   command that runs the relevant flow and filters that prefix into a log file.
+- Godot-side logs are automatically written to `debug.log` while the user
+  plays. When debugging, read `debug.log` directly, or add logs and ask the
+  user to play again to provide a fresh log.
 
 ## Documentation policy
 
