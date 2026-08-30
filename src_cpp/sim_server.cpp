@@ -1,6 +1,12 @@
 #include "sim_server.h"
+#include "sim/heroes/hero_registry.h"
+#include "sim/skills/skill_registry.h"
+#include "sim/stats_config.h"
+#include <algorithm>
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <vector>
 
 SimServer::SimServer() {}
 SimServer::~SimServer() {}
@@ -8,8 +14,12 @@ SimServer::~SimServer() {}
 void SimServer::_bind_methods() {
     // ── 核心方法 ──
     godot::ClassDB::bind_method(
-        godot::D_METHOD("initialize", "map_json", "stats_yaml"),
-        &SimServer::initialize);
+        godot::D_METHOD("initialize", "map_json", "stats_yaml", "local_hero_id"),
+        &SimServer::initialize,
+        DEFVAL(1));
+    godot::ClassDB::bind_method(
+        godot::D_METHOD("get_hero_catalog", "stats_yaml"),
+        &SimServer::get_hero_catalog);
 
     // ── v2 新命令 API ──
     godot::ClassDB::bind_method(
@@ -57,10 +67,14 @@ void SimServer::_bind_methods() {
 }
 
 bool SimServer::initialize(
-    const godot::String &p_map_json, const godot::String &p_stats_yaml
+    const godot::String &p_map_json,
+    const godot::String &p_stats_yaml,
+    int local_hero_id
 ) {
     bool initialized = _world.initialize(
-        p_map_json.utf8().get_data(), p_stats_yaml.utf8().get_data()
+        p_map_json.utf8().get_data(),
+        p_stats_yaml.utf8().get_data(),
+        local_hero_id
     );
     if (!initialized) {
         godot::UtilityFunctions::push_error(
@@ -69,6 +83,92 @@ bool SimServer::initialize(
         );
     }
     return initialized;
+}
+
+godot::Array SimServer::get_hero_catalog(
+    const godot::String &p_stats_yaml
+) const {
+    sim::StatsConfig config;
+    std::string error;
+    godot::Array catalog;
+    if (!sim::load_stats_yaml(p_stats_yaml.utf8().get_data(), config, error)) {
+        godot::UtilityFunctions::push_error(
+            godot::String("[stats_config] Failed to load hero catalog: ") +
+            godot::String(error.c_str())
+        );
+        return catalog;
+    }
+
+    std::vector<const sim::HeroDef *> heroes;
+    heroes.reserve(config.Heroes.size());
+    for (const auto &hero : config.Heroes)
+        heroes.push_back(&hero);
+    std::sort(
+        heroes.begin(),
+        heroes.end(),
+        [](const sim::HeroDef *a, const sim::HeroDef *b) {
+            return a->Id < b->Id;
+        }
+    );
+
+    auto target_mode = [](sim::SkillKind kind) {
+        switch (kind) {
+        case sim::SkillKind::MeleeSingle:
+        case sim::SkillKind::TargetTeleport:
+            return sim::SkillTargetMode::Unit;
+        case sim::SkillKind::AoEField:
+        case sim::SkillKind::Dash:
+            return sim::SkillTargetMode::Point;
+        case sim::SkillKind::ChannelBurst:
+        case sim::SkillKind::TerrainRush:
+        case sim::SkillKind::RadialSlow:
+            return sim::SkillTargetMode::Self;
+        case sim::SkillKind::LowHealthPassive:
+            return sim::SkillTargetMode::Passive;
+        }
+        return sim::SkillTargetMode::Self;
+    };
+
+    for (const sim::HeroDef *hero : heroes) {
+        godot::Dictionary hero_data;
+        hero_data["id"] = hero->Id;
+        hero_data["name"] = godot::String(hero->Name.c_str());
+        hero_data["role"] = godot::String(hero->Role.c_str());
+        hero_data["description"] =
+            godot::String(hero->Description.c_str());
+        hero_data["prefab_id"] = hero->PrefabId;
+        hero_data["base_hp"] = hero->BaseHp;
+        hero_data["base_mana"] = hero->BaseMana;
+        hero_data["base_attack"] = hero->BaseAtk;
+        hero_data["base_attack_speed"] = hero->BaseAsp;
+        hero_data["base_move_speed"] = hero->BaseMoveSpeed;
+        hero_data["attack_range"] = hero->AttackRange;
+        hero_data["attack_type"] =
+            hero->AttackType == sim::AttackDelivery::Melee ? "melee"
+                                                           : "projectile";
+
+        godot::Array skills;
+        for (int skill_id : hero->SkillIds) {
+            auto it = config.Skills.find(skill_id);
+            if (it == config.Skills.end())
+                continue;
+            const auto &skill = it->second;
+            godot::Dictionary skill_data;
+            skill_data["id"] = skill.Id;
+            skill_data["name"] = godot::String(skill.Name.c_str());
+            skill_data["description"] =
+                godot::String(skill.Description.c_str());
+            skill_data["target_mode"] =
+                static_cast<int>(target_mode(skill.Kind));
+            skill_data["max_level"] = skill.MaxLevel;
+            skill_data["is_passive"] =
+                target_mode(skill.Kind) == sim::SkillTargetMode::Passive;
+            skills.push_back(skill_data);
+        }
+        hero_data["skills"] = skills;
+        catalog.push_back(hero_data);
+    }
+    return catalog;
 }
 
 // ── v2 新命令 API ──

@@ -26,6 +26,9 @@ inline void clear_cast_state(CastState &cs) {
     cs.SubTimer = 0.0f;
     cs.PendingCooldown = 0.0f;
     cs.PendingManaCost = 0.0f;
+    cs.TargetEntity = entt::null;
+    cs.TargetNetworkId = -1;
+    cs.QuickCast = false;
 }
 
 inline void abort_cast_chase(
@@ -82,11 +85,13 @@ inline void cast_phase_chasing(
     }
 
     if (cancel_skill && sk->can_interrupt(cs.State)) {
+        if (reg.all_of<MovePath>(e))
+            reg.get<MovePath>(e).Following = false;
         clear_cast_state(cs);
         return;
     }
 
-    if (sk->kind() == SkillKind::MeleeSingle) {
+    if (sk->target_mode() == SkillTargetMode::Unit) {
         bool target_invalid = cs.TargetEntity == entt::null ||
                               !reg.valid(cs.TargetEntity) ||
                               !reg.all_of<Position2D>(cs.TargetEntity);
@@ -112,7 +117,7 @@ inline void cast_phase_chasing(
         return;
     }
 
-    if (reg.all_of<MovePath>(e) && !reg.get<MovePath>(e).Following) {
+    if (!reg.all_of<MovePath>(e) || !reg.get<MovePath>(e).Following) {
         abort_cast_chase(reg, e, cs, 5, "no_path");
     }
 }
@@ -142,6 +147,36 @@ inline void cast_phase_casting(
     if (cs.Timer > 0.0f)
         return;
 
+    if (sk->target_mode() == SkillTargetMode::Unit) {
+        bool invalid_target =
+            cs.TargetEntity == entt::null || !reg.valid(cs.TargetEntity) ||
+            !reg.all_of<Position2D>(cs.TargetEntity) ||
+            (reg.all_of<Dead>(cs.TargetEntity) &&
+             reg.get<Dead>(cs.TargetEntity).enabled);
+        if (!invalid_target) {
+            const auto &slot = skills.Slots[cs.ActiveSlot];
+            CastContext target_ctx{
+                e,
+                slot,
+                slot.Level,
+                cs.AimPos,
+                cs.TargetEntity,
+                cs.TargetNetworkId,
+                cs.QuickCast,
+            };
+            invalid_target = sk->validate_cast(reg, e, target_ctx) != 0;
+            if (!invalid_target &&
+                !sk->can_enter_casting(reg, e, cs, slot.Level))
+                invalid_target = true;
+        }
+        if (invalid_target) {
+            clear_cast_state(cs);
+            if (reg.all_of<MovePath>(e))
+                reg.get<MovePath>(e).Following = false;
+            return;
+        }
+    }
+
     if (!commit_cast_resources(reg, cs, skills, reg.get<Mana>(e))) {
         clear_cast_state(cs);
         return;
@@ -153,7 +188,10 @@ inline void cast_phase_casting(
     );
 
     if (sk->kind() == SkillKind::MeleeSingle ||
-        sk->kind() == SkillKind::AoEField) {
+        sk->kind() == SkillKind::AoEField ||
+        sk->kind() == SkillKind::TerrainRush ||
+        sk->kind() == SkillKind::TargetTeleport ||
+        sk->kind() == SkillKind::RadialSlow) {
         clear_cast_state(cs);
     } else if (sk->kind() == SkillKind::Dash) {
         sk->on_dash_start(reg, e, cs, skills.Slots[cs.ActiveSlot].Level);
@@ -260,6 +298,9 @@ inline void skill_cast_system(
             if (!sk)
                 continue;
 
+            if (sk->is_passive())
+                continue;
+
             if (!input.SkillConfirm)
                 continue;
 
@@ -318,7 +359,24 @@ inline void skill_cast_system(
             if (sk->can_enter_casting(reg, e, cs, slot.Level)) {
                 cs.State = CastState::Phase::Casting;
                 cs.Timer = sk->cast_time(slot.Level);
+                if (cs.Timer <= 0.0f) {
+                    detail::cast_phase_casting(
+                        reg,
+                        e,
+                        cs,
+                        skills,
+                        false,
+                        0.0f,
+                        cb,
+                        ids
+                    );
+                }
             } else {
+                // A skill chase owns the movement path. Drop any previous
+                // command first so an unreachable target cancels without
+                // inheriting stale waypoints from ordinary movement.
+                if (reg.all_of<MovePath>(e))
+                    reg.get<MovePath>(e).Following = false;
                 cs.State = CastState::Phase::Chasing;
                 cs.Timer = 0.0f;
             }

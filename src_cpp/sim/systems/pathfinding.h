@@ -4,6 +4,7 @@
 #include "../game_config.h"
 #include "../nav_grid.h"
 #include "../skills/skill_registry.h"
+#include "timed_modifiers.h"
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
@@ -33,11 +34,11 @@ inline void pathfinding_system(entt::registry &reg, const NavGrid &nav) {
                 continue;
             Vec2 chase_target;
 
-            if (sk->kind() == SkillKind::MeleeSingle) {
+            if (sk->target_mode() == SkillTargetMode::Unit) {
                 if (!reg.valid(cs.TargetEntity))
                     continue;
                 chase_target = reg.get<Position2D>(cs.TargetEntity).Value;
-            } else if (sk->kind() == SkillKind::AoEField) {
+            } else if (sk->target_mode() == SkillTargetMode::Point) {
                 chase_target = cs.AimPos;
             } else {
                 continue;
@@ -51,7 +52,13 @@ inline void pathfinding_system(entt::registry &reg, const NavGrid &nav) {
                 }
             }
             if (need_repath) {
-                auto waypoints = nav.find_path(pos.Value, chase_target);
+                auto waypoints = has_timed_modifier(
+                                      reg,
+                                      e,
+                                      TimedModifierType::IgnoreTerrain
+                                  )
+                                      ? std::vector<Vec2>{chase_target}
+                                      : nav.find_path(pos.Value, chase_target);
                 if (!waypoints.empty()) {
                     path.Waypoints = std::move(waypoints);
                     path.CurrentIndex = 0;
@@ -71,17 +78,31 @@ inline void pathfinding_system(entt::registry &reg, const NavGrid &nav) {
                     if (!target_dead) {
                         Vec2 target_pos = reg.get<Position2D>(at.Target).Value;
                         Vec2 delta = target_pos - pos.Value;
+                        float attack_range =
+                            reg.all_of<AttackProfile>(e)
+                                ? reg.get<AttackProfile>(e).Range
+                                : 0.0f;
                         float dist = vec2_length_sq(delta);
-                        if (dist > stats(reg).PlayerAttackRange *
-                                       stats(reg).PlayerAttackRange) {
-                            auto waypoints =
-                                nav.find_path(pos.Value, target_pos);
+                        if (dist > attack_range * attack_range) {
+                            auto waypoints = has_timed_modifier(
+                                                  reg,
+                                                  e,
+                                                  TimedModifierType::IgnoreTerrain
+                                              )
+                                                  ? std::vector<Vec2>{target_pos}
+                                                  : nav.find_path(
+                                                        pos.Value, target_pos
+                                                    );
                             if (!waypoints.empty()) {
                                 path.Waypoints = std::move(waypoints);
                                 path.CurrentIndex = 0;
                                 path.FinalTarget = target_pos;
                                 path.Following = true;
+                                at.Chasing = true;
                             }
+                        } else {
+                            path.Following = false;
+                            at.Chasing = false;
                         }
                     }
                     continue;
@@ -105,7 +126,13 @@ inline void pathfinding_system(entt::registry &reg, const NavGrid &nav) {
                 }
             }
             if (need_repath) {
-                auto waypoints = nav.find_path(pos.Value, input.MoveTarget);
+                auto waypoints = has_timed_modifier(
+                                      reg,
+                                      e,
+                                      TimedModifierType::IgnoreTerrain
+                                  )
+                                      ? std::vector<Vec2>{input.MoveTarget}
+                                      : nav.find_path(pos.Value, input.MoveTarget);
                 if (!waypoints.empty()) {
                     path.Waypoints = std::move(waypoints);
                     path.CurrentIndex = 0;

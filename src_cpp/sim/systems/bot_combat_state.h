@@ -13,8 +13,9 @@ namespace sim {
 inline bool has_dash_ready(entt::registry &reg, entt::entity e) {
     auto &skills = reg.get<SkillComponent>(e);
     auto &mana = reg.get<Mana>(e);
-    const ISkill *sk = SkillRegistry::instance().get(skills.Slots[2].SkillId);
-    if (!sk)
+    const ISkill *sk =
+        SkillRegistry::instance().get(skills.Slots[2].SkillId);
+    if (!sk || sk->is_passive())
         return false;
     if (skills.Slots[2].CooldownTimer > 0.0f)
         return false;
@@ -38,8 +39,9 @@ inline bool has_burst_skills_ready(entt::registry &reg, entt::entity e) {
                                sim::stats(reg).BotManaCostMul;
         if (mana.Cur < effective_cost)
             continue;
-        if (sk->kind() == SkillKind::MeleeSingle ||
-            sk->kind() == SkillKind::AoEField) {
+        if (!sk->is_passive() &&
+            (sk->target_mode() == SkillTargetMode::Unit ||
+             sk->target_mode() == SkillTargetMode::Point)) {
             return true;
         }
     }
@@ -70,7 +72,6 @@ inline void bot_combat_state_system(entt::registry &reg, float dt) {
         auto &ai = view.get<BotAIState>(e);
         auto &hp = view.get<Health>(e);
         auto &pos = view.get<Position2D>(e);
-        auto &stats = view.get<CombatStats>(e);
 
         if (ai.TargetEntity == entt::null || !reg.valid(ai.TargetEntity))
             continue;
@@ -80,7 +81,9 @@ inline void bot_combat_state_system(entt::registry &reg, float dt) {
         Vec2 to_target = reg.get<Position2D>(ai.TargetEntity).Value - pos.Value;
         float dist = glm::length(to_target);
         float hp_ratio = (float)hp.Cur / (float)hp.Max;
-        float attack_range = sim::stats(reg).PlayerAttackRange;
+        float attack_range = reg.all_of<AttackProfile>(e)
+                                 ? reg.get<AttackProfile>(e).Range
+                                 : 0.0f;
 
         combat.PhaseTimer -= dt;
         if (combat.PhaseTimer > 0.0f)

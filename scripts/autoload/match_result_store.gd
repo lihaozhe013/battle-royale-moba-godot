@@ -13,6 +13,9 @@ func capture_snapshot(snapshot: SimSnapshot) -> void:
 		participants.append(
 			{
 				"id": int(hero.id),
+				"hero_def_id": int(hero.hero_def_id) if hero.get("hero_def_id") != null else 0,
+				"hero_name": str(hero.hero_name) if hero.get("hero_name") != null else "",
+				"prefab_id": int(hero.prefab_id) if hero.get("prefab_id") != null else 0,
 				"is_local": bool(hero.is_local),
 				"dead": bool(hero.dead),
 				"tier": int(hero.tier),

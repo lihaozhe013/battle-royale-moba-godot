@@ -14,6 +14,7 @@ class SkillRegistry {
     void register_skill(int id, std::unique_ptr<ISkill> skill);
     ISkill *get(int id) const;
     bool has(int id) const;
+    void clear();
 
   private:
     SkillRegistry() = default;

@@ -42,6 +42,11 @@ inline int apply_damage(
         return actual_damage;
 
     health.Cur = 0;
+    // Temporary combat effects never survive death. Clear them at the exact
+    // damage transition so downstream systems and the same snapshot observe
+    // the dead entity without stale buffs.
+    if (reg.all_of<TimedModifiers>(target))
+        reg.get<TimedModifiers>(target).Values.clear();
     bool newly_dead = !reg.all_of<Dead>(target) ||
                       !reg.get<Dead>(target).enabled;
     if (reg.all_of<Dead>(target))

@@ -13,6 +13,7 @@ const PICKUP_PATHS := {
 	2: "res://scenes/entities/pickups/pickup_small_heal.tscn",
 }
 const IMPACT_EVENT_TYPE := 1
+const ATTACK_STARTED_EVENT_TYPE := 2
 
 var _entities = {}  # id -> EntityView
 var _hovered_id := -1
@@ -27,7 +28,8 @@ func sync_entities(snap: SimSnapshot) -> void:
 		for h in snap.heroes:
 			seen[h.id] = true
 			var entity_type := 0 if h.is_local else 1
-			var view = _get_or_spawn(h.id, entity_type, 0)
+			var prefab_id := int(h.prefab_id) if h.get("prefab_id") != null else 0
+			var view = _get_or_spawn(h.id, entity_type, 0, prefab_id)
 			view.apply_snapshot(
 				h.x, h.y, h.ang, h.hp, h.max_hp, h.dead, h.cast_state, h.cast_slot, h.is_moving
 			)
@@ -50,15 +52,16 @@ func sync_entities(snap: SimSnapshot) -> void:
 	for a in snap.arrows:
 		seen[a.id] = true
 		current_arrow_ids[a.id] = true
-		var view = _get_or_spawn(a.id, 2, 0)
+		var view = _get_or_spawn(a.id, 2, 0, 0)
 		view.apply_snapshot(a.x, a.y, a.ang, 0, 0, false)
-		if not _visible_arrow_ids.has(a.id) and a.source_skill_id == 0:
-			var owner_view := get_entity(a.owner_id)
-			if owner_view:
-				owner_view.play_attack_cast()
 	_visible_arrow_ids = current_arrow_ids
 
 	for event in snap.events:
+		if event.type == ATTACK_STARTED_EVENT_TYPE:
+			var attacker_view := get_entity(event.killer_id)
+			if attacker_view:
+				attacker_view.play_attack_cast()
+			continue
 		if event.type != IMPACT_EVENT_TYPE or event.source_skill_id != 0:
 			continue
 		var victim_view := get_entity(event.victim_id)
@@ -67,7 +70,7 @@ func sync_entities(snap: SimSnapshot) -> void:
 
 	for pk in snap.pickups:
 		seen[pk.id] = true
-		var view = _get_or_spawn(pk.id, 3, pk.type)
+		var view = _get_or_spawn(pk.id, 3, pk.type, 0)
 		view.apply_snapshot(pk.x, pk.y, 0, 0, 0, false)
 
 	var to_remove = []
@@ -79,11 +82,11 @@ func sync_entities(snap: SimSnapshot) -> void:
 		_entities.erase(id)
 
 
-func _get_or_spawn(id: int, type: int, ptype: int) -> EntityView:
+func _get_or_spawn(id: int, type: int, ptype: int, prefab_id: int = 0) -> EntityView:
 	if _entities.has(id):
 		return _entities[id]
-	var view := _instantiate_prefab(type, ptype)
-	view.init(id, type, ptype)
+	var view := _instantiate_prefab(type, ptype, prefab_id)
+	view.init(id, type, ptype, prefab_id)
 	add_child(view)
 	_entities[id] = view
 	return view
@@ -117,10 +120,12 @@ func set_attack_target_id(id: int) -> void:
 		_entities[id].set_attack_targeted(true)
 
 
-func _instantiate_prefab(type: int, ptype: int) -> EntityView:
+func _instantiate_prefab(type: int, ptype: int, prefab_id: int = 0) -> EntityView:
 	var path := ""
 	if type == 3:
 		path = PICKUP_PATHS.get(ptype, "")
+	elif type == 0 or type == 1:
+		path = HeroVisualCatalog.scene_path(prefab_id)
 	else:
 		path = PREFAB_PATHS.get(type, "")
 	if path != "" and ResourceLoader.exists(path):

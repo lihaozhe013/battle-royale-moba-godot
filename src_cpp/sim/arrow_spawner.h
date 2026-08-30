@@ -3,6 +3,8 @@
 #include "command_buffer.h"
 #include "components.h"
 #include "game_config.h"
+#include <algorithm>
+#include <cmath>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
@@ -21,10 +23,14 @@ struct ArrowSpawnContext {
     int source_skill_id = 0;
     entt::entity homing_target = entt::null;
     int homing_target_net_id = -1;
+    float attack_speed = 0.0f;
+    bool critical = false;
 };
 
 inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
-    double interval = 1.0 / stats.Asp;
+    float attack_speed =
+        ctx.attack_speed > 0.0f ? ctx.attack_speed : stats.Asp;
+    double interval = 1.0 / std::max(0.01f, attack_speed);
     if (ctx.now - stats.LastFireTime < interval) {
         return false;
     }
@@ -49,6 +55,7 @@ inline bool try_fire(CombatStats &stats, const ArrowSpawnContext &ctx) {
             ctx.lifesteal_ratio,
             ctx.source_skill_id
         );
+        reg.get<ArrowTag>(e).Critical = ctx.critical;
         reg.emplace<Lifetime>(e, sim::stats(reg).ArrowLifetime);
         reg.emplace<NetworkId>(e, arrow_id);
         if (ctx.homing_target != entt::null) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../components.h"
 #include <string>
 
 namespace sim {
@@ -7,6 +8,8 @@ namespace sim {
 struct HeroDef {
     int Id = 0;
     std::string Name;
+    std::string Role;
+    std::string Description;
 
     int SkillIds[4] = {0, 0, 0, 0};
 
@@ -23,6 +26,7 @@ struct HeroDef {
     float SpeedPerLevel = 0.5f;
 
     int PrefabId = 0;
+    AttackDelivery AttackType = AttackDelivery::Projectile;
 };
 
 } // namespace sim

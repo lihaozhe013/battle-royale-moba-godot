@@ -25,6 +25,7 @@
 #include "systems/skill_level.h"
 #include "systems/snapshot_export.h"
 #include "systems/status_effect.h"
+#include "systems/timed_modifiers.h"
 #include "systems/wall_collision.h"
 #include "vec2.h"
 #include <entt/entt.hpp>
@@ -37,7 +38,11 @@ class World {
   public:
     World();
 
-    bool initialize(const std::string &map_json, const std::string &stats_yaml);
+    bool initialize(
+        const std::string &map_json,
+        const std::string &stats_yaml,
+        int local_hero_id = 1
+    );
     const std::string &last_error() const { return _last_error; }
 
     // ── 新命令 API ──
@@ -116,6 +121,7 @@ class World {
     entt::entity _id_state_entity = entt::null;
     entt::entity _kill_event_entity = entt::null;
     bool _game_over = false;
+    int _local_hero_id = 1;
     std::string _last_error;
 };
 

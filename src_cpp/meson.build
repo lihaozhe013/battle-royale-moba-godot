@@ -286,3 +286,17 @@ shared_library(
     install_dir: addons_dir,
     build_by_default: true,
 )
+
+sim_test_sources = files(
+    'tests/sim_tests.cpp',
+    'sim/stats_config.cpp',
+    'sim/heroes/hero_registry.cpp',
+    'sim/skills/skill_registry.cpp',
+)
+sim_tests = executable(
+    'sim_tests',
+    sim_test_sources,
+    include_directories: sim_include_dirs,
+    build_by_default: false,
+)
+test('sim_tests', sim_tests)

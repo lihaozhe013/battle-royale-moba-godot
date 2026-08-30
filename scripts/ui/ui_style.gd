@@ -8,11 +8,19 @@ const FONT_SEMIBOLD: FontFile = preload(
 const AVATAR_TEXTURE: Texture2D = preload(
 	"res://resources/characters/protagonist/skaterMaleA.png"
 )
+const HERO_PORTRAITS: Dictionary = {
+	0: AVATAR_TEXTURE,
+	1: preload("res://resources/characters/bloodreaver/bloodreaver.png"),
+}
 const SKILL_ICONS: Dictionary = {
 	1: preload("res://data/skills/icons/melee_strike.png"),
 	2: preload("res://data/skills/icons/aoe_field.png"),
 	3: preload("res://data/skills/icons/dash.png"),
 	4: preload("res://data/skills/icons/channel_burst.png"),
+	5: preload("res://data/skills/icons/skill_1.png"),
+	6: preload("res://data/skills/icons/skill_2.png"),
+	7: preload("res://data/skills/icons/skill_3.png"),
+	8: preload("res://data/skills/icons/skill_4.png"),
 }
 
 const HUD_BACKGROUND := Color(0.114, 0.114, 0.123, 1.0)
@@ -182,3 +190,7 @@ func set_full_rect(control: Control) -> void:
 
 func get_skill_icon(skill_id: int) -> Texture2D:
 	return SKILL_ICONS.get(skill_id) as Texture2D
+
+
+func get_hero_portrait(prefab_id: int) -> Texture2D:
+	return HERO_PORTRAITS.get(prefab_id, AVATAR_TEXTURE) as Texture2D

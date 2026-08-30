@@ -3,6 +3,7 @@
 #include "../components.h"
 #include "../game_config.h"
 #include "../vec2.h"
+#include "timed_modifiers.h"
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
@@ -93,11 +94,12 @@ player_movement_system(entt::registry &reg, float dt, float map_half) {
                 dir = vec2_normalize(dir);
                 smooth_facing(dir);
 
-                Vec2 step = dir * speed.Value * dt;
+                Vec2 step =
+                    dir * effective_move_speed(reg, e, speed.Value) * dt;
                 float step_len = vec2_length(step);
 
                 if (step_len >= dist) {
-                    pos.Value = target;
+                    pos.Value = vec2_clamp_to_map(target, map_half);
                     path.CurrentIndex++;
                     if (path.CurrentIndex >=
                         static_cast<int>(path.Waypoints.size())) {

@@ -99,9 +99,11 @@ def configure(target, environment):
         fail("Meson configuration failed")
 
 
-def compile_build(jobs, verbose, environment):
+def compile_build(jobs, verbose, environment, build_target=None):
     meson = find_meson()
     command = [meson, "compile", "-C", str(BUILD_DIR)]
+    if build_target:
+        command.append(build_target)
     if jobs > 0:
         command.extend(["-j", str(jobs)])
     if verbose:
@@ -156,6 +158,19 @@ def cmd_rebuild(args):
     return cmd_build(args)
 
 
+def cmd_test(args):
+    environment = build_environment()
+    configure(args.target, environment)
+    result = compile_build(args.jobs, args.verbose, environment, "sim_tests")
+    if result != 0:
+        return result
+    meson = find_meson()
+    return run(
+        [meson, "test", "-C", str(BUILD_DIR), "sim_tests", "--print-errorlogs"],
+        environment,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build the Godot GDExtension with Meson and Clang")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -171,6 +186,17 @@ def main():
         )
         command.add_argument("--jobs", "-j", type=int, default=0)
         command.add_argument("--verbose", "-v", action="store_true")
+
+    test_command = subparsers.add_parser("test")
+    test_command.set_defaults(func=cmd_test)
+    test_command.add_argument(
+        "--target",
+        "-t",
+        choices=("editor", "template_debug", "template_release"),
+        default="template_debug",
+    )
+    test_command.add_argument("--jobs", "-j", type=int, default=0)
+    test_command.add_argument("--verbose", "-v", action="store_true")
 
     clean = subparsers.add_parser("clean")
     clean.set_defaults(func=cmd_clean)

@@ -2,6 +2,7 @@
 
 #include "../command_buffer.h"
 #include "../components.h"
+#include "timed_modifiers.h"
 #include "../game_config.h"
 #include "../vec2.h"
 #include <entt/entt.hpp>
@@ -29,6 +30,10 @@ inline void wall_collision_system(entt::registry &reg, CommandBuffer &cb) {
         // Skip wall collision during dash (Dashing phase moves through walls)
         if (reg.all_of<CastState>(e) &&
             reg.get<CastState>(e).State == CastState::Phase::Dashing)
+            continue;
+        if (has_timed_modifier(
+                reg, e, TimedModifierType::IgnoreTerrain
+            ))
             continue;
 
         float radius = reg.all_of<BotTag>(e) ? stats(reg).BotRadius

@@ -13,6 +13,9 @@ class SimSkillSlotSnap : public godot::RefCounted {
     float max_cooldown = 0.0f;
     float mana_cost = 0.0f;
     float cast_range = 0.0f;
+    int target_mode = 0;
+    int max_level = 1;
+    bool is_passive = false;
 
     int get_skill_id() const { return skill_id; }
     void set_skill_id(int v) { skill_id = v; }
@@ -26,6 +29,12 @@ class SimSkillSlotSnap : public godot::RefCounted {
     void set_mana_cost(float v) { mana_cost = v; }
     float get_cast_range() const { return cast_range; }
     void set_cast_range(float v) { cast_range = v; }
+    int get_target_mode() const { return target_mode; }
+    void set_target_mode(int v) { target_mode = v; }
+    int get_max_level() const { return max_level; }
+    void set_max_level(int v) { max_level = v; }
+    bool get_is_passive() const { return is_passive; }
+    void set_is_passive(bool v) { is_passive = v; }
 
   protected:
     static void _bind_methods();

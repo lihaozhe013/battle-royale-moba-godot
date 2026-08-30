@@ -1,7 +1,7 @@
 class_name StartMenu
 extends Control
 
-const GAME_SCENE := "res://scenes/main.tscn"
+const HERO_SELECT_SCENE := "res://scenes/hero_select.tscn"
 const ARTWORK_BREAKPOINT := 960.0
 const LEFT_COLUMN_WIDTH := 360.0
 const MENU_BUTTON_WIDTH := 280.0
@@ -23,6 +23,7 @@ var _built := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	MatchSetup.reset()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -191,15 +192,15 @@ func _on_start_pressed() -> void:
 	_settings_button.disabled = true
 	_quit_button.disabled = true
 	get_tree().paused = false
-	DebugLogger.log("[start_menu] loading_gameplay scene=%s" % GAME_SCENE)
-	var error := get_tree().change_scene_to_file(GAME_SCENE)
+	DebugLogger.log("[start_menu] opening_hero_select scene=%s" % HERO_SELECT_SCENE)
+	var error := get_tree().change_scene_to_file(HERO_SELECT_SCENE)
 	if error != OK:
 		_transitioning = false
 		_start_button.disabled = false
 		_settings_button.disabled = false
 		_quit_button.disabled = false
 		DebugLogger.log(
-			"[ERROR] [start_menu] gameplay_scene_failed code=%d" % error
+			"[ERROR] [start_menu] hero_select_scene_failed code=%d" % error
 		)
 
 

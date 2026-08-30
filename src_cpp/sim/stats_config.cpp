@@ -5,6 +5,7 @@
 #include <charconv>
 #include <cstdlib>
 #include <sstream>
+#include <set>
 #include <type_traits>
 #include <unordered_map>
 
@@ -201,6 +202,22 @@ bool parse_int_array(
     return true;
 }
 
+std::vector<std::string> section_names(
+    const Values &values, const std::string &section
+) {
+    std::set<std::string> names;
+    const std::string prefix = section + ".";
+    for (const auto &[key, value] : values) {
+        if (key.rfind(prefix, 0) != 0)
+            continue;
+        auto dot = key.find('.', prefix.size());
+        if (dot == std::string::npos)
+            continue;
+        names.insert(key.substr(prefix.size(), dot - prefix.size()));
+    }
+    return {names.begin(), names.end()};
+}
+
 template <typename T>
 bool parse_number_value(const std::string &value, T &target) {
     char *end = nullptr;
@@ -232,8 +249,10 @@ bool parse_skill(
     std::string &error
 ) {
     const std::string prefix = "skills." + name + ".";
+    std::string kind;
     if (!parse_number(values, prefix + "id", skill.Id, error, true) ||
         !parse_string(values, prefix + "name", skill.Name, error, true) ||
+        !parse_string(values, prefix + "kind", kind, error, true) ||
         !parse_number(
             values, prefix + "base_cooldown", skill.BaseCooldown, error, true
         ) ||
@@ -299,6 +318,30 @@ bool parse_skill(
         ))
         return false;
 
+    if (kind == "melee_single")
+        skill.Kind = SkillKind::MeleeSingle;
+    else if (kind == "aoe_field")
+        skill.Kind = SkillKind::AoEField;
+    else if (kind == "dash")
+        skill.Kind = SkillKind::Dash;
+    else if (kind == "channel_burst")
+        skill.Kind = SkillKind::ChannelBurst;
+    else if (kind == "terrain_rush")
+        skill.Kind = SkillKind::TerrainRush;
+    else if (kind == "target_teleport")
+        skill.Kind = SkillKind::TargetTeleport;
+    else if (kind == "radial_slow")
+        skill.Kind = SkillKind::RadialSlow;
+    else if (kind == "low_health_passive")
+        skill.Kind = SkillKind::LowHealthPassive;
+    else {
+        error = "unknown skill kind in stats.yaml: " + kind;
+        return false;
+    }
+
+    parse_string(values, prefix + "description", skill.Description, error);
+    parse_number(values, prefix + "max_level", skill.MaxLevel, error);
+
     parse_number(values, prefix + "dash_speed", skill.DashSpeed, error);
     parse_number(
         values, prefix + "channel_interval", skill.ChannelInterval, error
@@ -315,6 +358,23 @@ bool parse_skill(
         skill.ChannelProjectileSpawnRadius,
         error
     );
+    parse_number(
+        values, prefix + "modifier_magnitude", skill.ModifierMagnitude, error
+    );
+    parse_number(
+        values, prefix + "modifier_duration", skill.ModifierDuration, error
+    );
+    parse_number(values, prefix + "crit_min", skill.CritMin, error);
+    parse_number(values, prefix + "crit_max", skill.CritMax, error);
+    parse_number(
+        values, prefix + "lifesteal_min", skill.LifestealMin, error
+    );
+    parse_number(
+        values, prefix + "lifesteal_max", skill.LifestealMax, error
+    );
+    parse_number(
+        values, prefix + "crit_multiplier", skill.CritMultiplier, error
+    );
     if (!error.empty())
         return false;
     return true;
@@ -325,6 +385,7 @@ bool parse_skill(
 bool load_stats_yaml(
     const std::string &text, StatsConfig &config, std::string &error
 ) {
+    error.clear();
     Values values;
     if (!parse_yaml(text, values, error))
         return false;
@@ -465,16 +526,8 @@ bool load_stats_yaml(
     READ_FLOAT("mana.bot_max", BotBaseMana);
     READ_FLOAT("mana.bot_regen", BotManaRegen);
     READ_FLOAT("mana.regen_delay", ManaRegenDelay);
-    READ_FLOAT("attack.range", PlayerAttackRange);
     READ_FLOAT("attack.acquisition_range", AttackAcquisitionRange);
 
-    if (!parse_int_array(
-            values, "skills.player_ids", config.PlayerSkillIds, error, true
-        ) ||
-        !parse_int_array(
-            values, "skills.bot_ids", config.BotSkillIds, error, true
-        ))
-        return false;
     READ_INT("skills.max_level", MaxSkillLevel);
     READ_FLOAT("skills.mana_reduction_min", SkillManaReductionMin);
     READ_FLOAT("skills.cdr_min", SkillCDRMin);
@@ -514,73 +567,125 @@ bool load_stats_yaml(
     READ_FLOAT("bot_skill_scoring.high_health", BotSkillHighHealth);
     READ_FLOAT("bot_skill_scoring.sustain_health", BotSkillSustainHealth);
 
-    const std::string hero_prefix = "heroes.swordsman.";
-    HeroDef hero;
-    if (!parse_number(values, hero_prefix + "id", hero.Id, error, true) ||
-        !parse_string(values, hero_prefix + "name", hero.Name, error, true) ||
-        !parse_int_array(
-            values, hero_prefix + "skill_ids", hero.SkillIds, error, true
-        ) ||
-        !parse_number(
-            values, hero_prefix + "base_hp", hero.BaseHp, error, true
-        ) ||
-        !parse_number(
-            values, hero_prefix + "base_mana", hero.BaseMana, error, true
-        ) ||
-        !parse_number(
-            values, hero_prefix + "base_attack", hero.BaseAtk, error, true
-        ) ||
-        !parse_number(
-            values, hero_prefix + "base_attack_speed", hero.BaseAsp, error, true
-        ) ||
-        !parse_number(
-            values,
-            hero_prefix + "base_move_speed",
-            hero.BaseMoveSpeed,
-            error,
-            true
-        ) ||
-        !parse_number(
-            values, hero_prefix + "attack_range", hero.AttackRange, error, true
-        ) ||
-        !parse_number(
-            values, hero_prefix + "hp_per_level", hero.HpPerLevel, error, true
-        ) ||
-        !parse_number(
-            values,
-            hero_prefix + "attack_per_level",
-            hero.AtkPerLevel,
-            error,
-            true
-        ) ||
-        !parse_number(
-            values,
-            hero_prefix + "attack_speed_per_level",
-            hero.AspPerLevel,
-            error,
-            true
-        ) ||
-        !parse_number(
-            values,
-            hero_prefix + "move_speed_per_level",
-            hero.SpeedPerLevel,
-            error,
-            true
-        ) ||
-        !parse_number(
-            values, hero_prefix + "prefab_id", hero.PrefabId, error, true
-        ))
+    auto hero_names = section_names(values, "heroes");
+    if (hero_names.empty()) {
+        error = "stats.yaml must define at least one hero";
         return false;
-    config.Heroes.push_back(hero);
+    }
+    std::set<int> hero_ids;
+    std::set<int> prefab_ids;
+    for (const auto &name : hero_names) {
+        const std::string prefix = "heroes." + name + ".";
+        HeroDef hero;
+        std::string attack_type;
+        if (!parse_number(values, prefix + "id", hero.Id, error, true) ||
+            !parse_string(values, prefix + "name", hero.Name, error, true) ||
+            !parse_string(values, prefix + "role", hero.Role, error, true) ||
+            !parse_string(
+                values, prefix + "description", hero.Description, error, true
+            ) ||
+            !parse_int_array(
+                values, prefix + "skill_ids", hero.SkillIds, error, true
+            ) ||
+            !parse_number(
+                values, prefix + "base_hp", hero.BaseHp, error, true
+            ) ||
+            !parse_number(
+                values, prefix + "base_mana", hero.BaseMana, error, true
+            ) ||
+            !parse_number(
+                values, prefix + "base_attack", hero.BaseAtk, error, true
+            ) ||
+            !parse_number(
+                values,
+                prefix + "base_attack_speed",
+                hero.BaseAsp,
+                error,
+                true
+            ) ||
+            !parse_number(
+                values,
+                prefix + "base_move_speed",
+                hero.BaseMoveSpeed,
+                error,
+                true
+            ) ||
+            !parse_number(
+                values, prefix + "attack_range", hero.AttackRange, error, true
+            ) ||
+            !parse_number(
+                values, prefix + "hp_per_level", hero.HpPerLevel, error, true
+            ) ||
+            !parse_number(
+                values,
+                prefix + "attack_per_level",
+                hero.AtkPerLevel,
+                error,
+                true
+            ) ||
+            !parse_number(
+                values,
+                prefix + "attack_speed_per_level",
+                hero.AspPerLevel,
+                error,
+                true
+            ) ||
+            !parse_number(
+                values,
+                prefix + "move_speed_per_level",
+                hero.SpeedPerLevel,
+                error,
+                true
+            ) ||
+            !parse_number(
+                values, prefix + "prefab_id", hero.PrefabId, error, true
+            ) ||
+            !parse_string(
+                values, prefix + "attack_type", attack_type, error, true
+            ))
+            return false;
+        if (hero.Id <= 0 || !hero_ids.insert(hero.Id).second ||
+            hero.PrefabId < 0 || !prefab_ids.insert(hero.PrefabId).second) {
+            error = "duplicate or invalid hero id/prefab_id in stats.yaml";
+            return false;
+        }
+        if (attack_type == "projectile")
+            hero.AttackType = AttackDelivery::Projectile;
+        else if (attack_type == "melee")
+            hero.AttackType = AttackDelivery::Melee;
+        else {
+            error = "unknown hero attack_type in stats.yaml: " + attack_type;
+            return false;
+        }
+        config.Heroes.push_back(std::move(hero));
+    }
 
-    for (const char *name :
-         {"melee_strike", "aoe_field", "dash", "channel_burst"}) {
+    auto skill_names = section_names(values, "skills");
+    if (skill_names.empty()) {
+        error = "stats.yaml must define at least one skill";
+        return false;
+    }
+    for (const auto &name : skill_names) {
         SkillTuning skill;
         if (!parse_skill(values, name, skill, error))
             return false;
+        if (skill.Id <= 0 || skill.MaxLevel < 1) {
+            error = "invalid skill id or max_level in stats.yaml";
+            return false;
+        }
         if (!config.Skills.emplace(skill.Id, std::move(skill)).second) {
             error = "duplicate skill id in stats.yaml";
             return false;
+        }
+    }
+
+    for (const auto &hero : config.Heroes) {
+        for (int skill_id : hero.SkillIds) {
+            if (config.Skills.find(skill_id) == config.Skills.end()) {
+                error = "hero references unknown skill id: " +
+                        std::to_string(skill_id);
+                return false;
+            }
         }
     }
 

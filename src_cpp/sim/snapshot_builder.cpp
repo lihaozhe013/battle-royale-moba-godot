@@ -1,8 +1,10 @@
 #include "snapshot_builder.h"
 #include "components.h"
 #include "game_config.h"
+#include "heroes/hero_registry.h"
 #include "skills/skill_registry.h"
 #include "systems/match_stats.h"
+#include "systems/timed_modifiers.h"
 #include <chrono>
 
 namespace sim {
@@ -43,9 +45,15 @@ _build_skill_slot(const SkillSlot &slot, int char_level) {
     if (sk) {
         s->mana_cost = sk->mana_cost(slot.Level);
         s->cast_range = sk->range(slot.Level);
+        s->target_mode = static_cast<int>(sk->target_mode());
+        s->max_level = sk->max_level();
+        s->is_passive = sk->is_passive();
     } else {
         s->mana_cost = 0.0f;
         s->cast_range = 0.0f;
+        s->target_mode = static_cast<int>(SkillTargetMode::Self);
+        s->max_level = 0;
+        s->is_passive = false;
     }
     return s;
 }
@@ -94,8 +102,15 @@ void SnapshotBuilder::_build_players(
         s->level = view.get<Level>(e).Value;
         s->xp = view.get<Experience>(e).Cur;
         s->xp_needed = view.get<Experience>(e).Needed;
-        s->speed = view.get<MoveSpeed>(e).Value;
-        s->attack_range = stats(reg).PlayerAttackRange;
+        s->speed = effective_move_speed(
+            reg, e, view.get<MoveSpeed>(e).Value
+        );
+        s->asp = effective_attack_speed(
+            reg, e, view.get<CombatStats>(e).Asp
+        );
+        s->attack_range = reg.all_of<AttackProfile>(e)
+                              ? reg.get<AttackProfile>(e).Range
+                              : 0.0f;
         if (reg.all_of<SkillComponent>(e)) {
             _build_skills(
                 s->skills, reg.get<SkillComponent>(e), view.get<Level>(e).Value
@@ -204,7 +219,12 @@ void SnapshotBuilder::_build_bots(
         s->level = view.get<Level>(e).Value;
         s->xp = view.get<Experience>(e).Cur;
         s->xp_needed = view.get<Experience>(e).Needed;
-        s->speed = view.get<MoveSpeed>(e).Value;
+        s->speed = effective_move_speed(
+            reg, e, view.get<MoveSpeed>(e).Value
+        );
+        s->asp = effective_attack_speed(
+            reg, e, view.get<CombatStats>(e).Asp
+        );
         s->tier = static_cast<int>(reg.get<BotTier>(e));
         if (reg.all_of<SkillComponent>(e)) {
             _build_skills(
@@ -306,6 +326,21 @@ void SnapshotBuilder::_build_events(
             s->killer_id = ev.AttackerId;
             s->victim_id = ev.VictimId;
             s->source_skill_id = ev.SourceSkillId;
+            s->damage = ev.Damage;
+            s->healing = ev.Healing;
+            s->critical = ev.Critical;
+            snap->events.push_back(s);
+        }
+    }
+
+    auto attack_view = reg.view<AttackStartedEventBuffer>();
+    for (auto e : attack_view) {
+        auto &buf = attack_view.get<AttackStartedEventBuffer>(e);
+        for (auto &ev : buf.events) {
+            auto s = godot::Ref<SimEventSnap>(memnew(SimEventSnap));
+            s->type = 2;
+            s->killer_id = ev.AttackerId;
+            s->victim_id = ev.TargetId;
             snap->events.push_back(s);
         }
     }
@@ -361,11 +396,22 @@ void SnapshotBuilder::_build_heroes(
         s->level = view.get<Level>(e).Value;
         s->xp = view.get<Experience>(e).Cur;
         s->xp_needed = view.get<Experience>(e).Needed;
-        s->speed = view.get<MoveSpeed>(e).Value;
-        s->attack_range = stats(reg).PlayerAttackRange;
+        s->speed = effective_move_speed(
+            reg, e, view.get<MoveSpeed>(e).Value
+        );
+        s->asp = effective_attack_speed(
+            reg, e, view.get<CombatStats>(e).Asp
+        );
+        s->attack_range = reg.all_of<AttackProfile>(e)
+                              ? reg.get<AttackProfile>(e).Range
+                              : 0.0f;
         s->is_local = view.get<HeroTag>(e).IsLocal;
         s->hero_def_id =
             reg.all_of<HeroDefId>(e) ? reg.get<HeroDefId>(e).Value : 0;
+        if (const HeroDef *def = HeroRegistry::instance().find(s->hero_def_id)) {
+            s->hero_name = godot::String(def->Name.c_str());
+            s->prefab_id = def->PrefabId;
+        }
         s->tier =
             reg.all_of<BotTier>(e) ? static_cast<int>(reg.get<BotTier>(e)) : 0;
 

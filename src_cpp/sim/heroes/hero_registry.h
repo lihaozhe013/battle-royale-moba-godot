@@ -9,7 +9,10 @@ namespace sim {
 class HeroRegistry {
   public:
     static HeroRegistry &instance();
+    const HeroDef *find(int id) const;
     const HeroDef &get(int id) const;
+    const std::unordered_map<int, HeroDef> &all() const { return _heroes; }
+    void clear();
     void register_hero(const HeroDef &def);
 
   private:

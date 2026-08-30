@@ -3,6 +3,7 @@
 #include <godot_cpp/classes/ref.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include "sim/world.h"
@@ -18,8 +19,11 @@ public:
     ~SimServer();
 
     bool initialize(
-        const godot::String &map_json, const godot::String &stats_yaml
+        const godot::String &map_json,
+        const godot::String &stats_yaml,
+        int local_hero_id = 1
     );
+    godot::Array get_hero_catalog(const godot::String &stats_yaml) const;
 
     // ── v2 新命令 API ──
     void set_skill_command(int slot, bool confirm, float aim_x, float aim_y, int target_id);

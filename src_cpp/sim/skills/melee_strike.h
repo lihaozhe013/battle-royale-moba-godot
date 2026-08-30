@@ -14,8 +14,10 @@ class MeleeStrikeSkill : public ISkill {
   public:
     explicit MeleeStrikeSkill(const SkillTuning &tuning) : _tuning(tuning) {}
 
-    int id() const override { return 1; }
+    int id() const override { return _tuning.Id; }
     SkillKind kind() const override { return SkillKind::MeleeSingle; }
+    SkillTargetMode target_mode() const override { return SkillTargetMode::Unit; }
+    int max_level() const override { return _tuning.MaxLevel; }
 
     float base_cooldown() const override { return _tuning.BaseCooldown; }
     float base_mana_cost() const override { return _tuning.BaseManaCost; }
@@ -40,7 +42,9 @@ class MeleeStrikeSkill : public ISkill {
     int validate_cast(
         entt::registry &reg, entt::entity caster, const CastContext &ctx
     ) override {
-        if (ctx.target_entity == entt::null || !reg.valid(ctx.target_entity))
+        if (ctx.target_entity == entt::null || ctx.target_entity == caster ||
+            !reg.valid(ctx.target_entity) ||
+            !reg.all_of<Damageable>(ctx.target_entity))
             return 4;
         if (reg.all_of<Dead>(ctx.target_entity) &&
             reg.get<Dead>(ctx.target_entity).enabled)
@@ -51,7 +55,9 @@ class MeleeStrikeSkill : public ISkill {
     bool can_enter_casting(
         entt::registry &reg, entt::entity caster, const CastState &cs, int level
     ) override {
-        if (cs.TargetEntity == entt::null || !reg.valid(cs.TargetEntity))
+        if (cs.TargetEntity == entt::null || cs.TargetEntity == caster ||
+            !reg.valid(cs.TargetEntity) ||
+            !reg.all_of<Damageable>(cs.TargetEntity))
             return false;
         bool dead = reg.all_of<Dead>(cs.TargetEntity) &&
                     reg.get<Dead>(cs.TargetEntity).enabled;

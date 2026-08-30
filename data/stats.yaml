@@ -1,6 +1,5 @@
 attack:
     acquisition_range: 15.0
-    range: 8.0
 bot:
     base_attack: 5
     base_attack_speed: 1
@@ -100,10 +99,29 @@ hero_progression:
     atk_per_level: 1.0
     max_level: 30
 heroes:
+    bloodreaver:
+        attack_per_level: 1.2
+        attack_range: 2.2
+        attack_speed_per_level: 0.03
+        attack_type: melee
+        base_attack: 14.0
+        base_attack_speed: 0.9
+        base_hp: 140
+        base_mana: 200.0
+        base_move_speed: 5.2
+        description: "A melee prototype that thrives when wounded."
+        hp_per_level: 12.0
+        id: 2
+        move_speed_per_level: 0.1
+        name: Bloodreaver
+        prefab_id: 1
+        role: "Melee skirmisher"
+        skill_ids: [5, 6, 7, 8]
     swordsman:
         attack_per_level: 1.0
         attack_range: 8.0
         attack_speed_per_level: 0.03
+        attack_type: projectile
         base_attack: 10.0
         base_attack_speed: 1.0
         base_hp: 100
@@ -114,6 +132,8 @@ heroes:
         move_speed_per_level: 0.1
         name: Swordsman
         prefab_id: 0
+        role: "Ranged fighter"
+        description: "The original projectile-based hero."
         skill_ids: [1, 2, 3, 4]
 mana:
     bot_max: 80.0
@@ -178,13 +198,15 @@ skills:
         effect_base: 2.0
         effect_per_level: 0.25
         id: 2
+        kind: aoe_field
         mana_reduction_min: 0.3
         mana_reduction_per_level: 0.10
         name: AOE Field
         range_per_level: 0.0
+        description: "Stun and damage units in a targeted area."
+        max_level: 4
     bot_cooldown_multiplier: 2
     bot_damage_multiplier: 0.5
-    bot_ids: [1, 2, 3, 4]
     bot_mana_multiplier: 0.6
     cdr_min: 0.4
     cdr_per_level: 0.05
@@ -203,10 +225,13 @@ skills:
         effect_base: 5.0
         effect_per_level: 0.5
         id: 4
+        kind: channel_burst
         mana_reduction_min: 0.3
         mana_reduction_per_level: 0.03
         name: Channel Burst
         range_per_level: 0.0
+        description: "Channel a radial burst of projectiles."
+        max_level: 4
     damage_attack_ratio: 0.9
     dash:
         base_cast_time: 0.2
@@ -221,10 +246,13 @@ skills:
         effect_base: 0.0
         effect_per_level: 0.0
         id: 3
+        kind: dash
         mana_reduction_min: 0.3
         mana_reduction_per_level: 0.05
         name: Dash
         range_per_level: 1.0
+        description: "Dash in the aimed direction."
+        max_level: 4
     mana_reduction_min: 0.2
     max_level: 4
     melee_strike:
@@ -239,10 +267,99 @@ skills:
         effect_base: 0.0
         effect_per_level: 0.0
         id: 1
+        kind: melee_single
         mana_reduction_min: 0.3
         mana_reduction_per_level: 0.05
         name: Melee Strike
         range_per_level: 0.0
-    player_ids: [1, 2, 3, 4]
+        description: "Strike a selected enemy at close range."
+        max_level: 4
+    ghost_rush:
+        base_cast_time: 0.0
+        base_cooldown: 12.0
+        base_mana_cost: 20.0
+        base_range: 0.0
+        cooldown_per_level: 1.0
+        damage_atk_ratio: 0.0
+        damage_base: 0.0
+        damage_per_level: 0.0
+        effect_base: 5.0
+        effect_per_level: 0.0
+        description: "Gain movement speed and ignore terrain for 5 seconds."
+        id: 5
+        kind: terrain_rush
+        mana_reduction_min: 1.0
+        mana_reduction_per_level: 0.0
+        max_level: 4
+        modifier_duration: 5.0
+        modifier_magnitude: 1.4
+        name: Ghost Rush
+        range_per_level: 0.0
+    bloodstep:
+        base_cast_time: 0.0
+        base_cooldown: 10.0
+        base_mana_cost: 30.0
+        base_range: 8.0
+        cooldown_per_level: 1.0
+        damage_atk_ratio: 0.0
+        damage_base: 0.0
+        damage_per_level: 0.0
+        effect_base: 3.0
+        effect_per_level: 0.0
+        description: "Teleport to an enemy and gain attack speed for 3 seconds."
+        id: 6
+        kind: target_teleport
+        mana_reduction_min: 1.0
+        mana_reduction_per_level: 0.0
+        max_level: 4
+        modifier_duration: 3.0
+        modifier_magnitude: 1.5
+        name: Bloodstep
+        range_per_level: 0.0
+    crippling_pulse:
+        base_cast_time: 0.0
+        base_cooldown: 14.0
+        base_mana_cost: 40.0
+        base_range: 5.0
+        cooldown_per_level: 1.0
+        damage_atk_ratio: 0.0
+        damage_base: 0.0
+        damage_per_level: 0.0
+        effect_base: 3.0
+        effect_per_level: 0.0
+        description: "Slow nearby enemies by 40 percent for 3 seconds."
+        id: 7
+        kind: radial_slow
+        mana_reduction_min: 1.0
+        mana_reduction_per_level: 0.0
+        max_level: 4
+        modifier_duration: 3.0
+        modifier_magnitude: 0.6
+        name: Crippling Pulse
+        range_per_level: 0.0
+    blood_frenzy:
+        base_cast_time: 0.0
+        base_cooldown: 0.0
+        base_mana_cost: 0.0
+        base_range: 0.0
+        cooldown_per_level: 0.0
+        damage_atk_ratio: 0.0
+        damage_base: 0.0
+        damage_per_level: 0.0
+        effect_base: 0.0
+        effect_per_level: 0.0
+        description: "Basic attacks gain lifesteal and critical chance as health falls."
+        id: 8
+        kind: low_health_passive
+        lifesteal_min: 0.10
+        lifesteal_max: 0.50
+        crit_min: 0.10
+        crit_max: 0.50
+        crit_multiplier: 2.0
+        mana_reduction_min: 1.0
+        mana_reduction_per_level: 0.0
+        max_level: 1
+        name: Blood Frenzy
+        range_per_level: 0.0
 world:
     map_half: 50.0

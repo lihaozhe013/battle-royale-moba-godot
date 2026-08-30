@@ -1,4 +1,4 @@
-.PHONY: build clean rebuild format format-sim format-godot edit-map help
+.PHONY: build test clean rebuild format format-sim format-godot edit-map help
 
 default: build
 
@@ -8,6 +8,9 @@ JOBS ?= 0
 # ---- GDExtension build ----
 build:
 	uv run build.py build --target $(TARGET) --jobs $(JOBS)
+
+test:
+	uv run build.py test --target $(TARGET) --jobs $(JOBS)
 
 clean:
 	uv run build.py distclean

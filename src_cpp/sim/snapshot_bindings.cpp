@@ -21,6 +21,9 @@ void SimSkillSlotSnap::_bind_methods() {
     BIND(SimSkillSlotSnap, max_cooldown);
     BIND(SimSkillSlotSnap, mana_cost);
     BIND(SimSkillSlotSnap, cast_range);
+    BIND(SimSkillSlotSnap, target_mode);
+    BIND(SimSkillSlotSnap, max_level);
+    BIND(SimSkillSlotSnap, is_passive);
 
     PROP(SimSkillSlotSnap, Variant::INT, skill_id);
     PROP(SimSkillSlotSnap, Variant::INT, level);
@@ -28,6 +31,9 @@ void SimSkillSlotSnap::_bind_methods() {
     PROP(SimSkillSlotSnap, Variant::FLOAT, max_cooldown);
     PROP(SimSkillSlotSnap, Variant::FLOAT, mana_cost);
     PROP(SimSkillSlotSnap, Variant::FLOAT, cast_range);
+    PROP(SimSkillSlotSnap, Variant::INT, target_mode);
+    PROP(SimSkillSlotSnap, Variant::INT, max_level);
+    PROP(SimSkillSlotSnap, Variant::BOOL, is_passive);
 }
 
 void SimEventSnap::_bind_methods() {
@@ -35,10 +41,16 @@ void SimEventSnap::_bind_methods() {
     BIND(SimEventSnap, killer_id);
     BIND(SimEventSnap, victim_id);
     BIND(SimEventSnap, source_skill_id);
+    BIND(SimEventSnap, damage);
+    BIND(SimEventSnap, healing);
+    BIND(SimEventSnap, critical);
     PROP(SimEventSnap, Variant::INT, type);
     PROP(SimEventSnap, Variant::INT, killer_id);
     PROP(SimEventSnap, Variant::INT, victim_id);
     PROP(SimEventSnap, Variant::INT, source_skill_id);
+    PROP(SimEventSnap, Variant::INT, damage);
+    PROP(SimEventSnap, Variant::INT, healing);
+    PROP(SimEventSnap, Variant::BOOL, critical);
 }
 
 void SimPlayerSnap::_bind_methods() {
@@ -159,6 +171,8 @@ void SimHeroSnap::_bind_methods() {
     BIND(SimHeroSnap, tier);
     BIND(SimHeroSnap, is_local);
     BIND(SimHeroSnap, hero_def_id);
+    BIND(SimHeroSnap, hero_name);
+    BIND(SimHeroSnap, prefab_id);
     BIND(SimHeroSnap, deaths);
     BIND(SimHeroSnap, damage_dealt);
     BIND(SimHeroSnap, damage_taken);
@@ -204,6 +218,8 @@ void SimHeroSnap::_bind_methods() {
     PROP(SimHeroSnap, Variant::INT, tier);
     PROP(SimHeroSnap, Variant::BOOL, is_local);
     PROP(SimHeroSnap, Variant::INT, hero_def_id);
+    PROP(SimHeroSnap, Variant::STRING, hero_name);
+    PROP(SimHeroSnap, Variant::INT, prefab_id);
     PROP(SimHeroSnap, Variant::INT, deaths);
     PROP(SimHeroSnap, Variant::INT, damage_dealt);
     PROP(SimHeroSnap, Variant::INT, damage_taken);

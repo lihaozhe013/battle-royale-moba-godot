@@ -10,7 +10,7 @@ void World::_spawn_player(int player_id, bool is_local) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
     ids.NextPlayerId = player_id + 1;
 
-    const auto &def = HeroRegistry::instance().get(1);
+    const auto &def = HeroRegistry::instance().get(_local_hero_id);
 
     float half = stats(_reg).MapHalf - stats(_reg).PlayerRadius;
     Vec2 pos = _random_map_pos(half, stats(_reg).PlayerRadius);
@@ -40,6 +40,8 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<Level>(e, 1);
     _reg.emplace<Experience>(e, 0, stats(_reg).XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, def.BaseMoveSpeed);
+    _reg.emplace<AttackProfile>(e, def.AttackType, def.AttackRange);
+    _reg.emplace<TimedModifiers>(e);
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
     _reg.emplace<MovePath>(e);
@@ -55,6 +57,11 @@ void World::_spawn_player(int player_id, bool is_local) {
         sc.Slots[i].ManaCost = sk ? sk->base_mana_cost() : 0.0f;
     }
     _reg.emplace<SkillComponent>(e, sc);
+    for (int i = 0; i < 4; ++i) {
+        ISkill *skill = SkillRegistry::instance().get(sc.Slots[i].SkillId);
+        if (skill)
+            skill->on_assigned(_reg, e, sc.Slots[i].Level);
+    }
 
     auto bot_view = _reg.view<BotTag, Position2D>();
     for (auto b : bot_view) {
@@ -100,18 +107,19 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
 
     const auto &def = HeroRegistry::instance().get(1);
 
-    int base_hp = stats(_reg).BotHp + (new_lv - 1) * stats(_reg).HpPerLevel;
+    int base_hp = stats(_reg).BotHp +
+                  (new_lv - 1) * static_cast<int>(std::round(def.HpPerLevel));
     float atk =
-        (stats(_reg).BotBaseAttack + (new_lv - 1) * stats(_reg).AtkPerLevel) *
+        (stats(_reg).BotBaseAttack + (new_lv - 1) * def.AtkPerLevel) *
         mult.AtkMul * stats(_reg).BotStatMul;
     float asp = std::min(
         (stats(_reg).BotBaseAttackSpeed +
-         (new_lv - 1) * stats(_reg).AspPerLevel) *
+         (new_lv - 1) * def.AspPerLevel) *
             mult.AspMul * stats(_reg).BotStatMul,
         stats(_reg).AspMax
     );
     float spd =
-        (stats(_reg).BotSpeed + (new_lv - 1) * stats(_reg).SpeedPerLevel) *
+        (stats(_reg).BotSpeed + (new_lv - 1) * def.SpeedPerLevel) *
         mult.SpeedMul;
     float vis =
         stats(_reg).BotVisionRange * mult.VisionMul * stats(_reg).BotStatMul;
@@ -156,6 +164,8 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<Level>(e, new_lv);
     _reg.emplace<Experience>(e, 0, new_lv * stats(_reg).XpPerLevelBase);
     _reg.emplace<MoveSpeed>(e, spd);
+    _reg.emplace<AttackProfile>(e, def.AttackType, def.AttackRange);
+    _reg.emplace<TimedModifiers>(e);
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
     _reg.emplace<MovePath>(e);

@@ -14,6 +14,31 @@ enum class SkillKind : uint8_t {
     AoEField = 1,     // E
     Dash = 2,         // R
     ChannelBurst = 3, // F
+    TerrainRush = 4,
+    TargetTeleport = 5,
+    RadialSlow = 6,
+    LowHealthPassive = 7,
+};
+
+enum class SkillTargetMode : uint8_t {
+    Self = 0,
+    Point = 1,
+    Unit = 2,
+    Passive = 3,
+};
+
+// Short alias used by gameplay-facing code and future skill definitions.
+using TargetMode = SkillTargetMode;
+
+enum class AttackDelivery : uint8_t {
+    Projectile = 0,
+    Melee = 1,
+};
+
+enum class TimedModifierType : uint8_t {
+    MoveSpeedMultiplier = 0,
+    AttackSpeedMultiplier = 1,
+    IgnoreTerrain = 2,
 };
 
 enum class StatusType : uint8_t {
@@ -99,6 +124,30 @@ struct HeroInputState {
 
 struct HeroDefId {
     int Value = 0;
+};
+
+struct AttackProfile {
+    AttackDelivery Delivery = AttackDelivery::Projectile;
+    float Range = 8.0f;
+};
+
+struct TimedModifier {
+    TimedModifierType Type = TimedModifierType::MoveSpeedMultiplier;
+    int SourceId = 0;
+    float Magnitude = 1.0f;
+    float Remaining = 0.0f;
+};
+
+struct TimedModifiers {
+    std::vector<TimedModifier> Values;
+};
+
+struct BasicAttackPassive {
+    float LifestealMin = 0.0f;
+    float LifestealMax = 0.0f;
+    float CritChanceMin = 0.0f;
+    float CritChanceMax = 0.0f;
+    float CritMultiplier = 1.0f;
 };
 
 // ── 过渡期别名（v2 → v3 过渡，全部完成迁移后删除） ──
@@ -246,6 +295,7 @@ struct ArrowTag {
     float Dmg = 0.0f;
     float LifestealRatio = 0.0f;
     int SourceSkillId = 0;
+    bool Critical = false;
 };
 
 struct AttackTarget {
@@ -380,10 +430,22 @@ struct ImpactEvent {
     int AttackerId = 0;
     int VictimId = 0;
     int SourceSkillId = 0;
+    int Damage = 0;
+    int Healing = 0;
+    bool Critical = false;
 };
 
 struct ImpactEventBuffer {
     std::vector<ImpactEvent> events;
+};
+
+struct AttackStartedEvent {
+    int AttackerId = 0;
+    int TargetId = -1;
+};
+
+struct AttackStartedEventBuffer {
+    std::vector<AttackStartedEvent> events;
 };
 
 // ── IdState.cs ───────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 #include "../components.h"
 #include "../game_config.h"
+#include "../heroes/hero_registry.h"
 #include "../vec2.h"
 #include "bot_role_rules.h"
 #include <algorithm>
@@ -120,23 +121,30 @@ inline void bot_respawn_tick(
     auto mult = detail::tier_mult(tier, sim::stats(reg));
 
     reg.get_or_emplace<BotTier>(e) = tier;
+    const HeroDef *hero = nullptr;
+    if (reg.all_of<HeroDefId>(e))
+        hero = HeroRegistry::instance().find(reg.get<HeroDefId>(e).Value);
+    float hp_per_level = hero ? hero->HpPerLevel : sim::stats(reg).HpPerLevel;
+    float atk_per_level = hero ? hero->AtkPerLevel : sim::stats(reg).AtkPerLevel;
+    float asp_per_level = hero ? hero->AspPerLevel : sim::stats(reg).AspPerLevel;
+    float speed_per_level = hero ? hero->SpeedPerLevel : sim::stats(reg).SpeedPerLevel;
     lv.Value = new_lv;
     int base_hp =
-        sim::stats(reg).BotHp + (new_lv - 1) * sim::stats(reg).HpPerLevel;
+        sim::stats(reg).BotHp + (new_lv - 1) * static_cast<int>(std::round(hp_per_level));
     hp.Max =
         static_cast<int>(base_hp * mult.HpMul * sim::stats(reg).BotStatMul);
     hp.Cur = hp.Max;
     stats.Atk = (sim::stats(reg).BotBaseAttack +
-                 (new_lv - 1) * sim::stats(reg).AtkPerLevel) *
+                 (new_lv - 1) * atk_per_level) *
                 mult.AtkMul * sim::stats(reg).BotStatMul;
     stats.Asp = std::min(
         (sim::stats(reg).BotBaseAttackSpeed +
-         (new_lv - 1) * sim::stats(reg).AspPerLevel) *
+        (new_lv - 1) * asp_per_level) *
             mult.AspMul * sim::stats(reg).BotStatMul,
         sim::stats(reg).AspMax
     );
     speed.Value = (sim::stats(reg).BotSpeed +
-                   (new_lv - 1) * sim::stats(reg).SpeedPerLevel) *
+                   (new_lv - 1) * speed_per_level) *
                   mult.SpeedMul;
     vision.Value = sim::stats(reg).BotVisionRange * mult.VisionMul *
                    sim::stats(reg).BotStatMul;

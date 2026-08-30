@@ -27,6 +27,8 @@ inline bool bot_skill_ready(
 ) {
     if (!sk)
         return false;
+    if (sk->is_passive())
+        return false;
     if (s.CooldownTimer > 0.0f)
         return false;
     float effective_cost =
@@ -207,7 +209,7 @@ inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
         rq.Score = best.score;
         rq.Valid = true;
 
-        if (sk[best.slot]->kind() == SkillKind::MeleeSingle) {
+        if (sk[best.slot]->target_mode() == SkillTargetMode::Unit) {
             rq.TargetNetworkId = reg.all_of<NetworkId>(ai.TargetEntity)
                                      ? reg.get<NetworkId>(ai.TargetEntity).Value
                                      : -1;
@@ -223,7 +225,7 @@ inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
                 rq.AimPos = reg.get<Position2D>(ai.TargetEntity).Value;
             }
             rq.TargetNetworkId = -1;
-        } else if (sk[best.slot]->kind() == SkillKind::AoEField) {
+        } else if (sk[best.slot]->target_mode() == SkillTargetMode::Point) {
             Vec2 sum_pos{0, 0};
             int count = 0;
             for (auto t : damageable_view) {

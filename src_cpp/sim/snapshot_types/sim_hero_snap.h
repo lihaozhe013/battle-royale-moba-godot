@@ -2,6 +2,7 @@
 
 #include "sim_skill_slot_snap.h"
 #include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/typed_array.hpp>
 
 namespace sim {
@@ -43,6 +44,8 @@ class SimHeroSnap : public godot::RefCounted {
     int tier = 0;
     bool is_local = false;
     int hero_def_id = 0;
+    godot::String hero_name;
+    int prefab_id = 0;
 
     int get_id() const { return id; }
     void set_id(int v) { id = v; }
@@ -120,6 +123,10 @@ class SimHeroSnap : public godot::RefCounted {
     void set_is_local(bool v) { is_local = v; }
     int get_hero_def_id() const { return hero_def_id; }
     void set_hero_def_id(int v) { hero_def_id = v; }
+    godot::String get_hero_name() const { return hero_name; }
+    void set_hero_name(const godot::String &v) { hero_name = v; }
+    int get_prefab_id() const { return prefab_id; }
+    void set_prefab_id(int v) { prefab_id = v; }
     int get_deaths() const { return deaths; }
     void set_deaths(int v) { deaths = v; }
     int get_damage_dealt() const { return damage_dealt; }

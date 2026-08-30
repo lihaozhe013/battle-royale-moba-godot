@@ -9,4 +9,8 @@ inline StatsConfig &stats(entt::registry &reg) {
     return reg.ctx().get<StatsConfig>();
 }
 
+inline const StatsConfig &stats(const entt::registry &reg) {
+    return reg.ctx().get<StatsConfig>();
+}
+
 } // namespace sim

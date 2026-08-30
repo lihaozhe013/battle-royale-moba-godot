@@ -14,8 +14,10 @@ class ChannelBurstSkill : public ISkill {
   public:
     explicit ChannelBurstSkill(const SkillTuning &tuning) : _tuning(tuning) {}
 
-    int id() const override { return 4; }
+    int id() const override { return _tuning.Id; }
     SkillKind kind() const override { return SkillKind::ChannelBurst; }
+    SkillTargetMode target_mode() const override { return SkillTargetMode::Self; }
+    int max_level() const override { return _tuning.MaxLevel; }
 
     float base_cooldown() const override { return _tuning.BaseCooldown; }
     float base_mana_cost() const override { return _tuning.BaseManaCost; }
@@ -106,7 +108,7 @@ class ChannelBurstSkill : public ISkill {
                      dmg,
                      arrow_speed,
                      arrow_lifetime,
-                     source_skill_id = 4](entt::registry &r) {
+                     source_skill_id = _tuning.Id](entt::registry &r) {
                 auto a = r.create();
                 Vec2 vel{std::cos(angle), std::sin(angle)};
                 vel *= arrow_speed;

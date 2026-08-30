@@ -10,6 +10,7 @@ var slot_index: int = 0
 var _skill_id: int = 0
 var _cooldown_ratio: float = 0.0
 var _mana_enough: bool = true
+var _is_passive := false
 var _built := false
 
 var _slot_frame: Panel
@@ -20,6 +21,7 @@ var _key_hint: Label
 var _mana_label: Label
 var _key_badge: PanelContainer
 var _mana_badge: PanelContainer
+var _passive_label: Label
 
 
 func build(style: UIStyle) -> void:
@@ -105,26 +107,56 @@ func build(style: UIStyle) -> void:
 	_key_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_key_badge.add_child(_key_hint)
 
+	_passive_label = style.make_label("PASSIVE", style.FONT_SEMIBOLD, 8)
+	_passive_label.name = "PassiveLabel"
+	_passive_label.position = Vector2(2, 39)
+	_passive_label.size = Vector2(52, 14)
+	_passive_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_passive_label.add_theme_color_override("font_color", style.MENU_ACCENT)
+	_passive_label.visible = false
+	_passive_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_passive_label)
+
 
 func set_skill(
-	skill_id: int, mana_cost: float = 0.0, icon: Texture2D = null
+	skill_id: int,
+	mana_cost: float = 0.0,
+	icon: Texture2D = null,
+	is_passive: bool = false
 ) -> void:
 	if not _built:
 		return
 	_skill_id = skill_id
+	_is_passive = is_passive
 	_icon.texture = icon
 	if skill_id == 0:
 		_icon.modulate = GRAY
 		_cd_label.visible = false
+		_cooldown_mask.position = Vector2(ICON_MARGIN, ICON_MARGIN + ICON_SIZE)
+		_cooldown_mask.size = Vector2(ICON_SIZE, 0)
 		_mana_badge.visible = false
+		_key_badge.visible = true
+		_passive_label.visible = false
 	else:
 		_icon.modulate = Color.WHITE
-		_mana_badge.visible = true
+		_mana_badge.visible = not is_passive
+		_key_badge.visible = not is_passive
+		_passive_label.visible = is_passive
 		_mana_label.text = str(int(mana_cost))
+		if is_passive:
+			_cooldown_mask.position = Vector2(ICON_MARGIN, ICON_MARGIN + ICON_SIZE)
+			_cooldown_mask.size = Vector2(ICON_SIZE, 0)
+			_cd_label.visible = false
 
 
 func set_cooldown(ratio: float) -> void:
 	if not _built:
+		return
+	if _is_passive:
+		_cooldown_ratio = 0.0
+		_cooldown_mask.position = Vector2(ICON_MARGIN, ICON_MARGIN + ICON_SIZE)
+		_cooldown_mask.size = Vector2(ICON_SIZE, 0)
+		_cd_label.visible = false
 		return
 	_cooldown_ratio = clampf(ratio, 0.0, 1.0)
 	var mask_height := ICON_SIZE * _cooldown_ratio
@@ -132,7 +164,7 @@ func set_cooldown(ratio: float) -> void:
 		ICON_MARGIN, ICON_MARGIN + ICON_SIZE - mask_height
 	)
 	_cooldown_mask.size = Vector2(ICON_SIZE, mask_height)
-	_cd_label.visible = _cooldown_ratio > 0.0
+	_cd_label.visible = not _is_passive and _cooldown_ratio > 0.0
 
 
 func set_cooldown_text(seconds: float) -> void:
@@ -166,4 +198,7 @@ func reset() -> void:
 	_cooldown_mask.position = Vector2(ICON_MARGIN, ICON_MARGIN + ICON_SIZE)
 	_cooldown_mask.size = Vector2(ICON_SIZE, 0)
 	_mana_badge.visible = false
+	_key_badge.visible = true
+	_passive_label.visible = false
 	_cd_label.visible = false
+	_is_passive = false

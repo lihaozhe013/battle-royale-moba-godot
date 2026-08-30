@@ -3,6 +3,7 @@
 #include "../arrow_spawner.h"
 #include "../components.h"
 #include "../game_config.h"
+#include "timed_modifiers.h"
 #include <cstdio>
 #include <entt/entt.hpp>
 
@@ -56,11 +57,14 @@ inline void player_attack_fire_system(
         auto &target_pos = reg.get<Position2D>(at.Target).Value;
         Vec2 delta = target_pos - pos.Value;
         float dist = glm::length(delta);
-        if (dist > sim::stats(reg).PlayerAttackRange) {
+        float attack_range = reg.all_of<AttackProfile>(e)
+                                 ? reg.get<AttackProfile>(e).Range
+                                 : 0.0f;
+        if (dist > attack_range) {
             printf(
                 "[ATK] skip out of range dist=%.2f range=%.2f\n",
                 dist,
-                sim::stats(reg).PlayerAttackRange
+                attack_range
             );
             continue;
         }

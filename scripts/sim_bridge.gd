@@ -91,7 +91,7 @@ func _ready() -> void:
 	ui_root.settings_panel.main_menu_requested.connect(_on_main_menu_requested)
 
 	sim = SimServer.new()
-	if not sim.initialize(map_json, stats_yaml):
+	if not sim.initialize(map_json, stats_yaml, MatchSetup.selected_hero_id):
 		DebugLogger.log("[ERROR] [stats_config] SimServer initialization failed")
 		return
 	DebugLogger.log("SimServer initialized")
@@ -142,6 +142,7 @@ func _on_main_menu_requested() -> void:
 	_set_cursor_mode(false)
 	get_tree().paused = false
 	MatchResultStore.clear()
+	MatchSetup.reset()
 	DebugLogger.log("[start_menu] returning_to_menu")
 	var error := get_tree().change_scene_to_file(START_MENU_SCENE)
 	if error != OK:
@@ -386,87 +387,52 @@ func _process(_delta: float) -> void:
 
 			input_state_machine.sync_from_snapshot(p)
 
-	if last_snapshot.players.size() > 0:
-		var p = last_snapshot.players[0] as SimPlayerSnap
-		if p:
-			camera_controller.follow_target(p.x, p.y)
-			ui_root.bottom_hud.sync_player(p)
-			ui_root.bottom_hud.sync_skills(p.skills)
-			if p.cast_state >= 3:
-				ui_root.cast_bar.sync_cast(p.cast_progress)
-			else:
-				ui_root.cast_bar.hide_cast()
-			_skill_vfx.sync(last_snapshot, entity_manager, input_state_machine)
+	var local_snapshot = _get_local_snapshot()
+	if local_snapshot:
+		camera_controller.follow_target(local_snapshot.x, local_snapshot.y)
+		ui_root.bottom_hud.sync_player(local_snapshot)
+		ui_root.bottom_hud.sync_skills(local_snapshot.skills)
+		if local_snapshot.cast_state >= 3:
+			ui_root.cast_bar.sync_cast(local_snapshot.cast_progress)
+		else:
+			ui_root.cast_bar.hide_cast()
+		_skill_vfx.sync(last_snapshot, entity_manager, input_state_machine)
 
-			if p.cast_slot != _log_prev_cast_slot:
-				DebugLogger.log(
-					(
-						"[CAST] slot=%d state=%d err=%d"
-						% [p.cast_slot, p.cast_state, p.cast_error]
-					)
-				)
-				_log_prev_cast_slot = p.cast_slot
-			if p.cast_state != _log_prev_cast_state:
-				DebugLogger.log(
-					(
-						"[CAST] state %d->%d slot=%d err=%d prog=%.2f"
-						% [
-							_log_prev_cast_state,
-							p.cast_state,
-							p.cast_slot,
-							p.cast_error,
-							p.cast_progress
-						]
-					)
-				)
-				_log_prev_cast_state = p.cast_state
-			if p.cast_error > 0:
-				DebugLogger.log("[CAST] ERROR=%d" % p.cast_error)
-			if p.hit_target_id >= 0:
-				DebugLogger.log("[CAST] HIT target=%d" % p.hit_target_id)
-	elif last_snapshot.heroes.size() > 0:
-		var local_idx = (
+		if local_snapshot.cast_slot != _log_prev_cast_slot:
+			DebugLogger.log(
+				"[CAST] slot=%d state=%d err=%d" % [
+					local_snapshot.cast_slot,
+					local_snapshot.cast_state,
+					local_snapshot.cast_error,
+				]
+			)
+			_log_prev_cast_slot = local_snapshot.cast_slot
+		if local_snapshot.cast_state != _log_prev_cast_state:
+			DebugLogger.log(
+				"[CAST] state %d->%d slot=%d err=%d prog=%.2f" % [
+					_log_prev_cast_state,
+					local_snapshot.cast_state,
+					local_snapshot.cast_slot,
+					local_snapshot.cast_error,
+					local_snapshot.cast_progress,
+				]
+			)
+			_log_prev_cast_state = local_snapshot.cast_state
+		if local_snapshot.cast_error > 0:
+			DebugLogger.log("[CAST] ERROR=%d" % local_snapshot.cast_error)
+		if local_snapshot.hit_target_id >= 0:
+			DebugLogger.log("[CAST] HIT target=%d" % local_snapshot.hit_target_id)
+
+
+func _get_local_snapshot():
+	if last_snapshot.heroes.size() > 0:
+		var local_idx := (
 			last_snapshot.get_local_hero_index()
 			if last_snapshot.has_method("get_local_hero_index")
 			else 0
 		)
 		if local_idx >= 0 and local_idx < last_snapshot.heroes.size():
-			var p = last_snapshot.heroes[local_idx] as SimHeroSnap
-			if p:
-				camera_controller.follow_target(p.x, p.y)
-				ui_root.bottom_hud.sync_player(p)
-				ui_root.bottom_hud.sync_skills(p.skills)
-				if p.cast_state >= 3:
-					ui_root.cast_bar.sync_cast(p.cast_progress)
-				else:
-					ui_root.cast_bar.hide_cast()
-				_skill_vfx.sync(
-					last_snapshot, entity_manager, input_state_machine
-				)
-
-				if p.cast_slot != _log_prev_cast_slot:
-					DebugLogger.log(
-						(
-							"[CAST] slot=%d state=%d err=%d"
-							% [p.cast_slot, p.cast_state, p.cast_error]
-						)
-					)
-					_log_prev_cast_slot = p.cast_slot
-				if p.cast_state != _log_prev_cast_state:
-					DebugLogger.log(
-						(
-							"[CAST] state %d->%d slot=%d err=%d prog=%.2f"
-							% [
-								_log_prev_cast_state,
-								p.cast_state,
-								p.cast_slot,
-								p.cast_error,
-								p.cast_progress
-							]
-						)
-					)
-					_log_prev_cast_state = p.cast_state
-				if p.cast_error > 0:
-					DebugLogger.log("[CAST] ERROR=%d" % p.cast_error)
-				if p.hit_target_id >= 0:
-					DebugLogger.log("[CAST] HIT target=%d" % p.hit_target_id)
+			return last_snapshot.heroes[local_idx]
+	if last_snapshot.players.size() > 0:
+		return last_snapshot.players[0]
+	return null

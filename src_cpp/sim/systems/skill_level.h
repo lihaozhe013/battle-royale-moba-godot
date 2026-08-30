@@ -2,6 +2,7 @@
 
 #include "../components.h"
 #include "../game_config.h"
+#include "../skills/skill_registry.h"
 #include <entt/entt.hpp>
 
 namespace sim {
@@ -23,11 +24,13 @@ inline void skill_level_system(entt::registry &reg) {
             continue;
 
         auto &slot = skills.Slots[input.SkillUpgradeSlot];
-        if (slot.SkillId <= 0 || slot.Level >= stats(reg).MaxSkillLevel)
+        ISkill *skill = SkillRegistry::instance().get(slot.SkillId);
+        if (!skill || skill->is_passive() || slot.Level >= skill->max_level())
             continue;
 
         slot.Level++;
         sp.Available--;
+        skill->on_level_changed(reg, e, slot.Level);
     }
 }
 

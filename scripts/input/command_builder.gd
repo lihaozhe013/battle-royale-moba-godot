@@ -102,11 +102,20 @@ func _on_key_press(k: int, ev) -> void:
 	for i in 4:
 		if k == SKILL_KEYS[i]:
 			_prev_skill_held[i] = true
+			if fsm.is_skill_passive(i):
+				if DEBUG:
+					DebugLogger.log("[CMD] SKIP passive skill slot=%d" % i)
+				return
 			if fsm.is_in_cast_lock():
 				if DEBUG:
 					DebugLogger.log("[CMD] SKIP skill slot=%d cast_locked" % i)
 				return
-			if cast_settings.is_quick(i):
+			var target_mode := fsm.get_skill_target_mode(i)
+			if target_mode == 0:
+				if DEBUG:
+					DebugLogger.log("[CMD] SKILL slot=%d self confirm=true" % i)
+				_make_skill(i, true, Vector2.ZERO)
+			elif cast_settings.is_quick(i):
 				if DEBUG:
 					DebugLogger.log("[CMD] SKILL slot=%d quick confirm=true" % i)
 				_make_skill(i, true, queue.mouse_world)
@@ -302,12 +311,14 @@ func _make_move(target: Vector2) -> void:
 
 
 func _make_skill(slot: int, confirm: bool, aim: Vector2) -> void:
+	if fsm.is_skill_passive(slot):
+		return
 	var c := Command.new()
 	c.type = Command.CmdType.SKILL
 	c.skill_slot = slot
 	c.skill_confirm = confirm
 	c.skill_aim = aim
-	c.skill_target_id = _get_hovered_enemy_id()
+	c.skill_target_id = _get_hovered_enemy_id() if fsm.get_skill_target_mode(slot) == 2 else -1
 	buffer.push(c)
 	if DEBUG:
 		DebugLogger.log(
@@ -319,6 +330,8 @@ func _make_skill(slot: int, confirm: bool, aim: Vector2) -> void:
 
 
 func _make_upgrade(slot: int) -> void:
+	if fsm.is_skill_passive(slot):
+		return
 	var c := Command.new()
 	c.type = Command.CmdType.SKILL_UPGRADE
 	c.skill_slot = slot

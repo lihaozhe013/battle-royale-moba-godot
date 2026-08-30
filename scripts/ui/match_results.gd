@@ -234,6 +234,7 @@ func _build_summary_panel() -> PanelContainer:
 	_add_metric(grid, "HEALING", _format_number(local.get("healing_done", 0)))
 	_add_metric(grid, "XP EARNED", _format_number(local.get("xp_earned", 0)))
 	_add_metric(grid, "SKILLS", str(int(local.get("skill_casts", 0))))
+	_add_metric(grid, "HERO", str(local.get("hero_name", "Unknown")))
 	_add_metric(grid, "FINAL HP", "%d / %d" % [
 		int(local.get("hp", 0)),
 		int(local.get("max_hp", 0)),
@@ -505,14 +506,16 @@ func _find_rank(participant: Dictionary) -> int:
 
 
 func _participant_name(participant: Dictionary) -> String:
+	var hero_name := str(participant.get("hero_name", ""))
 	if bool(participant.get("is_local", false)):
-		return "YOU"
+		return "YOU  ·  %s" % hero_name if not hero_name.is_empty() else "YOU"
 	var tier_names: Array[String] = ["NORMAL", "ELITE", "BOSS"]
 	var tier := int(participant.get("tier", 0))
 	var tier_name: String = "NORMAL"
 	if tier >= 0 and tier < tier_names.size():
 		tier_name = tier_names[tier]
-	return "BOT %d  ·  %s" % [int(participant.get("id", 0)), tier_name]
+	var label := "BOT %d  ·  %s" % [int(participant.get("id", 0)), tier_name]
+	return "%s  ·  %s" % [hero_name, label] if not hero_name.is_empty() else label
 
 
 func _format_number(value) -> String:
@@ -574,6 +577,7 @@ func _on_return_pressed() -> void:
 	_transitioning = true
 	_return_button.disabled = true
 	MatchResultStore.clear()
+	MatchSetup.reset()
 	get_tree().paused = false
 	DebugLogger.log("[match_results] returning_to_menu")
 	var error := get_tree().change_scene_to_file(START_MENU_SCENE)

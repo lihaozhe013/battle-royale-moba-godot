@@ -10,6 +10,9 @@ namespace sim {
 struct SkillTuning {
     int Id = 0;
     std::string Name;
+    std::string Description;
+    SkillKind Kind = SkillKind::MeleeSingle;
+    int MaxLevel = 4;
     float BaseCooldown = 0.0f;
     float BaseManaCost = 0.0f;
     float BaseCastTime = 0.0f;
@@ -27,6 +30,14 @@ struct SkillTuning {
     float ChannelInterval = 0.5f;
     int ChannelProjectileCount = 16;
     float ChannelProjectileSpawnRadius = 0.5f;
+
+    float ModifierMagnitude = 1.0f;
+    float ModifierDuration = 0.0f;
+    float CritMin = 0.0f;
+    float CritMax = 0.0f;
+    float LifestealMin = 0.0f;
+    float LifestealMax = 0.0f;
+    float CritMultiplier = 1.0f;
 };
 
 struct StatsConfig {
@@ -154,12 +165,7 @@ struct StatsConfig {
     float BotManaRegen = 3.0f;
     float ManaRegenDelay = 3.0f;
 
-    float PlayerAttackRange = 8.0f;
-    float PlayerAttackRangeSq = 64.0f;
     float AttackAcquisitionRange = 15.0f;
-
-    int PlayerSkillIds[4] = {1, 2, 3, 4};
-    int BotSkillIds[4] = {1, 2, 3, 4};
     int MaxSkillLevel = 4;
     float SkillManaReductionMin = 0.2f;
     float SkillCDRMin = 0.4f;
@@ -200,7 +206,6 @@ struct StatsConfig {
         RepathTargetDeadzoneSq = RepathTargetDeadzone * RepathTargetDeadzone;
         SkillChaseRepathDeadzoneSq =
             SkillChaseRepathDeadzone * SkillChaseRepathDeadzone;
-        PlayerAttackRangeSq = PlayerAttackRange * PlayerAttackRange;
     }
 };
 

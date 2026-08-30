@@ -21,6 +21,27 @@ class ISkill {
     virtual ~ISkill() = default;
     virtual int id() const = 0;
     virtual SkillKind kind() const = 0;
+    virtual SkillTargetMode target_mode() const {
+        switch (kind()) {
+        case SkillKind::MeleeSingle:
+        case SkillKind::TargetTeleport:
+            return SkillTargetMode::Unit;
+        case SkillKind::AoEField:
+        case SkillKind::Dash:
+            return SkillTargetMode::Point;
+        case SkillKind::LowHealthPassive:
+            return SkillTargetMode::Passive;
+        case SkillKind::ChannelBurst:
+        case SkillKind::TerrainRush:
+        case SkillKind::RadialSlow:
+            return SkillTargetMode::Self;
+        }
+        return SkillTargetMode::Self;
+    }
+    virtual int max_level() const { return 4; }
+    virtual bool is_passive() const {
+        return target_mode() == SkillTargetMode::Passive;
+    }
 
     virtual float base_cooldown() const { return 0.0f; }
     virtual float base_mana_cost() const { return 0.0f; }
@@ -93,6 +114,14 @@ class ISkill {
         return phase == CastState::Phase::Chasing ||
                phase == CastState::Phase::Casting;
     }
+
+    virtual void on_assigned(
+        entt::registry &reg, entt::entity caster, int level
+    ) {}
+
+    virtual void on_level_changed(
+        entt::registry &reg, entt::entity caster, int level
+    ) {}
 };
 
 } // namespace sim

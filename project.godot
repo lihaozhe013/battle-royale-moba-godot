@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 DebugLogger="*res://scripts/autoload/debug_logger.gd"
 GameSettings="*res://scripts/autoload/game_settings.gd"
 MatchResultStore="*res://scripts/autoload/match_result_store.gd"
+MatchSetup="*res://scripts/autoload/match_setup.gd"
 
 [debug]
 

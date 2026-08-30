@@ -5,6 +5,7 @@ class_name EntityView
 var entity_id: int
 var entity_type: int  # 0=Player, 1=Bot, 2=Arrow, 3=Pickup
 var pickup_type: int  # 0=XP, 1=Heal, 2=SmallHeal
+var hero_prefab_id: int = 0
 
 var _prev_pos := Vector3.ZERO
 var _curr_pos := Vector3.ZERO
@@ -18,10 +19,6 @@ var _moving := false
 var _previous_cast_state := 0
 var _previous_cast_slot := -1
 var _character_animation
-
-const ARCANE_CHARACTER_ANIMATION_SCRIPT := preload(
-	"res://scripts/view/arcane_character_animation.gd"
-)
 
 # 受击红闪
 var _prev_hp := -1
@@ -52,10 +49,11 @@ static func sim_to_godot_yaw(sim_ang: float) -> float:
 	return -sim_ang + MODEL_FACING_OFFSET
 
 
-func init(id: int, type: int, ptype: int = 0) -> void:
+func init(id: int, type: int, ptype: int = 0, prefab_id: int = 0) -> void:
 	entity_id = id
 	entity_type = type
 	pickup_type = ptype
+	hero_prefab_id = prefab_id
 
 
 func _ready() -> void:
@@ -78,8 +76,9 @@ func _ready() -> void:
 		_child_meshes.append(child as MeshInstance3D)
 
 	if entity_type == 0 or entity_type == 1:
-		_character_animation = ARCANE_CHARACTER_ANIMATION_SCRIPT.new()
-		_character_animation.name = "ArcaneCharacterAnimation"
+		var animation_script: Script = HeroVisualCatalog.animation_script(hero_prefab_id)
+		_character_animation = animation_script.new()
+		_character_animation.name = "HeroCharacterAnimation"
 		add_child(_character_animation)
 		_character_animation.initialize()
 		_child_meshes.clear()

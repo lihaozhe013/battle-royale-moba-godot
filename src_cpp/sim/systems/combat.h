@@ -62,6 +62,17 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
                 static_cast<int>(arrow_tag.Dmg)
             );
 
+            int actual_heal = 0;
+            if (arrow_tag.LifestealRatio > 0.0f &&
+                arrow_tag.OwnerEntity != entt::null &&
+                reg.valid(arrow_tag.OwnerEntity) &&
+                reg.all_of<Health>(arrow_tag.OwnerEntity)) {
+                int heal = static_cast<int>(
+                    actual_damage * arrow_tag.LifestealRatio
+                );
+                actual_heal = apply_healing(reg, arrow_tag.OwnerEntity, heal);
+            }
+
             auto impact_view = reg.view<ImpactEventBuffer>();
             for (auto impact_entity : impact_view) {
                 impact_view.get<ImpactEventBuffer>(impact_entity)
@@ -69,17 +80,10 @@ inline void combat_system(entt::registry &reg, CommandBuffer &cb) {
                         arrow_tag.OwnerId,
                         victim_id,
                         arrow_tag.SourceSkillId,
+                        actual_damage,
+                        actual_heal,
+                        arrow_tag.Critical,
                     });
-            }
-
-            // Lifesteal
-            if (arrow_tag.LifestealRatio > 0.0f &&
-                arrow_tag.OwnerEntity != entt::null &&
-                reg.valid(arrow_tag.OwnerEntity) &&
-                reg.all_of<Health>(arrow_tag.OwnerEntity)) {
-                int heal =
-                    static_cast<int>(actual_damage * arrow_tag.LifestealRatio);
-                apply_healing(reg, arrow_tag.OwnerEntity, heal);
             }
 
             // Destroy arrow

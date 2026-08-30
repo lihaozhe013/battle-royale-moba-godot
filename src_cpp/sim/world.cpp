@@ -9,12 +9,23 @@ namespace sim {
 World::World() : _rng(42) {}
 
 bool World::initialize(
-    const std::string &map_json, const std::string &stats_yaml
+    const std::string &map_json,
+    const std::string &stats_yaml,
+    int local_hero_id
 ) {
     _last_error.clear();
+    _reg.clear();
+    _reg.ctx().clear();
+    _cb = CommandBuffer{};
+    _rng.seed(42);
     _time = 0.0;
     _tick_counter = 0;
     _game_over = false;
+    _local_input_entity = entt::null;
+    _map_bounds_entity = entt::null;
+    _id_state_entity = entt::null;
+    _kill_event_entity = entt::null;
+    _local_hero_id = local_hero_id;
     _latest_snapshot = godot::Ref<SimSnapshot>();
     StatsConfig config;
     std::string stats_error;
@@ -25,6 +36,34 @@ bool World::initialize(
     _reg.ctx().emplace<StatsConfig>(std::move(config));
     register_builtin_heroes(stats(_reg));
     register_builtin_skills(stats(_reg));
+
+    const HeroDef *local_hero = HeroRegistry::instance().find(_local_hero_id);
+    if (!local_hero) {
+        _last_error =
+            "unknown local hero id: " + std::to_string(_local_hero_id);
+        return false;
+    }
+    for (int skill_id : local_hero->SkillIds) {
+        if (!SkillRegistry::instance().has(skill_id)) {
+            _last_error =
+                "hero references unregistered skill id: " +
+                std::to_string(skill_id);
+            return false;
+        }
+    }
+    const HeroDef *bot_hero = HeroRegistry::instance().find(1);
+    if (!bot_hero) {
+        _last_error = "stats.yaml must define bot hero id 1 (Swordsman)";
+        return false;
+    }
+    for (int skill_id : bot_hero->SkillIds) {
+        if (!SkillRegistry::instance().has(skill_id)) {
+            _last_error =
+                "bot hero references unregistered skill id: " +
+                std::to_string(skill_id);
+            return false;
+        }
+    }
 
     auto map = parse_map_json(map_json);
 
@@ -64,6 +103,7 @@ bool World::initialize(
     _kill_event_entity = _reg.create();
     _reg.emplace<KillEventBuffer>(_kill_event_entity);
     _reg.emplace<ImpactEventBuffer>(_kill_event_entity);
+    _reg.emplace<AttackStartedEventBuffer>(_kill_event_entity);
 
     for (auto &w : map.walls) {
         float min_x = std::min(w.minX, w.maxX);
@@ -100,6 +140,7 @@ void World::tick(double dt) {
     auto &ids = _reg.get<IdState>(_id_state_entity);
     float map_half = _reg.get<MapBounds>(_map_bounds_entity).Half;
 
+    timed_modifier_system(_reg, fdt);
     local_input_injection_system(_reg, _local_input_entity);
 
     bot_targeting_system(_reg, _rng, fdt);
@@ -112,7 +153,7 @@ void World::tick(double dt) {
     skill_cast_system(_reg, fdt, _cb, ids, _time);
     pathfinding_system(_reg, _nav_grid);
     movement_system(_reg, fdt, map_half);
-    attack_fire_system(_reg, _time, _cb, ids);
+    attack_fire_system(_reg, _time, _cb, ids, _rng);
 
     arrow_movement_system(_reg, fdt);
     wall_collision_system(_reg, _cb);
@@ -146,6 +187,9 @@ void World::tick(double dt) {
     auto impact_view = _reg.view<ImpactEventBuffer>();
     for (auto e : impact_view)
         impact_view.get<ImpactEventBuffer>(e).events.clear();
+    auto attack_started_view = _reg.view<AttackStartedEventBuffer>();
+    for (auto e : attack_started_view)
+        attack_started_view.get<AttackStartedEventBuffer>(e).events.clear();
 
     _cb.flush(_reg);
 }

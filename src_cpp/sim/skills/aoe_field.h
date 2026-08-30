@@ -13,8 +13,10 @@ class AoEFieldSkill : public ISkill {
   public:
     explicit AoEFieldSkill(const SkillTuning &tuning) : _tuning(tuning) {}
 
-    int id() const override { return 2; }
+    int id() const override { return _tuning.Id; }
     SkillKind kind() const override { return SkillKind::AoEField; }
+    SkillTargetMode target_mode() const override { return SkillTargetMode::Point; }
+    int max_level() const override { return _tuning.MaxLevel; }
 
     float base_cooldown() const override { return _tuning.BaseCooldown; }
     float base_mana_cost() const override { return _tuning.BaseManaCost; }

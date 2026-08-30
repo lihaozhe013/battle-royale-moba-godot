@@ -24,6 +24,7 @@ var _skill_slots: Array[SkillSlotUI] = []
 var _item_slots: Array[ItemSlotUI] = []
 
 var _avatar: TextureRect
+var _hero_name_label: Label
 var _hp_fill: ColorRect
 var _hp_label: Label
 var _mana_fill: ColorRect
@@ -193,12 +194,12 @@ func _build_avatar_section() -> Control:
 	_avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	section.add_child(_avatar)
 
-	var label := _style.make_label("Player", _style.FONT_REGULAR, 12)
-	label.position = Vector2(0, AVATAR_SECTION_SIZE - 20)
-	label.size = Vector2(AVATAR_SECTION_SIZE, 20)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	section.add_child(label)
+	_hero_name_label = _style.make_label("Player", _style.FONT_REGULAR, 12)
+	_hero_name_label.position = Vector2(0, AVATAR_SECTION_SIZE - 20)
+	_hero_name_label.size = Vector2(AVATAR_SECTION_SIZE, 20)
+	_hero_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hero_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	section.add_child(_hero_name_label)
 	return section
 
 
@@ -299,6 +300,10 @@ func _build_item_section() -> Control:
 func sync_player(p) -> void:
 	if not _built:
 		return
+	var prefab_id := int(p.get("prefab_id")) if p.get("prefab_id") != null else 0
+	var hero_name := str(p.get("hero_name")) if p.get("hero_name") != null else "Player"
+	_hero_name_label.text = hero_name if not hero_name.is_empty() else "Player"
+	_avatar.texture = _style.get_hero_portrait(prefab_id)
 	var hp_ratio := float(p.hp) / float(p.max_hp) if p.max_hp > 0 else 0.0
 	hp_ratio = clampf(hp_ratio, 0.0, 1.0)
 	_hp_fill.size.x = HP_BAR_WIDTH * hp_ratio
@@ -331,7 +336,10 @@ func sync_skills(skills_data: Array) -> void:
 		if i < skills_data.size():
 			var s = skills_data[i]
 			_skill_slots[i].set_skill(
-				s.skill_id, s.mana_cost, _style.get_skill_icon(s.skill_id)
+				s.skill_id,
+				s.mana_cost,
+				_style.get_skill_icon(s.skill_id),
+				bool(s.get("is_passive")) if s.get("is_passive") != null else false
 			)
 			var cd_ratio = (
 				s.cooldown / s.max_cooldown if s.max_cooldown > 0 else 0.0

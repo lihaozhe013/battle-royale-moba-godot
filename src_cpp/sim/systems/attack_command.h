@@ -40,8 +40,7 @@ inline entt::entity find_nearest_enemy(
 }
 
 inline void attack_command_system(entt::registry &reg, float dt) {
-    auto view =
-        reg.view<PlayerTag, PlayerInputState, Position2D, AttackTarget>();
+    auto view = reg.view<PlayerTag, PlayerInputState, AttackTarget>();
     for (auto e : view) {
         auto &tag = view.get<PlayerTag>(e);
         bool is_bot = reg.all_of<BotTag>(e);
@@ -50,7 +49,6 @@ inline void attack_command_system(entt::registry &reg, float dt) {
         if (reg.all_of<Dead>(e) && reg.get<Dead>(e).enabled)
             continue;
         auto &input = view.get<PlayerInputState>(e);
-        auto &pos = view.get<Position2D>(e);
         auto &at = view.get<AttackTarget>(e);
 
         if (reg.all_of<StatusEffect>(e)) {
