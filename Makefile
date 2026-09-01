@@ -1,9 +1,10 @@
-.PHONY: build test clean rebuild format format-sim format-godot edit-map help
+.PHONY: build test perf clean rebuild format format-sim format-godot edit-map help
 
 default: build
 
 TARGET ?= template_debug
 JOBS ?= 0
+PERF_TARGET ?= $(if $(filter template_debug,$(TARGET)),template_release,$(TARGET))
 
 # ---- GDExtension build ----
 build:
@@ -11,6 +12,9 @@ build:
 
 test:
 	uv run build.py test --target $(TARGET) --jobs $(JOBS)
+
+perf:
+	uv run build.py benchmark --target $(PERF_TARGET) --jobs $(JOBS)
 
 clean:
 	uv run build.py distclean
@@ -37,6 +41,7 @@ edit-map:
 help:
 	@echo "Usage:"
 	@echo "  make build/clean/rebuild    GDExtension (Meson + clang++)"
+	@echo "  make perf                  Release path/job benchmark (PERF_TARGET=...)"
 	@echo "  make distclean              Remove the Meson build directory"
 	@echo "  make package*               Export"
 	@echo "  make format                 clang-format + table format"

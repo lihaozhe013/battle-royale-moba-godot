@@ -1,16 +1,24 @@
 #include "../sim/components.h"
 #include "../sim/game_config.h"
 #include "../sim/heroes/hero_registry.h"
+#include "../sim/job_system.h"
+#include "../sim/nav_grid.h"
+#include "../sim/navigation_pipeline.h"
 #include "../sim/skills/skill_registry.h"
 #include "../sim/stats_config.h"
 #include "../sim/systems/attack_fire.h"
+#include "../sim/systems/pathfinding.h"
 #include "../sim/systems/timed_modifiers.h"
+#include <atomic>
 #include <cassert>
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <random>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace {
 
@@ -34,6 +42,210 @@ bool replace_once(std::string &text, const std::string &from, const std::string 
     return true;
 }
 
+void assert_paths_equal(
+    const std::vector<sim::Vec2> &a, const std::vector<sim::Vec2> &b
+) {
+    assert(a.size() == b.size());
+    for (size_t i = 0; i < a.size(); ++i) {
+        assert(std::abs(a[i].x - b[i].x) < 0.0001f);
+        assert(std::abs(a[i].y - b[i].y) < 0.0001f);
+    }
+}
+
+void test_job_system_and_navigation() {
+    sim::JobSystem jobs(2, 64);
+    std::atomic<int> completed{0};
+    for (int i = 0; i < 32; ++i) {
+        const auto priority = i % 3 == 0
+                                  ? sim::JobPriority::High
+                                  : (i % 3 == 1 ? sim::JobPriority::Normal
+                                                : sim::JobPriority::Low);
+        assert(jobs.enqueue(priority, [&completed](size_t) {
+            completed.fetch_add(1, std::memory_order_relaxed);
+        }));
+    }
+    jobs.wait_idle();
+    assert(completed.load(std::memory_order_relaxed) == 32);
+    assert(jobs.queued_jobs() == 0);
+    assert(jobs.active_jobs() == 0);
+    jobs.reconfigure(1);
+    assert(jobs.worker_count() == 1);
+    assert(jobs.enqueue(sim::JobPriority::High, [&completed](size_t) {
+        completed.fetch_add(1, std::memory_order_relaxed);
+    }));
+    jobs.wait_idle();
+    assert(completed.load(std::memory_order_relaxed) == 33);
+
+    std::atomic<bool> started{false};
+    std::atomic<bool> release{false};
+    sim::JobSystem capped_jobs(1, 2);
+    assert(capped_jobs.enqueue(sim::JobPriority::High, [&](size_t) {
+        started.store(true, std::memory_order_release);
+        while (!release.load(std::memory_order_acquire))
+            std::this_thread::yield();
+    }));
+    while (!started.load(std::memory_order_acquire))
+        std::this_thread::yield();
+    assert(capped_jobs.enqueue(sim::JobPriority::Low, [](size_t) {}));
+    assert(capped_jobs.enqueue(sim::JobPriority::Low, [](size_t) {}));
+    assert(!capped_jobs.enqueue(sim::JobPriority::Low, [](size_t) {}));
+    release.store(true, std::memory_order_release);
+    capped_jobs.wait_idle();
+
+    sim::NavGrid grid;
+    std::vector<sim::WallBounds> walls = {
+        {sim::Vec2{-1.0f, -8.0f}, sim::Vec2{1.0f, -2.0f}},
+        {sim::Vec2{-1.0f, 2.0f}, sim::Vec2{1.0f, 8.0f}},
+    };
+    grid.build(10.0f, walls, 0.5f, 0.5f);
+
+    assert(grid.find_path({-8.0f, -8.0f}, {-8.0f, -8.0f}).size() == 1);
+    assert(grid.find_path({-11.0f, 0.0f}, {8.0f, 8.0f}).empty());
+    assert(!grid.find_path({0.0f, -5.0f}, {8.0f, -5.0f}).empty());
+
+    sim::NavGrid unreachable_grid;
+    unreachable_grid.build(
+        10.0f,
+        {{sim::Vec2{-1.0f, -9.0f}, sim::Vec2{1.0f, 9.0f}}},
+        0.5f,
+        0.5f
+    );
+    assert(
+        unreachable_grid.find_path({-8.0f, 0.0f}, {8.0f, 0.0f}).empty()
+    );
+
+    const std::vector<std::pair<sim::Vec2, sim::Vec2>> queries = {
+        {{-8.0f, -8.0f}, {8.0f, 8.0f}},
+        {{-8.0f, 8.0f}, {8.0f, -8.0f}},
+        {{-7.0f, 0.0f}, {7.0f, 0.0f}},
+        {{-8.0f, -7.0f}, {7.0f, 6.0f}},
+    };
+    std::vector<std::vector<sim::Vec2>> serial;
+    serial.reserve(queries.size());
+    for (const auto &[start, goal] : queries)
+        serial.push_back(grid.find_path(start, goal));
+
+    sim::JobSystem query_jobs(4);
+    std::vector<sim::PathScratch> scratch(query_jobs.worker_count());
+    for (auto &item : scratch)
+        item.resize(static_cast<size_t>(grid.Width) * grid.Height);
+    std::vector<std::vector<sim::Vec2>> parallel(queries.size());
+    query_jobs.parallel_for(
+        queries.size(),
+        1,
+        sim::JobPriority::Normal,
+        [&](size_t index, size_t worker_index) {
+            auto &item = scratch[worker_index % scratch.size()];
+            parallel[index] = grid.find_path(
+                queries[index].first,
+                queries[index].second,
+                item
+            );
+        }
+    );
+    query_jobs.wait_idle();
+    for (size_t i = 0; i < queries.size(); ++i)
+        assert_paths_equal(serial[i], parallel[i]);
+
+    sim::JobSystem pipeline_jobs(2);
+    sim::NavigationPipeline pipeline(pipeline_jobs);
+    auto shared_grid = std::make_shared<sim::NavGrid>(grid);
+    pipeline.set_nav_grid(shared_grid);
+    sim::NavigationRequest request;
+    request.Requester = entt::entity{42};
+    request.Start = {-8.0f, -8.0f};
+    request.Goal = {8.0f, 8.0f};
+    request.NavRevision = shared_grid->Revision;
+    request.SubmitTick = 10;
+    uint64_t request_id = 0;
+    assert(pipeline.submit(request, request_id));
+    std::vector<sim::NavigationResult> results;
+    pipeline.poll_completed(10, results);
+    assert(results.empty());
+    pipeline_jobs.wait_idle();
+    pipeline.poll_completed(10, results);
+    assert(results.empty());
+    pipeline.poll_completed(11, results);
+    assert(results.size() == 1);
+    assert(results.front().Request.RequestId == request_id);
+    assert(results.front().Status == sim::NavigationResultStatus::Success);
+    assert(!results.front().Waypoints.empty());
+    const auto navigation_metrics = pipeline.metrics();
+    assert(navigation_metrics.Submitted == 1);
+    assert(navigation_metrics.Completed == 1);
+    assert(navigation_metrics.ResultAgeTicks == 1);
+    assert(navigation_metrics.NoPath == 0);
+
+    // A moving attack target invalidates the completed path before it can be
+    // applied, then submits exactly one replacement request.
+    entt::registry path_registry;
+    sim::StatsConfig path_config;
+    path_config.derive();
+    path_registry.ctx().emplace<sim::StatsConfig>(path_config);
+    auto attacker = path_registry.create();
+    auto enemy = path_registry.create();
+    path_registry.emplace<sim::HeroTag>(attacker, true);
+    path_registry.emplace<sim::Position2D>(attacker, sim::Vec2{-8.0f, -8.0f});
+    path_registry.emplace<sim::HeroInputState>(attacker);
+    path_registry.emplace<sim::CastState>(attacker);
+    path_registry.emplace<sim::MovePath>(attacker);
+    path_registry.emplace<sim::PathQueryState>(attacker);
+    path_registry.emplace<sim::AttackTarget>(attacker, enemy, 2, false);
+    path_registry.emplace<sim::AttackProfile>(
+        attacker, sim::AttackDelivery::Melee, 1.0f
+    );
+    path_registry.emplace<sim::NetworkId>(attacker, 1);
+    path_registry.emplace<sim::Dead>(attacker, false);
+    path_registry.emplace<sim::Position2D>(enemy, sim::Vec2{8.0f, 8.0f});
+    path_registry.emplace<sim::Dead>(enemy, false);
+
+    sim::JobSystem merge_jobs(1);
+    sim::NavigationPipeline merge_pipeline(merge_jobs);
+    merge_pipeline.set_nav_grid(shared_grid);
+    sim::pathfinding_system(path_registry, merge_pipeline, 1, 64, 6);
+    merge_jobs.wait_idle();
+    path_registry.get<sim::Position2D>(enemy).Value = sim::Vec2{8.0f, -8.0f};
+    sim::pathfinding_system(path_registry, merge_pipeline, 2, 64, 6);
+    const auto merge_metrics = merge_pipeline.metrics();
+    assert(merge_metrics.Submitted == 2);
+    assert(merge_metrics.Merged == 1);
+    assert(merge_metrics.Stale >= 1);
+    assert(path_registry.get<sim::PathQueryState>(attacker).InFlight);
+
+    // NoPath clears the old path and observes the configured retry backoff
+    // before the same ground-move intent is submitted again.
+    entt::registry retry_registry;
+    retry_registry.ctx().emplace<sim::StatsConfig>(path_config);
+    auto retry_entity = retry_registry.create();
+    retry_registry.emplace<sim::HeroTag>(retry_entity, true);
+    retry_registry.emplace<sim::Position2D>(retry_entity, sim::Vec2{-8.0f, 0.0f});
+    retry_registry.emplace<sim::HeroInputState>(retry_entity);
+    retry_registry.get<sim::HeroInputState>(retry_entity).MoveTarget =
+        sim::Vec2{8.0f, 0.0f};
+    retry_registry.get<sim::HeroInputState>(retry_entity).MoveIssue = true;
+    retry_registry.emplace<sim::CastState>(retry_entity);
+    retry_registry.emplace<sim::MovePath>(retry_entity);
+    retry_registry.emplace<sim::PathQueryState>(retry_entity);
+    retry_registry.emplace<sim::Dead>(retry_entity, false);
+
+    auto unreachable_shared = std::make_shared<sim::NavGrid>(unreachable_grid);
+    sim::JobSystem retry_jobs(1);
+    sim::NavigationPipeline retry_pipeline(retry_jobs);
+    retry_pipeline.set_nav_grid(unreachable_shared);
+    sim::pathfinding_system(retry_registry, retry_pipeline, 1, 64, 6);
+    retry_jobs.wait_idle();
+    sim::pathfinding_system(retry_registry, retry_pipeline, 2, 64, 6);
+    assert(!retry_registry.get<sim::MovePath>(retry_entity).Following);
+    assert(
+        retry_registry.get<sim::PathQueryState>(retry_entity).RetryAfterTick ==
+        8
+    );
+    sim::pathfinding_system(retry_registry, retry_pipeline, 7, 64, 6);
+    assert(retry_pipeline.metrics().Submitted == 1);
+    sim::pathfinding_system(retry_registry, retry_pipeline, 8, 64, 6);
+    assert(retry_pipeline.metrics().Submitted == 2);
+}
+
 } // namespace
 
 int main() {
@@ -44,6 +256,11 @@ int main() {
     assert(sim::load_stats_yaml(yaml, config, error));
     assert(error.empty());
     assert(config.Heroes.size() == 2);
+    assert(std::abs(config.SnapshotRate - 20.0f) < 0.0001f);
+    assert(config.JobWorkerThreads == 0);
+    assert(config.PathMaxSubmissionsPerTick == 64);
+    assert(config.PathFailureRetryTicks == 6);
+    assert(std::abs(config.AttackChaseRepathDeadzoneSq - 2.25f) < 0.0001f);
 
     sim::StatsConfig invalid_config;
     std::string invalid_error;
@@ -217,6 +434,8 @@ int main() {
     assert(impact_events.events.front().Damage == 20);
     assert(impact_events.events.front().Healing == 6);
     assert(impact_events.events.front().Critical);
+
+    test_job_system_and_navigation();
 
     return 0;
 }

@@ -10,10 +10,11 @@ inline bool snapshot_export_system(
     int &tick_counter,
     double match_time,
     int result,
-    godot::Ref<SimSnapshot> &out_snap
+    godot::Ref<SimSnapshot> &out_snap,
+    bool emit = true
 ) {
     tick_counter++;
-    if (tick_counter % 1 != 0) {
+    if (!emit) {
         return false;
     }
     out_snap = SnapshotBuilder::build(reg, tick_counter, match_time, result);

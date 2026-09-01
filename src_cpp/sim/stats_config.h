@@ -44,6 +44,7 @@ struct StatsConfig {
     float TickRate = 30.0f;
     float SnapshotRate = 20.0f;
     float MapHalf = 50.0f;
+    int JobWorkerThreads = 0;
 
     float PlayerRadius = 0.5f;
     float PlayerSpeed = 5.0f;
@@ -158,6 +159,10 @@ struct StatsConfig {
     float PathTurnRate = 12.0f;
     float SkillChaseRepathDeadzone = 2.0f;
     float SkillChaseRepathDeadzoneSq = 4.0f;
+    float AttackChaseRepathDeadzone = 1.5f;
+    float AttackChaseRepathDeadzoneSq = 2.25f;
+    int PathMaxSubmissionsPerTick = 64;
+    int PathFailureRetryTicks = 6;
 
     float PlayerBaseMana = 300.0f;
     float PlayerManaRegen = 5.0f;
@@ -206,6 +211,8 @@ struct StatsConfig {
         RepathTargetDeadzoneSq = RepathTargetDeadzone * RepathTargetDeadzone;
         SkillChaseRepathDeadzoneSq =
             SkillChaseRepathDeadzone * SkillChaseRepathDeadzone;
+        AttackChaseRepathDeadzoneSq =
+            AttackChaseRepathDeadzone * AttackChaseRepathDeadzone;
     }
 };
 

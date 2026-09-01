@@ -45,6 +45,7 @@ void World::_spawn_player(int player_id, bool is_local) {
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
     _reg.emplace<MovePath>(e);
+    _reg.emplace<PathQueryState>(e);
     _reg.emplace<AttackTarget>(e);
 
     SkillComponent sc;
@@ -169,6 +170,7 @@ void World::_spawn_bot_with_role(BotRole role, int new_lv) {
     _reg.emplace<CastState>(e);
     _reg.emplace<StatusEffect>(e);
     _reg.emplace<MovePath>(e);
+    _reg.emplace<PathQueryState>(e);
     _reg.emplace<AttackTarget>(e);
     _reg.emplace<BotCombatState>(e);
 

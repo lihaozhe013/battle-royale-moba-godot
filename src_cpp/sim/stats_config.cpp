@@ -403,6 +403,7 @@ bool load_stats_yaml(
 
     READ_FLOAT("simulation.tick_rate", TickRate);
     READ_FLOAT("simulation.snapshot_rate", SnapshotRate);
+    READ_INT("jobs.worker_threads", JobWorkerThreads);
     READ_FLOAT("world.map_half", MapHalf);
     READ_FLOAT("player.radius", PlayerRadius);
     READ_FLOAT("player.speed", PlayerSpeed);
@@ -521,6 +522,14 @@ bool load_stats_yaml(
     READ_FLOAT(
         "pathfinding.skill_chase_repath_deadzone", SkillChaseRepathDeadzone
     );
+    READ_FLOAT(
+        "pathfinding.attack_chase_repath_deadzone",
+        AttackChaseRepathDeadzone
+    );
+    READ_INT(
+        "pathfinding.max_submissions_per_tick", PathMaxSubmissionsPerTick
+    );
+    READ_INT("pathfinding.failure_retry_ticks", PathFailureRetryTicks);
     READ_FLOAT("mana.player_max", PlayerBaseMana);
     READ_FLOAT("mana.player_regen", PlayerManaRegen);
     READ_FLOAT("mana.bot_max", BotBaseMana);
@@ -689,9 +698,15 @@ bool load_stats_yaml(
         }
     }
 
-    if (config.BotCount < 0 || config.MaxHeroLevel < 1 ||
+    if (config.TickRate <= 0.0f || config.SnapshotRate <= 0.0f ||
+        config.BotCount < 0 || config.MaxHeroLevel < 1 ||
         config.MaxSkillLevel < 1 || config.FodderWeight < 0 ||
-        config.StalkerWeight < 0 || config.BruteWeight < 0) {
+        config.StalkerWeight < 0 || config.BruteWeight < 0 ||
+        config.JobWorkerThreads < 0 || config.PathMaxSubmissionsPerTick < 0 ||
+        config.PathFailureRetryTicks < 0 ||
+        config.AttackChaseRepathDeadzone < 0.0f ||
+        config.SkillChaseRepathDeadzone < 0.0f ||
+        config.RepathTargetDeadzone < 0.0f) {
         error = "stats.yaml contains a negative count or invalid level limit";
         return false;
     }

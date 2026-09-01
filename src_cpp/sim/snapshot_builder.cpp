@@ -21,8 +21,9 @@ godot::Ref<SimSnapshot> SnapshotBuilder::build(
     )
                   .count();
 
-    _build_players(reg, snap);
-    _build_bots(reg, snap);
+    // Heroes is the canonical view collection. Keep the legacy arrays on the
+    // public snapshot for compatibility, but avoid building duplicate Godot
+    // objects for every player and bot each tick.
     _build_heroes(reg, snap);
     _build_arrows(reg, snap);
     _build_pickups(reg, snap);

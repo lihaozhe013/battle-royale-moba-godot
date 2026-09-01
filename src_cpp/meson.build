@@ -12,6 +12,7 @@ project(
 
 python = find_program('python3', 'python', required: true)
 cpp = meson.get_compiler('cpp')
+threads_dependency = dependency('threads')
 godot_cpp_source_dir = meson.current_source_dir() / 'godot-cpp'
 godot_cpp_generated_dir = 'godotcpp-generated'
 godot_cpp_generated_root = meson.current_build_dir() / godot_cpp_generated_dir
@@ -242,6 +243,8 @@ sim_sources = files(
     'sim/world.cpp',
     'sim/world_input.cpp',
     'sim/world_spawn.cpp',
+    'sim/job_system.cpp',
+    'sim/navigation_pipeline.cpp',
     'sim/stats_config.cpp',
     'sim/nav_grid.cpp',
     'sim/snapshot_builder.cpp',
@@ -278,7 +281,7 @@ endif
 shared_library(
     'battle_royale_sim',
     sim_sources,
-    dependencies: godot_cpp_dependency,
+    dependencies: [godot_cpp_dependency, threads_dependency],
     include_directories: sim_include_dirs,
     link_args: sim_link_args,
     name_prefix: library_name_prefix,
@@ -289,6 +292,9 @@ shared_library(
 
 sim_test_sources = files(
     'tests/sim_tests.cpp',
+    'sim/job_system.cpp',
+    'sim/navigation_pipeline.cpp',
+    'sim/nav_grid.cpp',
     'sim/stats_config.cpp',
     'sim/heroes/hero_registry.cpp',
     'sim/skills/skill_registry.cpp',
@@ -297,6 +303,19 @@ sim_tests = executable(
     'sim_tests',
     sim_test_sources,
     include_directories: sim_include_dirs,
+    dependencies: threads_dependency,
     build_by_default: false,
 )
 test('sim_tests', sim_tests)
+
+sim_perf_benchmark = executable(
+    'sim_perf_benchmark',
+    files(
+        'sim/perf_benchmark.cpp',
+        'sim/job_system.cpp',
+        'sim/nav_grid.cpp',
+    ),
+    include_directories: sim_include_dirs,
+    dependencies: threads_dependency,
+    build_by_default: false,
+)

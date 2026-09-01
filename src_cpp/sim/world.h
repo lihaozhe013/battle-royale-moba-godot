@@ -2,7 +2,10 @@
 
 #include "command_buffer.h"
 #include "components.h"
+#include "job_system.h"
 #include "nav_grid.h"
+#include "navigation_pipeline.h"
+#include "perf_stats.h"
 #include "systems/aoe.h"
 #include "systems/arrow_movement.h"
 #include "systems/attack_command.h"
@@ -29,8 +32,10 @@
 #include "systems/wall_collision.h"
 #include "vec2.h"
 #include <entt/entt.hpp>
+#include <memory>
 #include <random>
 #include <string>
+#include <vector>
 
 namespace sim {
 
@@ -74,6 +79,7 @@ class World {
     void tick(double dt);
     bool is_game_over() const { return _game_over; }
     int hero_capacity() const;
+    RuntimePerfStats perf_stats() const;
 
     entt::registry &registry() { return _reg; }
     const entt::registry &registry() const { return _reg; }
@@ -109,12 +115,18 @@ class World {
     int _count_high_level_bots();
 
     entt::registry _reg;
-    NavGrid _nav_grid;
+    JobSystem _jobs;
+    NavigationPipeline _navigation;
+    std::shared_ptr<NavGrid> _nav_grid;
+    std::vector<WallBounds> _wall_bounds;
     CommandBuffer _cb;
     double _time = 0.0;
     int _tick_counter = 0;
+    double _snapshot_accumulator = 0.0;
+    bool _has_snapshot = false;
     std::mt19937 _rng{42};
     godot::Ref<SimSnapshot> _latest_snapshot;
+    PerfCollector _perf;
 
     entt::entity _local_input_entity = entt::null;
     entt::entity _map_bounds_entity = entt::null;

@@ -6,19 +6,27 @@
 #include "../game_config.h"
 #include "../vec2.h"
 #include <entt/entt.hpp>
+#include <vector>
 
 namespace sim {
 
-inline void wall_collision_system(entt::registry &reg, CommandBuffer &cb) {
+inline void wall_collision_system(
+    entt::registry &reg,
+    CommandBuffer &cb,
+    const std::vector<WallBounds> *cached_walls = nullptr
+) {
     auto wall_view = reg.view<WallTag, WallBounds>();
     if (wall_view.begin() == wall_view.end())
         return;
 
     // Gather wall bounds
-    std::vector<WallBounds> walls;
-    for (auto w : wall_view) {
-        walls.push_back(wall_view.get<WallBounds>(w));
+    std::vector<WallBounds> gathered_walls;
+    if (!cached_walls) {
+        for (auto w : wall_view) {
+            gathered_walls.push_back(wall_view.get<WallBounds>(w));
+        }
     }
+    const auto &walls = cached_walls ? *cached_walls : gathered_walls;
 
     // Movers (player/bot): push out of walls
     auto mover_view = reg.view<Damageable, Position2D>();

@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include "sim/world.h"
@@ -41,6 +42,7 @@ public:
     void tick(double delta);
     bool is_game_over();
     int get_hero_capacity() const;
+    godot::Dictionary get_perf_stats() const;
     godot::Ref<godot::RefCounted> pop_snapshot();
 
 private:

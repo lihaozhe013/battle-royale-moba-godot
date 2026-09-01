@@ -117,7 +117,17 @@ inline void cast_phase_chasing(
         return;
     }
 
-    if (!reg.all_of<MovePath>(e) || !reg.get<MovePath>(e).Following) {
+    bool has_path = reg.all_of<MovePath>(e) && reg.get<MovePath>(e).Following;
+    if (!has_path && reg.all_of<PathQueryState>(e)) {
+        const auto &query = reg.get<PathQueryState>(e);
+        // An asynchronous navigation request intentionally has no path until
+        // a later tick. Keep the chase phase alive for the entire active
+        // skill intent so the navigation phase can submit/repath after a
+        // request completes or a waypoint is consumed.
+        has_path = query.HasIntent &&
+                   query.Channel == PathQueryChannel::Skill;
+    }
+    if (!has_path) {
         abort_cast_chase(reg, e, cs, 5, "no_path");
     }
 }

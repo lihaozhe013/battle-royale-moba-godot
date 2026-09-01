@@ -241,6 +241,7 @@ struct BotCombatState {
     float PhaseTimer = 0.0f;
     int BurstStep = 0;
     float BurstTimer = 0.0f;
+    float SkillDecisionTimer = 0.0f;
 };
 
 // ── StatusEffect.cs ──────────────────────────────────────────────────────
@@ -382,6 +383,42 @@ struct MovePath {
     int CurrentIndex = 0;
     bool Following = false;
     Vec2 FinalTarget{0.0f};
+};
+
+enum class PathQueryChannel : uint8_t {
+    Movement = 0,
+    Skill = 1,
+    Effect = 2,
+};
+
+enum class PathQueryPriority : uint8_t {
+    High = 0,
+    Normal = 1,
+    Low = 2,
+};
+
+enum class PathQueryDestination : uint8_t {
+    Ground = 0,
+    Entity = 1,
+    Point = 2,
+};
+
+// Main-thread intent and in-flight bookkeeping for an asynchronous navigation
+// query. Worker jobs only receive a value copy of the request and never touch
+// this component or the registry.
+struct PathQueryState {
+    PathQueryChannel Channel = PathQueryChannel::Movement;
+    PathQueryPriority Priority = PathQueryPriority::Normal;
+    PathQueryDestination Destination = PathQueryDestination::Ground;
+    entt::entity TargetEntity = entt::null;
+    Vec2 DesiredTarget{0.0f};
+    uint64_t IntentVersion = 0;
+    uint64_t InFlightVersion = 0;
+    uint64_t InFlightRequestId = 0;
+    int RetryAfterTick = 0;
+    bool HasIntent = false;
+    bool InFlight = false;
+    bool Dirty = false;
 };
 
 // ── SingletonComponents.cs ───────────────────────────────────────────────

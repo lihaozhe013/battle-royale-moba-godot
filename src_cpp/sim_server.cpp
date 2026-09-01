@@ -64,6 +64,9 @@ void SimServer::_bind_methods() {
     godot::ClassDB::bind_method(
         godot::D_METHOD("get_hero_capacity"),
         &SimServer::get_hero_capacity);
+    godot::ClassDB::bind_method(
+        godot::D_METHOD("get_perf_stats"),
+        &SimServer::get_perf_stats);
 }
 
 bool SimServer::initialize(
@@ -224,6 +227,71 @@ bool SimServer::is_game_over() {
 
 int SimServer::get_hero_capacity() const {
     return _world.hero_capacity();
+}
+
+godot::Dictionary SimServer::get_perf_stats() const {
+    const auto stats = _world.perf_stats();
+    godot::Dictionary out;
+    out["sample_ticks"] = static_cast<int64_t>(stats.Timing.SampleTicks);
+    out["tick_avg_us"] = stats.Timing.TickAverageMicros;
+    out["tick_p95_us"] = stats.Timing.TickP95Micros;
+    out["tick_p99_us"] = stats.Timing.TickP99Micros;
+    out["tick_max_us"] = static_cast<int64_t>(stats.Timing.TickMaxMicros);
+
+    const char *phase_names[sim::perf_phase_count] = {
+        "input_ai",
+        "actions",
+        "navigation",
+        "movement_collision",
+        "effects",
+        "snapshot",
+        "flush",
+    };
+    godot::Dictionary phases;
+    for (size_t i = 0; i < sim::perf_phase_count; ++i) {
+        godot::Dictionary phase;
+        phase["avg_us"] = stats.Timing.PhaseAverageMicros[i];
+        phase["p95_us"] = stats.Timing.PhaseP95Micros[i];
+        phase["p99_us"] = stats.Timing.PhaseP99Micros[i];
+        phase["max_us"] = static_cast<int64_t>(
+            stats.Timing.PhaseMaxMicros[i]
+        );
+        phases[phase_names[i]] = phase;
+    }
+    out["phases"] = phases;
+
+    godot::Dictionary navigation;
+    navigation["submitted"] = static_cast<int64_t>(stats.Navigation.Submitted);
+    navigation["rejected"] = static_cast<int64_t>(stats.Navigation.Rejected);
+    navigation["completed"] = static_cast<int64_t>(stats.Navigation.Completed);
+    navigation["no_path"] = static_cast<int64_t>(stats.Navigation.NoPath);
+    navigation["merged"] = static_cast<int64_t>(stats.Navigation.Merged);
+    navigation["stale"] = static_cast<int64_t>(stats.Navigation.Stale);
+    navigation["late"] = static_cast<int64_t>(stats.Navigation.Late);
+    navigation["result_age_ticks_total"] = static_cast<int64_t>(
+        stats.Navigation.ResultAgeTicks
+    );
+    navigation["result_age_avg_ticks"] = stats.Navigation.Completed > 0
+                                              ? static_cast<double>(
+                                                    stats.Navigation.ResultAgeTicks
+                                                ) /
+                                                    stats.Navigation.Completed
+                                              : 0.0;
+    navigation["result_age_max_ticks"] = static_cast<int64_t>(
+        stats.Navigation.ResultAgeMaxTicks
+    );
+    navigation["expanded_nodes"] = static_cast<int64_t>(
+        stats.Navigation.ExpandedNodes
+    );
+    navigation["worker_us"] = static_cast<int64_t>(
+        stats.Navigation.WorkerMicros
+    );
+    navigation["pending"] = static_cast<int64_t>(stats.Navigation.Pending);
+    out["navigation"] = navigation;
+    out["job_queued"] = static_cast<int64_t>(stats.JobQueued);
+    out["job_peak_queued"] = static_cast<int64_t>(stats.JobPeakQueued);
+    out["job_active"] = static_cast<int64_t>(stats.JobActive);
+    return out;
 }
 
 godot::Ref<godot::RefCounted> SimServer::pop_snapshot() {

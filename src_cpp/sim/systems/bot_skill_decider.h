@@ -109,7 +109,7 @@ inline float calculate_skill_score(
     return score;
 }
 
-inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
+inline void bot_skill_decider_system(entt::registry &reg, float dt) {
     auto view = reg.view<
         BotTag,
         BotBehaviorState,
@@ -134,7 +134,11 @@ inline void bot_skill_decider_system(entt::registry &reg, std::mt19937 &rng) {
         auto &mana = view.get<Mana>(e);
         auto &pos = view.get<Position2D>(e);
         auto &hp = view.get<Health>(e);
-        auto &lv = view.get<Level>(e);
+
+        combat.SkillDecisionTimer -= dt;
+        if (combat.SkillDecisionTimer > 0.0f)
+            continue;
+        combat.SkillDecisionTimer = stats(reg).BotSkillDecisionCooldown;
 
         auto &rq = reg.get_or_emplace<BotCastRequest>(e);
         rq.Valid = false;

@@ -1,9 +1,46 @@
 #include "nav_grid.h"
 #include <algorithm>
 #include <cmath>
-#include <queue>
+#include <functional>
+#include <limits>
 
 namespace sim {
+
+void PathScratch::resize(size_t cell_count) {
+    const bool size_changed = G.size() != cell_count;
+    G.resize(cell_count);
+    Parent.resize(cell_count);
+    if (size_changed) {
+        SeenGeneration.assign(cell_count, 0);
+        ClosedGeneration.assign(cell_count, 0);
+        Generation = 0;
+    } else {
+        SeenGeneration.resize(cell_count, 0);
+        ClosedGeneration.resize(cell_count, 0);
+    }
+    Open.reserve(std::min<size_t>(cell_count, 4096));
+}
+
+void PathScratch::begin_search() {
+    if (Generation == std::numeric_limits<uint32_t>::max()) {
+        std::fill(SeenGeneration.begin(), SeenGeneration.end(), 0);
+        std::fill(ClosedGeneration.begin(), ClosedGeneration.end(), 0);
+        Generation = 1;
+    } else {
+        ++Generation;
+        if (Generation == 0)
+            Generation = 1;
+    }
+    Open.clear();
+}
+
+bool PathScratch::seen(int index) const {
+    return SeenGeneration[index] == Generation;
+}
+
+bool PathScratch::closed(int index) const {
+    return ClosedGeneration[index] == Generation;
+}
 
 void NavGrid::build(
     float map_half,
@@ -53,10 +90,9 @@ void NavGrid::build(
         }
     }
 
-    G.assign(total, std::numeric_limits<float>::max());
-    F.assign(total, std::numeric_limits<float>::max());
-    Parent.assign(total, -1);
-    Closed.assign(total, false);
+    ++Revision;
+    if (Revision == 0)
+        Revision = 1;
 }
 
 bool NavGrid::world_to_cell(Vec2 w, int &cx, int &cy) const {
@@ -103,6 +139,18 @@ Vec2 NavGrid::snap_to_nearest_free(Vec2 w) const {
 }
 
 std::vector<Vec2> NavGrid::find_path(Vec2 start, Vec2 goal) const {
+    PathScratch scratch;
+    return find_path(start, goal, scratch);
+}
+
+std::vector<Vec2> NavGrid::find_path(
+    Vec2 start,
+    Vec2 goal,
+    PathScratch &scratch,
+    uint32_t *expanded_nodes
+) const {
+    if (expanded_nodes)
+        *expanded_nodes = 0;
     int scx, scy, gcx, gcy;
     if (!world_to_cell(start, scx, scy) || !world_to_cell(goal, gcx, gcy))
         return {};
@@ -125,10 +173,21 @@ std::vector<Vec2> NavGrid::find_path(Vec2 start, Vec2 goal) const {
     if (start_idx == goal_idx)
         return {cell_to_world(scx, scy)};
 
-    std::fill(Closed.begin(), Closed.end(), false);
-    std::fill(G.begin(), G.end(), std::numeric_limits<float>::max());
-    std::fill(F.begin(), F.end(), std::numeric_limits<float>::max());
-    std::fill(Parent.begin(), Parent.end(), -1);
+    // Most movement requests do not cross an inflated wall. Preserve the
+    // existing smoothed output shape while avoiding an open-list traversal
+    // for that common case.
+    const Vec2 snapped_goal = cell_to_world(gcx, gcy);
+    if (line_clear(start, snapped_goal)) {
+        if (expanded_nodes)
+            *expanded_nodes = 1;
+        return {start, snapped_goal};
+    }
+
+    const size_t total = static_cast<size_t>(Width) * Height;
+    if (scratch.G.size() != total)
+        scratch.resize(total);
+    scratch.begin_search();
+    const uint32_t generation = scratch.Generation;
 
     auto heuristic = [&](int idx) -> float {
         int cx = idx % Width;
@@ -141,11 +200,25 @@ std::vector<Vec2> NavGrid::find_path(Vec2 start, Vec2 goal) const {
     };
 
     using PQItem = std::pair<float, int>;
-    std::priority_queue<PQItem, std::vector<PQItem>, std::greater<PQItem>> open;
+    auto push_open = [&](PQItem item) {
+        scratch.Open.push_back(item);
+        std::push_heap(
+            scratch.Open.begin(), scratch.Open.end(), std::greater<PQItem>()
+        );
+    };
+    auto pop_open = [&]() -> PQItem {
+        std::pop_heap(
+            scratch.Open.begin(), scratch.Open.end(), std::greater<PQItem>()
+        );
+        PQItem item = scratch.Open.back();
+        scratch.Open.pop_back();
+        return item;
+    };
 
-    G[start_idx] = 0.0f;
-    F[start_idx] = heuristic(start_idx);
-    open.push({F[start_idx], start_idx});
+    scratch.G[start_idx] = 0.0f;
+    scratch.Parent[start_idx] = -1;
+    scratch.SeenGeneration[start_idx] = generation;
+    push_open({heuristic(start_idx), start_idx});
 
     const int dirs[8][2] = {
         {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}
@@ -161,13 +234,15 @@ std::vector<Vec2> NavGrid::find_path(Vec2 start, Vec2 goal) const {
         std::sqrt(2.0f)
     };
 
-    while (!open.empty()) {
-        auto [f, idx] = open.top();
-        open.pop();
+    while (!scratch.Open.empty()) {
+        auto [f, idx] = pop_open();
+        (void)f;
 
-        if (Closed[idx])
+        if (scratch.closed(idx))
             continue;
-        Closed[idx] = true;
+        scratch.ClosedGeneration[idx] = generation;
+        if (expanded_nodes)
+            ++(*expanded_nodes);
 
         if (idx == goal_idx)
             break;
@@ -185,27 +260,30 @@ std::vector<Vec2> NavGrid::find_path(Vec2 start, Vec2 goal) const {
                 continue;
 
             int nidx = ny * Width + nx;
-            if (Closed[nidx])
+            if (scratch.closed(nidx))
                 continue;
 
-            float nd = G[idx] + move_cost[d] * CellSize;
-            if (nd < G[nidx]) {
-                G[nidx] = nd;
-                Parent[nidx] = idx;
-                F[nidx] = nd + heuristic(nidx);
-                open.push({F[nidx], nidx});
+            float current_g = scratch.seen(nidx)
+                                  ? scratch.G[nidx]
+                                  : std::numeric_limits<float>::max();
+            float nd = scratch.G[idx] + move_cost[d] * CellSize;
+            if (nd < current_g) {
+                scratch.G[nidx] = nd;
+                scratch.Parent[nidx] = idx;
+                scratch.SeenGeneration[nidx] = generation;
+                push_open({nd + heuristic(nidx), nidx});
             }
         }
     }
 
-    if (!Closed[goal_idx])
+    if (!scratch.closed(goal_idx))
         return {};
 
     std::vector<int> cell_path;
     int cur = goal_idx;
     while (cur != -1) {
         cell_path.push_back(cur);
-        cur = Parent[cur];
+        cur = scratch.Parent[cur];
     }
     std::reverse(cell_path.begin(), cell_path.end());
 

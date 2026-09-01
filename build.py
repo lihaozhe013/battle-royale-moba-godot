@@ -78,10 +78,18 @@ def target_build_type(target):
     }[target]
 
 
-def configure(target, environment):
+def configure(target, environment, lto_override=None):
     meson = find_meson()
     ensure_meson_build_directory()
-    lto = "true" if target == "template_release" else "false"
+    # The bundled Windows Clang uses lld-link for the extension but Meson
+    # selects the system linker for standalone targets; that combination
+    # rejects Clang's LTO object format.
+    default_lto = target == "template_release" and os.name != "nt"
+    lto = (
+        ("true" if default_lto else "false")
+        if lto_override is None
+        else ("true" if lto_override else "false")
+    )
     command = [
         meson,
         "setup",
@@ -171,6 +179,37 @@ def cmd_test(args):
     )
 
 
+def cmd_benchmark(args):
+    environment = build_environment()
+    # Keep the standalone benchmark portable across Clang toolchains. Some
+    # Windows installations select lld for the extension but use the system
+    # linker for executables, where Meson's release LTO flag is unsupported.
+    configure(args.target, environment, lto_override=False)
+    result = compile_build(
+        args.jobs,
+        args.verbose,
+        environment,
+        "sim_perf_benchmark",
+    )
+    if result != 0:
+        return result
+
+    candidates = (
+        BUILD_DIR / "sim_perf_benchmark.exe",
+        BUILD_DIR / "sim_perf_benchmark",
+    )
+    benchmark = next((path for path in candidates if path.is_file()), None)
+    if benchmark is None:
+        fail("Meson built sim_perf_benchmark but its executable was not found")
+    print(
+        f"Running path benchmark (workers={args.workers}, requests={args.requests})..."
+    )
+    return run(
+        [str(benchmark), str(args.workers), str(args.requests)],
+        environment,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build the Godot GDExtension with Meson and Clang")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -197,6 +236,22 @@ def main():
     )
     test_command.add_argument("--jobs", "-j", type=int, default=0)
     test_command.add_argument("--verbose", "-v", action="store_true")
+
+    benchmark_command = subparsers.add_parser(
+        "benchmark",
+        help="Build and run the native path/job performance benchmark",
+    )
+    benchmark_command.set_defaults(func=cmd_benchmark)
+    benchmark_command.add_argument(
+        "--target",
+        "-t",
+        choices=("editor", "template_debug", "template_release"),
+        default="template_release",
+    )
+    benchmark_command.add_argument("--jobs", "-j", type=int, default=0)
+    benchmark_command.add_argument("--workers", type=int, default=4)
+    benchmark_command.add_argument("--requests", type=int, default=64)
+    benchmark_command.add_argument("--verbose", "-v", action="store_true")
 
     clean = subparsers.add_parser("clean")
     clean.set_defaults(func=cmd_clean)
