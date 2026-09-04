@@ -27,12 +27,8 @@ const ATTACK_CLIP_SCENE: PackedScene = preload(
 const UNDER_ATTACK_CLIP_SCENE: PackedScene = preload(
 	"res://resources/characters/Maria_W_Magic_Pose/Standing React Small From Front_normalized.glb"
 )
-const LOCOMOTION_BOB_SCRIPT: Script = preload("res://scripts/view/arcane_locomotion_bob.gd")
 
 const CHARACTER_SCALE := 1.0
-const RUN_SPEED := 1.2
-const ATTACK_CAST_SPEED := 1.5
-const RUN_BOB_CYCLES_PER_LOOP := 2.0
 const MOVEMENT_EPSILON_SQUARED := 0.0001
 
 const IDLE_ANIMATION: StringName = &"maria_idle"
@@ -43,7 +39,6 @@ const UNDER_ATTACK_ANIMATION: StringName = &"maria_under_attack"
 
 var body: Node3D
 var animation_player: AnimationPlayer
-var locomotion_bob: Node
 var movement := Vector2.ZERO
 var state: int = State.IDLE
 
@@ -55,11 +50,6 @@ func initialize() -> void:
 		DebugLogger.log("[WARNING] [maria_character] animation player is unavailable")
 		return
 	animation_player.animation_finished.connect(_on_animation_finished)
-	locomotion_bob = LOCOMOTION_BOB_SCRIPT.new()
-	locomotion_bob.name = "LocomotionBob"
-	add_child(locomotion_bob)
-	locomotion_bob.initialize([body])
-	locomotion_bob.set_run_frequency(_get_run_bob_frequency())
 	_play_idle()
 
 
@@ -84,7 +74,7 @@ func play_w_cast() -> void:
 
 
 func play_attack_cast() -> void:
-	if not _play_one_shot(ATTACK_ANIMATION, State.ATTACK_CAST, ATTACK_CAST_SPEED):
+	if not _play_one_shot(ATTACK_ANIMATION, State.ATTACK_CAST):
 		DebugLogger.log("[WARNING] [maria_character] attack animation is unavailable")
 
 
@@ -184,37 +174,27 @@ func _extract_animation(clip_instance: Node) -> Animation:
 	return fallback
 
 
-func _play_one_shot(
-	animation_name: StringName, next_state: int, playback_speed: float = 1.0
-) -> bool:
+func _play_one_shot(animation_name: StringName, next_state: int) -> bool:
 	if animation_player == null or not animation_player.has_animation(animation_name):
 		return false
-	if locomotion_bob:
-		locomotion_bob.hide_all()
 	state = next_state
-	animation_player.play(animation_name, -1.0, playback_speed)
+	animation_player.play(animation_name)
 	return true
 
 
 func _play_idle() -> void:
 	state = State.IDLE
-	if locomotion_bob:
-		locomotion_bob.set_idle(body)
 	if animation_player and animation_player.has_animation(IDLE_ANIMATION):
 		animation_player.play(IDLE_ANIMATION)
 
 
 func _play_run() -> void:
 	state = State.RUN
-	if locomotion_bob:
-		locomotion_bob.set_running(body)
 	if animation_player and animation_player.has_animation(RUN_ANIMATION):
-		animation_player.play(RUN_ANIMATION, -1.0, RUN_SPEED)
+		animation_player.play(RUN_ANIMATION)
 
 
 func _return_to_locomotion() -> void:
-	if locomotion_bob:
-		locomotion_bob.hide_all()
 	set_movement(movement)
 
 
@@ -223,12 +203,3 @@ func _on_animation_finished(animation_name: StringName) -> void:
 		return
 	if state == State.SHIELD_CAST or state == State.ATTACK_CAST or state == State.UNDER_ATTACK:
 		_return_to_locomotion()
-
-
-func _get_run_bob_frequency() -> float:
-	if animation_player == null or not animation_player.has_animation(RUN_ANIMATION):
-		return 2.0
-	var animation := animation_player.get_animation(RUN_ANIMATION)
-	if animation == null or animation.length <= 0.0:
-		return 2.0
-	return RUN_BOB_CYCLES_PER_LOOP * RUN_SPEED / animation.length
