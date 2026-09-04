@@ -103,13 +103,16 @@ func _build_body() -> AnimationPlayer:
 	add_child(body)
 	model.name = "Model"
 	body.add_child(model)
-	var player := _find_animation_player(model)
-	if player == null:
-		DebugLogger.log("[WARNING] [maria_character] model animation player is missing")
-		return null
-	var library := _ensure_default_library(player)
+	# Maria_W.glb has no animations, so the importer creates no AnimationPlayer;
+	# drive the model skeleton with our own player instead.
+	var player := AnimationPlayer.new()
+	player.name = "AnimationPlayer"
+	add_child(player)
+	player.root_node = player.get_path_to(model)
 	# The Maria clips ship as animation-only GLBs on a matching Mixamo skeleton,
 	# so their track paths resolve against the model's own skeleton.
+	var library := AnimationLibrary.new()
+	player.add_animation_library(&"", library)
 	_add_clip(library, IDLE_CLIP_SCENE, IDLE_ANIMATION, true)
 	_add_clip(library, RUN_CLIP_SCENE, RUN_ANIMATION, true)
 	_add_clip(library, SHIELD_CLIP_SCENE, SHIELD_ANIMATION, false)
@@ -122,14 +125,6 @@ func _find_animation_player(root: Node) -> AnimationPlayer:
 	for node in root.find_children("*", "AnimationPlayer", true, false):
 		return node as AnimationPlayer
 	return null
-
-
-func _ensure_default_library(player: AnimationPlayer) -> AnimationLibrary:
-	if player.has_animation_library(&""):
-		return player.get_animation_library(&"")
-	var library := AnimationLibrary.new()
-	player.add_animation_library(&"", library)
-	return library
 
 
 func _add_clip(
@@ -149,6 +144,8 @@ func _add_clip(
 		DebugLogger.log("[WARNING] [maria_character] clip has no animation=%s" % animation_name)
 		clip_instance.free()
 		return
+	if animation.get_track_count() == 0:
+		DebugLogger.log("[WARNING] [maria_character] clip has no tracks=%s" % animation_name)
 	animation.loop_mode = Animation.LOOP_LINEAR if should_loop else Animation.LOOP_NONE
 	if library.has_animation(animation_name):
 		library.remove_animation(animation_name)
