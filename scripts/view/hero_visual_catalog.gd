@@ -3,16 +3,16 @@ extends RefCounted
 
 const HERO_SCENE_PATHS: Dictionary = {
 	0: "res://scenes/entities/player.tscn",
-	1: "res://scenes/entities/bloodreaver.tscn",
+	1: "res://scenes/entities/player.tscn",
 }
 
 const HERO_PORTRAIT_PATHS: Dictionary = {
-	0: "res://resources/characters/protagonist/skaterMaleA.png",
-	1: "res://resources/characters/bloodreaver/bloodreaver.png",
+	0: "res://resources/characters/Maria_W_Magic_Pose/Maria_W_maria_diffuse.png",
+	1: "res://resources/characters/Maria_W_Magic_Pose/Maria_W_maria_diffuse.png",
 }
 const HERO_ANIMATION_SCRIPTS: Dictionary = {
-	0: preload("res://scripts/view/arcane_character_animation.gd"),
-	1: preload("res://scripts/view/bloodreaver_character_animation.gd"),
+	0: preload("res://scripts/view/maria_character_animation.gd"),
+	1: preload("res://scripts/view/maria_character_animation.gd"),
 }
 
 

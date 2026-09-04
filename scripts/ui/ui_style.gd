@@ -6,11 +6,11 @@ const FONT_SEMIBOLD: FontFile = preload(
 	"res://resources/ui/Cinzel-SemiBold.ttf"
 )
 const AVATAR_TEXTURE: Texture2D = preload(
-	"res://resources/characters/protagonist/skaterMaleA.png"
+	"res://resources/characters/Maria_W_Magic_Pose/Maria_W_maria_diffuse.png"
 )
 const HERO_PORTRAITS: Dictionary = {
 	0: AVATAR_TEXTURE,
-	1: preload("res://resources/characters/bloodreaver/bloodreaver.png"),
+	1: AVATAR_TEXTURE,
 }
 const SKILL_ICONS: Dictionary = {
 	1: preload("res://data/skills/icons/melee_strike.png"),
